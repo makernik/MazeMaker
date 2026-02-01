@@ -1,0 +1,9 @@
+---
+description: "Non-trivial work requires a saved plan following the canonical template"
+alwaysApply: true
+---
+
+- For any non-trivial change, create/update a plan in `.cursor/plans/` (saved to workspace).
+- Plans must follow the structure in `.cursor/plans/_template.plan.md`.
+- Required sections: Status, Checkpoints, Validation.
+- Default execution is incremental: complete one checkpoint per run unless explicitly requested otherwise.

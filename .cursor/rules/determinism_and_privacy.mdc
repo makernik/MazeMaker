@@ -1,0 +1,36 @@
+---
+description: "Determinism, privacy, and bounded behavior"
+alwaysApply: true
+---
+
+- Core behavior must be deterministic.
+  - Same parameters + seed → same maze and same PDF output.
+  - Randomness is allowed only via an explicit, seeded RNG.
+
+- Avoid non-determinism unless explicitly approved in `docs/DECISIONS.md`.
+  - Do not use time-based, environment-based, or OS-specific randomness.
+  - Output must not vary by machine, locale, or run timing.
+
+- Validation must be deterministic.
+  - Solver results must be reproducible for the same seed and parameters.
+  - A maze that passes once must pass again on re-run.
+
+- Privacy is local-first and offline.
+  - No network calls at runtime.
+  - No telemetry, analytics, or external logging.
+
+- No persistence by default.
+  - Do not store user inputs, seeds, or generated mazes.
+  - Any new persistence must be minimal, local, configurable, and documented in `docs/DECISIONS.md`.
+
+- No identifiers.
+  - Do not create or store user, device, or session identifiers.
+  - PDF output must not embed identifying metadata.
+
+- Logging is allowed for debugging only.
+  - Console logging is acceptable.
+  - Do not write logs to disk unless explicitly approved.
+
+- When correctness is uncertain:
+  - Do not guess or fabricate output.
+  - Log internally and fail safely (regenerate or surface a single inline error).
