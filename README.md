@@ -1,74 +1,53 @@
-Title
+# Printable Maze Generator
 
-Printable Maze Generator (Local, Offline, Print-First)
+Local, Offline, Print-First
 
-What This Is
+## What This Is
 
 A small, intentionally constrained web app that generates printable maze packs for kids. Built for parents first; structured to be inspectable and testable by engineers.
 
-Why It Exists
+## Why It Exists
 
-Kids finish Highlights mazes before the magazine is done
+- Kids finish Highlights mazes before the magazine is done
+- Parents want fast, printable activities
+- Generative systems are best demonstrated with real constraints
 
-Parents want fast, printable activities
+## Key Design Choices
 
-Generative systems are best demonstrated with real constraints
+- Print-first UX (PDF, margins, B/W)
+- Perfect mazes only (predictable difficulty)
+- No persistence (lower complexity, faster iteration)
+- Local-only (privacy, longevity)
 
-Key Design Choices
+## How It Works (High Level)
 
-Print-first UX (PDF, margins, B/W)
+1. Parameters → maze generator
+2. Generator produces perfect maze
+3. Solver validates path
+4. Renderer produces PDF page
+5. Pages bundled into single PDF
 
-Perfect mazes only (predictable difficulty)
+## Debug Mode
 
-No persistence (lower complexity, faster iteration)
+A hidden mode that exposes:
 
-Local-only (privacy, longevity)
+- Why it exists
+- What parameters are available
+- How solver validation works
 
-How It Works (High Level)
+## Tech Stack
 
-Parameters → maze generator
+- Lightweight local server
+- Deterministic maze generation
+- PDF rendering pipeline
 
-Generator produces perfect maze
+## License
 
-Solver validates path
+- Free for personal use
+- Non-commercial
+- Attribution encouraged
 
-Renderer produces PDF page
+## Author
 
-Pages bundled into single PDF
-
-Debug Mode
-
-Explains:
-
-why it exists
-
-what parameters are exposed
-
-how solver validation works
-
-Tech Stack (Example)
-
-Lightweight local server
-
-Deterministic maze generation
-
-PDF rendering pipeline
-
-(Keep this factual, not buzzwordy.)
-
-What’s Intentionally Missing
-
-Bullet list of non-goals (mirrors spec).
-
-License
-
-Free for personal use
-
-Non-commercial
-
-Attribution encouraged
-
-Author
-
-Nik Chaphalkar
-makernik.com
+Nik Chaphalkar  
+[makernik.com](https://makernik.com)
