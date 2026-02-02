@@ -4,16 +4,16 @@ overview: Implement the Printable Maze Generator v0 as a local-only web app with
 todos:
   - id: c0-scaffold
     content: "C0: Project scaffold + smoke test (Vite + vanilla JS)"
-    status: in_progress
+    status: completed
   - id: c1-maze-gen
     content: "C1: Seeded maze generation (PRNG + Prim's algorithm)"
-    status: pending
+    status: completed
   - id: c2-solver
     content: "C2: Maze solver + validation (BFS, single solution)"
-    status: pending
+    status: completed
   - id: c3-pdf
     content: "C3: PDF rendering (pdf-lib, vector paths, layout)"
-    status: pending
+    status: in_progress
   - id: c4-ui
     content: "C4: UI controls + styling (age, style, theme, quantity)"
     status: pending
