@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MakerNik Maze Generator</title>
+    <link rel="stylesheet" href="./styles/main.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header>
+        <h1>Maze Generator</h1>
+        <p>Generate printable maze packs for kids</p>
+      </header>
+
+      <section class="controls">
+        <div class="control-group">
+          <label for="age-range">Age Range</label>
+          <select id="age-range">
+            <option value="3-5">3-5 years</option>
+            <option value="6-8">6-8 years</option>
+            <option value="9-13">9-13 years</option>
+            <option value="14-17">14-17 years</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="maze-style">Maze Style</label>
+          <select id="maze-style">
+            <option value="square">Square Corners</option>
+            <option value="rounded">Rounded Corners</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="theme">Theme</label>
+          <select id="theme">
+            <option value="none">None</option>
+            <option value="shapes">Shapes</option>
+            <option value="animals">Animals</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="quantity">Quantity: <span id="quantity-display">5</span></label>
+          <input type="range" id="quantity" min="1" max="10" value="5" />
+        </div>
+
+        <button id="generate-btn" type="button">Generate Printable PDF</button>
+      </section>
+
+      <section class="output">
+        <p id="status"></p>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
