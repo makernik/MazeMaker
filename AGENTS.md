@@ -70,6 +70,7 @@ README is descriptive only. Never authoritative.
 * Current plan in `/plans/`
 * `docs/DECISIONS.md`
 * `docs/DEFERRED_IDEAS.md`
+* `.cursor/rules/ui_rules.mdc` (for UI work)
 
 Deferred ideas are **not todos**. Do not implement unless explicitly requested.
 
@@ -101,6 +102,19 @@ Deferred ideas are **not todos**. Do not implement unless explicitly requested.
 * Debug mode hidden and non-default
 
 Violations require explicit user approval.
+
+---
+
+## UI Rules (Enforced)
+
+All UI work must follow `.cursor/rules/ui_rules.mdc`.
+
+Key constraints:
+* Asymmetrical layout (controls left, ~30–35% width)
+* Typography: Fraunces (display) + Inter (body) only
+* Muted, print-aware colors
+* No animations in v0
+* No gamification
 
 ---
 
