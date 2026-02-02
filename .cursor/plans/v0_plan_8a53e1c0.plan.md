@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: c3-pdf
     content: "C3: PDF rendering (pdf-lib, vector paths, layout)"
-    status: in_progress
+    status: completed
   - id: c4-ui
     content: "C4: UI controls + styling (age, style, theme, quantity)"
     status: pending
