@@ -78,7 +78,7 @@ export async function renderMazesToPdf(config) {
     
     // Get line thickness from preset
     const lineThickness = maze.preset.lineThickness;
-    
+
     // Draw the maze
     drawMaze(page, maze.grid, {
       offsetX,
@@ -131,9 +131,9 @@ export async function renderMazesToPdf(config) {
 function drawMaze(page, grid, options) {
   const { offsetX, offsetY, cellSize, lineThickness, style } = options;
   const isRounded = style === 'rounded';
-  // Rounded: use 2x thickness so round line caps are visible at corners (cap radius = half thickness)
-  const effectiveThickness = isRounded ? Math.max(lineThickness * 2, 6) : lineThickness;
-  
+  // Rounded: use 2x thickness so round line caps are visible (cap radius = half thickness). No global minimum so preset thicknesses stay distinct.
+  const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
+
   // Draw walls for each cell
   for (let row = 0; row < grid.rows; row++) {
     for (let col = 0; col < grid.cols; col++) {
