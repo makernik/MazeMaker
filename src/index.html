@@ -115,6 +115,13 @@
               </label>
               <p class="debug-panel__option-hint">Generate one maze per difficulty (rounded corners).</p>
             </div>
+            <div class="debug-panel__option">
+              <label>
+                <input type="checkbox" id="debug-show-solution" name="debug-show-solution" checked />
+                <span>Show solution</span>
+              </label>
+              <p class="debug-panel__option-hint">Draw solver path on PDF (prove capabilities). Uncheck to test difficulty without solution.</p>
+            </div>
             <dl class="debug-panel__list">
               <dt>Seed</dt>
               <dd id="debug-seed" class="debug-panel__value">—</dd>
@@ -125,7 +132,7 @@
               <dt>Line thickness</dt>
               <dd id="debug-line-thickness" class="debug-panel__value">—</dd>
             </dl>
-            <p class="debug-panel__hint">Solver path shown on PDF when debug is on.</p>
+            <p class="debug-panel__hint">Footer shows difficulty and age range when debug is on.</p>
           </section>
         </form>
 

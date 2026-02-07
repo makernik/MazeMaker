@@ -22,6 +22,7 @@ const debugGridEl = document.getElementById('debug-grid');
 const debugCellSizeEl = document.getElementById('debug-cell-size');
 const debugLineThicknessEl = document.getElementById('debug-line-thickness');
 const debugOneOfEachCheckbox = document.getElementById('debug-one-of-each');
+const debugShowSolutionCheckbox = document.getElementById('debug-show-solution');
 
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
 let debugMode = false;
@@ -189,6 +190,7 @@ async function generateAndDownload(event) {
       ageRange: oneOfEach ? undefined : values.ageRange,
       theme: values.theme,
       debugMode: isDebugMode(),
+      showSolution: debugMode && debugShowSolutionCheckbox ? debugShowSolutionCheckbox.checked : false,
     });
 
     downloadPdf(pdfBytes, filename);

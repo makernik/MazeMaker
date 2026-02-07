@@ -38,11 +38,12 @@ function getThemesBase() {
  * @param {string} config.style - 'square' or 'rounded'
  * @param {string} config.ageRange - Age range for label style
  * @param {string} [config.theme] - 'none', 'shapes', or 'animals' (corner decorations only)
- * @param {boolean} [config.debugMode] - If true, draw solver path overlay on each page
+ * @param {boolean} [config.debugMode] - If true, footer shows difficulty/age; solution drawn when showSolution is true
+ * @param {boolean} [config.showSolution] - When debugMode, if true draw solver path overlay (prove capabilities)
  * @returns {Promise<Uint8Array>} PDF document as bytes
  */
 export async function renderMazesToPdf(config) {
-  const { mazes, style = 'square', ageRange = '9-13', theme = 'none', debugMode = false } = config;
+  const { mazes, style = 'square', ageRange = '9-13', theme = 'none', debugMode = false, showSolution = false } = config;
   
   // Create PDF document
   const pdfDoc = await PDFDocument.create();
@@ -97,8 +98,8 @@ export async function renderMazesToPdf(config) {
       boldFont,
     });
 
-    // Debug: draw solver path overlay (never in normal mode)
-    if (debugMode) {
+    // Debug: draw solver path overlay when requested (prove capabilities; uncheck to test difficulty)
+    if (debugMode && showSolution) {
       const solution = solveMaze(maze.grid);
       if (solution && solution.path.length > 1) {
         drawSolverOverlay(page, maze.grid, solution.path, {
