@@ -4,6 +4,14 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-005 — Error handling: single inline message, no stack traces (2026-02-02)
+
+**Context:** AGENTS.md requires "Repeated generation failure → single inline error" and "No stack traces in UI".
+
+**Decision:** On generation failure, show one fixed message in the status area only. First failure: "Generation failed. Please try again." After two or more consecutive failures: "Generation failed again. Check the console for details." Log full error to `console.error` only; never surface `error.message` or `error.stack` in the UI. No retry loops, modals, or alerts.
+
+---
+
 ## D-004 — "Rounded" style means rounded corners (2026-01-31)
 
 **Context:** The spec lists "Square" and "Rounded" maze styles. Organic/curvy paths and polar/circular mazes were considered but deemed too complex for v0.

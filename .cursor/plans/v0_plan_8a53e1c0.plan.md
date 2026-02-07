@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: c7-tests
     content: "C7: Tests + documentation"
-    status: pending
+    status: completed
   - id: c8-themes
     content: "C8: Theme decorations (shapes, animals)"
     status: pending
