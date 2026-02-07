@@ -17,17 +17,23 @@ todos:
   - id: c4-ui
     content: "C4: UI controls + styling (age, style, theme, quantity)"
     status: completed
-  - id: c5-themes
-    content: "C5: Theme decorations (shapes, animals)"
+  - id: c5-debug
+    content: "C5: Debug mode (hidden toggle, seed display, solver overlay)"
     status: pending
-  - id: c6-debug
-    content: "C6: Debug mode (hidden toggle, seed display, solver overlay)"
+  - id: c6-errors
+    content: "C6: Error handling (inline error, no stack traces)"
     status: pending
-  - id: c7-errors
-    content: "C7: Error handling + polish"
+  - id: c7-tests
+    content: "C7: Tests + documentation"
     status: pending
-  - id: c8-tests
-    content: "C8: Tests + documentation"
+  - id: c8-themes
+    content: "C8: Theme decorations (shapes, animals)"
+    status: pending
+  - id: c9-polish
+    content: "C9: Polish (final UI and behavior)"
+    status: pending
+  - id: c10-validate
+    content: "C10: Rerun tests and docs (final validation)"
     status: pending
 isProject: false
 ---
@@ -35,7 +41,7 @@ isProject: false
 # v0 Implementation Plan — Printable Maze Generator
 
 **Status:** approved  
-**Last updated:** 2026-01-31  
+**Last updated:** 2026-02-02  
 **Owner:** Agent  
 **Related:** [v0_spec.md](.cursor/plans/v0_spec.md)
 
@@ -181,7 +187,28 @@ README.md
 - UI layout and styling per user guidelines (to be provided)
 - **Validation:** All controls functional, PDF generates
 
-### C5 — Themes (decorative)
+### C5 — Debug mode
+
+- Hidden toggle (e.g., Ctrl+Shift+D or URL param)
+- Expose: difficulty params, seed (read-only), solver overlay
+- Quantity default: 1 in debug mode
+- **Validation:** Debug mode toggles correctly, seed visible
+
+### C6 — Error handling
+
+- Inline error on repeated generation failure
+- Console logging (no UI stack traces)
+- **Validation:** Error states handled gracefully
+
+### C7 — Tests + documentation
+
+- Unit tests: generator, solver, RNG determinism
+- E2E smoke test: generate PDF flow
+- Update README with usage instructions
+- Record any decisions in DECISIONS.md
+- **Validation:** All tests pass, README accurate
+
+### C8 — Themes (decorative)
 
 - Shape decorations (corner/edge icons only)
 - Animal decorations (corner/edge icons only)
@@ -189,27 +216,16 @@ README.md
 - No silhouette-constrained paths
 - **Validation:** Themes render in PDF corners/edges, maze grid unaffected
 
-### C6 — Debug mode
+### C9 — Polish
 
-- Hidden toggle (e.g., Ctrl+Shift+D or URL param)
-- Expose: difficulty params, seed (read-only), solver overlay
-- Quantity default: 1 in debug mode
-- **Validation:** Debug mode toggles correctly, seed visible
+- Final UI and behavior polish
+- **Validation:** App feels complete and consistent
 
-### C7 — Error handling + polish
+### C10 — Rerun tests and docs (final validation)
 
-- Inline error on repeated generation failure
-- Console logging (no UI stack traces)
-- Final UI polish
-- **Validation:** Error states handled gracefully
-
-### C8 — Tests + documentation
-
-- Unit tests: generator, solver, RNG determinism
-- E2E smoke test: generate PDF flow
-- Update README with usage instructions
-- Record any decisions in DECISIONS.md
-- **Validation:** All tests pass, README accurate
+- Rerun full test suite
+- Update docs if needed
+- **Validation:** All tests pass, README and DECISIONS current
 
 ---
 
