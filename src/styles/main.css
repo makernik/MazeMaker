@@ -3,7 +3,14 @@
  * 
  * Design philosophy: calm, printable-first, parent-friendly.
  * See .cursor/rules/ui_rules.mdc for full guidelines.
+ * Fonts: self-hosted via @fontsource (offline-safe).
  */
+
+@import '@fontsource/fraunces/400.css';
+@import '@fontsource/fraunces/600.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
 
 /* ============================================
    CSS Custom Properties
@@ -19,7 +26,7 @@
   --color-text-muted: #64748B;
   --color-focus: #475569;
   
-  /* Typography */
+  /* Typography (self-hosted; fallbacks for offline) */
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
   

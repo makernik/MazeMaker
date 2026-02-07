@@ -126,6 +126,7 @@ async function generateAndDownload(event) {
 
   setStatus('Generating mazes...');
   generateBtn.disabled = true;
+  generateBtn.setAttribute('aria-busy', 'true');
 
   try {
     const baseSeed = generateSeed();
@@ -179,6 +180,7 @@ async function generateAndDownload(event) {
     }
   } finally {
     generateBtn.disabled = false;
+    generateBtn.removeAttribute('aria-busy');
   }
 }
 

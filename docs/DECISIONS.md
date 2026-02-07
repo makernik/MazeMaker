@@ -4,6 +4,14 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-006 — Self-hosted fonts (2026-02-02)
+
+**Context:** UI rules require "Fonts should be self-hosted or bundled" and "No runtime dependency on Google Fonts CDN" for offline resilience.
+
+**Decision:** Use @fontsource (Fraunces + Inter) as npm dependencies; import their CSS in main.css so Vite bundles the font files. Remove Google Fonts links from index.html. System font fallbacks (Georgia, system-ui) remain in CSS for resilience.
+
+---
+
 ## D-005 — Error handling: single inline message, no stack traces (2026-02-02)
 
 **Context:** AGENTS.md requires "Repeated generation failure → single inline error" and "No stack traces in UI".

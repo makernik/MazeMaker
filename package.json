@@ -17,6 +17,8 @@
     "@playwright/test": "^1.49.0"
   },
   "dependencies": {
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "@fontsource/fraunces": "^5.1.0",
+    "@fontsource/inter": "^5.1.0"
   }
 }

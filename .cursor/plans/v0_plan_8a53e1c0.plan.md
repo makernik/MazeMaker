@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: c9-polish
     content: "C9: Polish (final UI and behavior)"
-    status: pending
+    status: completed
   - id: c10-validate
     content: "C10: Rerun tests and docs (final validation)"
     status: pending
