@@ -25,7 +25,7 @@ export const DIFFICULTY_PRESETS = {
     cellSize: 60,       // points (~10% more cells: 7×8 = 56 vs 6×8 = 48)
     lineThickness: 4,   // points
     label: 'Easy',
-    algorithm: ALGORITHMS.PRIM,
+    algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
   },
   '6-8': {
     gridWidth: 10,
@@ -33,7 +33,7 @@ export const DIFFICULTY_PRESETS = {
     cellSize: 30,
     lineThickness: 4,
     label: 'Medium',
-    algorithm: ALGORITHMS.PRIM,
+    algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
   },
   '9-13': {
     gridWidth: 14,
@@ -49,7 +49,7 @@ export const DIFFICULTY_PRESETS = {
     cellSize: 20,
     lineThickness: 2,
     label: 'Difficult',
-    algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
+    algorithm: ALGORITHMS.PRIM,
   },
   '18+': {
     gridWidth: 36,
@@ -57,7 +57,7 @@ export const DIFFICULTY_PRESETS = {
     cellSize: 12,       // points
     lineThickness: 1, // points
     label: 'Extreme',
-    algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
+    algorithm: ALGORITHMS.PRIM,
   },
 };
 

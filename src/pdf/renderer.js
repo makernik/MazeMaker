@@ -117,8 +117,8 @@ export async function renderMazesToPdf(config) {
       await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/animals/', animalImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     }
 
-    // Draw footer (include difficulty + age range in debug mode)
-    drawFooter(page, font, debugMode ? { label: maze.preset.label, ageRange: maze.ageRange } : null);
+    // Draw footer (include difficulty, age range, algorithm in debug mode)
+    drawFooter(page, font, debugMode ? { label: maze.preset.label, ageRange: maze.ageRange, algorithm: maze.preset.algorithm } : null);
   }
   
   // Save and return PDF bytes
@@ -355,10 +355,21 @@ async function fetchThemeImage(url) {
 }
 
 /**
+ * Format algorithm id for footer display
+ * @param {string} [algorithmId]
+ * @returns {string}
+ */
+function formatAlgorithmLabel(algorithmId) {
+  if (algorithmId === 'prim') return 'Prim';
+  if (algorithmId === 'recursive-backtracker') return 'Recursive backtracker';
+  return algorithmId || 'Prim';
+}
+
+/**
  * Draw the footer on a page.
  * @param {PDFPage} page
  * @param {PDFFont} font
- * @param {{ label: string, ageRange: string } | null} debugInfo - When set (debug mode), append difficulty label and age range to footer
+ * @param {{ label: string, ageRange: string, algorithm?: string } | null} debugInfo - When set (debug mode), append difficulty, age range, algorithm to footer
  */
 function drawFooter(page, font, debugInfo = null) {
   const fontSize = 8;
@@ -366,7 +377,7 @@ function drawFooter(page, font, debugInfo = null) {
 
   let text = `${FOOTER_TEXT} • ${FOOTER_URL}`;
   if (debugInfo) {
-    text += ` • ${debugInfo.label} • ${debugInfo.ageRange}`;
+    text += ` • ${debugInfo.label} • ${debugInfo.ageRange} • ${formatAlgorithmLabel(debugInfo.algorithm)}`;
   }
   const textWidth = font.widthOfTextAtSize(text, fontSize);
 
