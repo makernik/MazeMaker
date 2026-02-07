@@ -162,11 +162,28 @@ function drawMaze(page, grid, options) {
 /**
  * Draw a wall line.
  * Rounded style uses round line caps so segment ends (and corners where two walls meet) appear rounded.
+ * Square style: extend segment by half thickness at each end so butt-capped strokes overlap at corners and close gaps.
  */
 function drawWall(page, x1, y1, x2, y2, thickness, isRounded) {
+  let startX = x1;
+  let startY = y1;
+  let endX = x2;
+  let endY = y2;
+  if (!isRounded) {
+    const half = thickness / 2;
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    startX = x1 - ux * half;
+    startY = y1 - uy * half;
+    endX = x2 + ux * half;
+    endY = y2 + uy * half;
+  }
   page.drawLine({
-    start: { x: x1, y: y1 },
-    end: { x: x2, y: y2 },
+    start: { x: startX, y: startY },
+    end: { x: endX, y: endY },
     thickness,
     color: rgb(0, 0, 0),
     lineCap: isRounded ? 1 : 0, // 1 = round cap (radius = thickness/2), 0 = butt
