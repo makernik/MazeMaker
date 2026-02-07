@@ -51,6 +51,14 @@ export const DIFFICULTY_PRESETS = {
     label: 'Difficult',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
   },
+  '18+': {
+    gridWidth: 36,
+    gridHeight: 42,
+    cellSize: 12,       // points
+    lineThickness: 1, // points
+    label: 'Extreme',
+    algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
+  },
 };
 
 /**

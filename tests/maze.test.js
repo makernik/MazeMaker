@@ -156,6 +156,14 @@ describe('Maze Generator', () => {
     expect(maze.rows).toBe(preset.gridHeight);
     expect(maze.cols).toBe(preset.gridWidth);
   });
+
+  it('uses 18+ preset dimensions', () => {
+    const maze = generateMaze({ ageRange: '18+', seed: 42 });
+    const preset = DIFFICULTY_PRESETS['18+'];
+    
+    expect(maze.rows).toBe(preset.gridHeight);
+    expect(maze.cols).toBe(preset.gridWidth);
+  });
   
   it('opens entrance and exit', () => {
     const maze = generateMaze({ ageRange: '3-5', seed: 123 });
