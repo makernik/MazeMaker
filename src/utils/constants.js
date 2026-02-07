@@ -21,26 +21,26 @@ export const DIFFICULTY_PRESETS = {
   },
   '6-8': {
     // Maps to 3-5 preset
-    gridWidth: 7,
-    gridHeight: 8,
-    cellSize: 60,
+    gridWidth: 10,
+    gridHeight: 14,
+    cellSize: 30,
     lineThickness: 4,
-    label: 'Easy',
+    label: 'Medium',
   },
   '9-13': {
-    gridWidth: 12,
-    gridHeight: 16,
-    cellSize: 30,       // points
+    gridWidth: 14,
+    gridHeight: 20,
+    cellSize: 24,       // points
     lineThickness: 2,   // points
-    label: 'Medium',
+    label: 'Hard',
   },
   '14-17': {
     // Maps to 9-13 preset
-    gridWidth: 12,
-    gridHeight: 16,
-    cellSize: 30,
+    gridWidth: 24,
+    gridHeight: 30,
+    cellSize: 20,
     lineThickness: 2,
-    label: 'Medium',
+    label: 'Difficult',
   },
 };
 
