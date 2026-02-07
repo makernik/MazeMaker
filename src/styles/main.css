@@ -375,6 +375,57 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 /* ============================================
+   Debug Panel (hidden by default)
+   ============================================ */
+.debug-panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+}
+
+.debug-panel[hidden] {
+  display: none;
+}
+
+.debug-panel__title {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--color-text-muted);
+}
+
+.debug-panel__list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.debug-panel__list dt {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.debug-panel__list dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.debug-panel__value {
+  color: var(--color-primary);
+}
+
+.debug-panel__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* ============================================
    Footer
    ============================================ */
 .panel-footer {

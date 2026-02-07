@@ -7,6 +7,7 @@
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { DIRECTIONS } from '../maze/grid.js';
+import { solveMaze } from '../maze/solver.js';
 import {
   PAGE_WIDTH,
   PAGE_HEIGHT,
@@ -25,10 +26,11 @@ import {
  * @param {object[]} config.mazes - Array of maze objects from generator
  * @param {string} config.style - 'square' or 'rounded'
  * @param {string} config.ageRange - Age range for label style
+ * @param {boolean} [config.debugMode] - If true, draw solver path overlay on each page
  * @returns {Promise<Uint8Array>} PDF document as bytes
  */
 export async function renderMazesToPdf(config) {
-  const { mazes, style = 'square', ageRange = '9-13' } = config;
+  const { mazes, style = 'square', ageRange = '9-13', debugMode = false } = config;
   
   // Create PDF document
   const pdfDoc = await PDFDocument.create();
@@ -80,7 +82,19 @@ export async function renderMazesToPdf(config) {
       font,
       boldFont,
     });
-    
+
+    // Debug: draw solver path overlay (never in normal mode)
+    if (debugMode) {
+      const solution = solveMaze(maze.grid);
+      if (solution && solution.path.length > 1) {
+        drawSolverOverlay(page, maze.grid, solution.path, {
+          offsetX,
+          offsetY,
+          cellSize,
+        });
+      }
+    }
+
     // Draw footer
     drawFooter(page, font);
   }
@@ -218,6 +232,33 @@ function drawArrow(page, x1, y1, x2, y2, headSize) {
     thickness: 2,
     color: rgb(0, 0, 0),
   });
+}
+
+/**
+ * Draw solver path overlay (debug only). Path through cell centers, dashed gray line.
+ */
+function drawSolverOverlay(page, grid, path, options) {
+  const { offsetX, offsetY, cellSize } = options;
+  const rows = grid.rows;
+
+  for (let i = 1; i < path.length; i++) {
+    const prev = path[i - 1];
+    const curr = path[i];
+    // Cell center in PDF coords (y flipped)
+    const x1 = offsetX + (prev.col + 0.5) * cellSize;
+    const y1 = offsetY + (rows - 1 - prev.row + 0.5) * cellSize;
+    const x2 = offsetX + (curr.col + 0.5) * cellSize;
+    const y2 = offsetY + (rows - 1 - curr.row + 0.5) * cellSize;
+
+    page.drawLine({
+      start: { x: x1, y: y1 },
+      end: { x: x2, y: y2 },
+      thickness: 1.5,
+      color: rgb(0.4, 0.4, 0.4),
+      opacity: 0.7,
+      dashArray: [4, 4],
+    });
+  }
 }
 
 /**

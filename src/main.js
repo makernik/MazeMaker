@@ -15,6 +15,52 @@ const quantitySlider = document.getElementById('quantity');
 const quantityDisplay = document.getElementById('quantity-display');
 const generateBtn = document.getElementById('generate-btn');
 const statusEl = document.getElementById('status');
+const debugPanel = document.getElementById('debug-panel');
+const debugSeedEl = document.getElementById('debug-seed');
+const debugGridEl = document.getElementById('debug-grid');
+const debugCellSizeEl = document.getElementById('debug-cell-size');
+const debugLineThicknessEl = document.getElementById('debug-line-thickness');
+
+// Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
+let debugMode = false;
+
+function isDebugMode() {
+  return debugMode;
+}
+
+function setDebugMode(on) {
+  debugMode = !!on;
+  debugPanel.hidden = !debugMode;
+
+  if (debugMode) {
+    quantitySlider.value = '1';
+    quantityDisplay.textContent = '1';
+  }
+
+  // Update URL without reload (for sharing debug link)
+  const url = new URL(window.location.href);
+  if (debugMode) {
+    url.searchParams.set('debug', '1');
+  } else {
+    url.searchParams.delete('debug');
+  }
+  window.history.replaceState({}, '', url);
+}
+
+function initDebugFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('debug') === '1') {
+    setDebugMode(true);
+  }
+}
+
+// Ctrl+Shift+D toggles debug
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'D' && e.ctrlKey && e.shiftKey) {
+    e.preventDefault();
+    setDebugMode(!debugMode);
+  }
+});
 
 /**
  * Get current form values from radio buttons and slider
@@ -27,6 +73,23 @@ function getFormValues() {
     theme: formData.get('theme'),
     quantity: parseInt(formData.get('quantity'), 10),
   };
+}
+
+/**
+ * Update debug panel with last generation info
+ */
+function updateDebugPanel(mazes, baseSeed) {
+  if (!debugMode || !mazes.length) return;
+  const maze = mazes[0];
+  const preset = maze.preset;
+
+  debugSeedEl.textContent = String(maze.seed);
+  if (mazes.length > 1) {
+    debugSeedEl.textContent += ` (base: ${baseSeed}, +0…${mazes.length - 1})`;
+  }
+  debugGridEl.textContent = `${maze.cols} × ${maze.rows}`;
+  debugCellSizeEl.textContent = `${preset.cellSize} pt`;
+  debugLineThicknessEl.textContent = `${preset.lineThickness} pt`;
 }
 
 /**
@@ -54,28 +117,25 @@ quantitySlider.addEventListener('input', () => {
  */
 async function generateAndDownload(event) {
   event.preventDefault();
-  
+
   const values = getFormValues();
   console.log('Generate clicked with values:', values);
-  
+
   setStatus('Generating mazes...');
   generateBtn.disabled = true;
-  
+
   try {
-    // Generate a base seed for this batch
     const baseSeed = generateSeed();
     console.log('Base seed:', baseSeed);
-    
-    // Generate mazes
+
     const result = generateMazes({
       ageRange: values.ageRange,
       quantity: values.quantity,
       baseSeed,
     });
-    
+
     console.log(`Generated ${result.mazes.length} mazes`);
-    
-    // Validate all mazes
+
     setStatus('Validating mazes...');
     let validCount = 0;
     for (const maze of result.mazes) {
@@ -85,26 +145,25 @@ async function generateAndDownload(event) {
         console.warn('Invalid maze detected, seed:', maze.seed);
       }
     }
-    
+
     if (validCount !== result.mazes.length) {
       throw new Error(`Only ${validCount}/${result.mazes.length} mazes are valid`);
     }
-    
-    // Render to PDF
+
     setStatus('Rendering PDF...');
     const pdfBytes = await renderMazesToPdf({
       mazes: result.mazes,
       style: values.mazeStyle,
       ageRange: values.ageRange,
+      debugMode: isDebugMode(),
     });
-    
-    // Download
+
     const filename = `mazes-${values.ageRange}-${values.quantity}pk.pdf`;
     downloadPdf(pdfBytes, filename);
-    
+
+    updateDebugPanel(result.mazes, baseSeed);
     setStatus(`Downloaded ${values.quantity} maze${values.quantity > 1 ? 's' : ''}!`, 'success');
     console.log('PDF generated successfully');
-    
   } catch (error) {
     console.error('Generation failed:', error);
     setStatus('Generation failed. Please try again.', 'error');
@@ -113,10 +172,8 @@ async function generateAndDownload(event) {
   }
 }
 
-/**
- * Handle form submission
- */
 form.addEventListener('submit', generateAndDownload);
 
-// Initialize
+// Initialize: restore debug from URL
+initDebugFromUrl();
 console.log('MakerNik Maze Generator loaded');

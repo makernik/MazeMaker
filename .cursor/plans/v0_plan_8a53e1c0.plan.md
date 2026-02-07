@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: c5-debug
     content: "C5: Debug mode (hidden toggle, seed display, solver overlay)"
-    status: pending
+    status: completed
   - id: c6-errors
     content: "C6: Error handling (inline error, no stack traces)"
     status: pending

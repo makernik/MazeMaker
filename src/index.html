@@ -103,6 +103,22 @@
 
           <!-- Status -->
           <p id="status" class="status" aria-live="polite"></p>
+
+          <!-- Debug panel (hidden unless debug mode) -->
+          <section id="debug-panel" class="debug-panel" aria-label="Debug info" hidden>
+            <h2 class="debug-panel__title">Debug</h2>
+            <dl class="debug-panel__list">
+              <dt>Seed</dt>
+              <dd id="debug-seed" class="debug-panel__value">—</dd>
+              <dt>Grid</dt>
+              <dd id="debug-grid" class="debug-panel__value">—</dd>
+              <dt>Cell size</dt>
+              <dd id="debug-cell-size" class="debug-panel__value">—</dd>
+              <dt>Line thickness</dt>
+              <dd id="debug-line-thickness" class="debug-panel__value">—</dd>
+            </dl>
+            <p class="debug-panel__hint">Solver path shown on PDF when debug is on.</p>
+          </section>
         </form>
 
         <footer class="panel-footer">
