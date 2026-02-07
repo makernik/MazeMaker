@@ -1,11 +1,11 @@
 /**
- * Maze Generator - Prim's Algorithm
- * 
- * Generates perfect mazes (single solution, no loops) using Prim's algorithm.
- * Prim's produces mazes with short branching dead-ends, making them
- * more intuitive and forgiving for younger children.
- * 
- * Algorithm:
+ * Maze Generator - Prim's and Recursive Backtracker (DFS)
+ *
+ * Generates perfect mazes (single solution, no loops).
+ * - Prim's: short branching dead-ends, forgiving for younger children.
+ * - Recursive Backtracker: long winding passages, more challenging.
+ *
+ * Prim's algorithm:
  * 1. Start with a grid full of walls
  * 2. Pick a random starting cell, mark it as part of the maze
  * 3. Add all walls of that cell to a wall list
@@ -16,6 +16,11 @@
  *       - Mark the unvisited cell as part of the maze
  *       - Add the walls of the new cell to the wall list
  *    c. Remove the wall from the list
+ *
+ * Recursive Backtracker (iterative DFS):
+ * 1. Start at a random cell, push onto stack
+ * 2. While stack not empty: get unvisited neighbors, shuffle, pick one,
+ *    remove wall, mark visited, push neighbor; if none, pop and backtrack
  */
 
 import { MazeGrid, DIRECTIONS, DIRECTION_OFFSETS, OPPOSITE } from './grid.js';
@@ -34,33 +39,37 @@ class WallEntry {
 }
 
 /**
- * Generate a maze using Prim's algorithm
- * 
+ * Generate a maze using the selected algorithm
+ *
  * @param {object} config - Generation configuration
  * @param {string} config.ageRange - Age range ('3-5', '6-8', '9-13', '14-17')
  * @param {number} [config.seed] - Optional seed for deterministic generation
+ * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' (default 'prim')
  * @returns {object} Generated maze with grid and metadata
  */
 export function generateMaze(config) {
-  const { ageRange, seed = generateSeed() } = config;
-  
+  const { ageRange, seed = generateSeed(), algorithm = 'prim' } = config;
+
   // Get difficulty preset for age range
   const preset = getDifficultyPreset(ageRange);
   const { gridWidth, gridHeight } = preset;
-  
+
   // Create RNG with seed
   const rng = createRng(seed);
-  
+
   // Create empty grid
   const grid = new MazeGrid(gridHeight, gridWidth);
-  
-  // Run Prim's algorithm
-  primGenerate(grid, rng);
-  
+
+  if (algorithm === 'recursive-backtracker') {
+    recursiveBacktrackerGenerate(grid, rng);
+  } else {
+    primGenerate(grid, rng);
+  }
+
   // Open entrance and exit
   grid.openEntrance();
   grid.openExit();
-  
+
   return {
     grid,
     seed,
@@ -120,6 +129,38 @@ function primGenerate(grid, rng) {
 }
 
 /**
+ * Recursive Backtracker (iterative DFS) maze generation
+ *
+ * @param {MazeGrid} grid - The maze grid to populate
+ * @param {object} rng - Seeded random number generator
+ */
+function recursiveBacktrackerGenerate(grid, rng) {
+  const stack = [];
+  const startRow = rng.randomInt(0, grid.rows - 1);
+  const startCol = rng.randomInt(0, grid.cols - 1);
+  const startCell = grid.getCell(startRow, startCol);
+  startCell.markVisited();
+  stack.push({ row: startRow, col: startCol });
+
+  while (stack.length > 0) {
+    const current = stack[stack.length - 1];
+    const currentCell = grid.getCell(current.row, current.col);
+    const neighbors = grid.getUnvisitedNeighbors(current.row, current.col);
+
+    if (neighbors.length === 0) {
+      stack.pop();
+      continue;
+    }
+
+    rng.shuffle(neighbors);
+    const { cell: nextCell } = neighbors[0];
+    grid.removeWallBetween(currentCell, nextCell);
+    nextCell.markVisited();
+    stack.push({ row: nextCell.row, col: nextCell.col });
+  }
+}
+
+/**
  * Add all walls of a cell to the wall list
  * Only adds walls that lead to valid, unvisited cells
  * 
@@ -143,26 +184,28 @@ function addWallsToList(grid, cell, walls) {
 
 /**
  * Generate multiple mazes
- * 
+ *
  * @param {object} config - Generation configuration
  * @param {string} config.ageRange - Age range
  * @param {number} config.quantity - Number of mazes to generate
  * @param {number} [config.baseSeed] - Optional base seed (each maze gets baseSeed + index)
- * @returns {object[]} Array of generated mazes
+ * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' (default 'prim')
+ * @returns {object} Object with mazes array and metadata
  */
 export function generateMazes(config) {
-  const { ageRange, quantity, baseSeed = generateSeed() } = config;
-  
+  const { ageRange, quantity, baseSeed = generateSeed(), algorithm = 'prim' } = config;
+
   const mazes = [];
-  
+
   for (let i = 0; i < quantity; i++) {
     const maze = generateMaze({
       ageRange,
       seed: baseSeed + i,
+      algorithm,
     });
     mazes.push(maze);
   }
-  
+
   return {
     mazes,
     baseSeed,

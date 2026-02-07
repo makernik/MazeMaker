@@ -56,4 +56,6 @@ Architectural and design decisions for the Printable Maze Generator.
 
 **Decision:** Use Prim's algorithm for all age ranges in v0. Prim's creates mazes with short branching dead-ends, which are more intuitive and forgiving for younger children.
 
+**Update:** Recursive Backtracker (DFS) is available as an alternative algorithm, selectable via `config.algorithm: 'recursive-backtracker'`. Default remains `'prim'`. Same seed and algorithm yield the same maze (deterministic).
+
 **Future consideration:** Use Prim's for ages 3-8 and Recursive Backtracker for ages 9+ to provide age-appropriate challenge levels (see DEFERRED_IDEAS.md).

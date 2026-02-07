@@ -7,6 +7,7 @@
 import { generateMazes } from './maze/generator.js';
 import { validateMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
+import { getDifficultyPreset } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
 
 // DOM elements
@@ -132,10 +133,12 @@ async function generateAndDownload(event) {
     const baseSeed = generateSeed();
     console.log('Base seed:', baseSeed);
 
+    const preset = getDifficultyPreset(values.ageRange);
     const result = generateMazes({
       ageRange: values.ageRange,
       quantity: values.quantity,
       baseSeed,
+      algorithm: preset.algorithm,
     });
 
     console.log(`Generated ${result.mazes.length} mazes`);

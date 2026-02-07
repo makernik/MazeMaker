@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateMaze, generateMazes } from '../src/maze/generator.js';
 import { MazeGrid, DIRECTIONS } from '../src/maze/grid.js';
+import { validateMaze } from '../src/maze/solver.js';
 import { DIFFICULTY_PRESETS } from '../src/utils/constants.js';
 
 describe('MazeGrid', () => {
@@ -140,17 +141,17 @@ describe('Maze Generator', () => {
     expect(maze.cols).toBe(preset.gridWidth);
   });
   
-  it('maps 6-8 age range to 3-5 preset', () => {
+  it('uses 6-8 preset dimensions', () => {
     const maze = generateMaze({ ageRange: '6-8', seed: 42 });
-    const preset = DIFFICULTY_PRESETS['3-5'];
+    const preset = DIFFICULTY_PRESETS['6-8'];
     
     expect(maze.rows).toBe(preset.gridHeight);
     expect(maze.cols).toBe(preset.gridWidth);
   });
   
-  it('maps 14-17 age range to 9-13 preset', () => {
+  it('uses 14-17 preset dimensions', () => {
     const maze = generateMaze({ ageRange: '14-17', seed: 42 });
-    const preset = DIFFICULTY_PRESETS['9-13'];
+    const preset = DIFFICULTY_PRESETS['14-17'];
     
     expect(maze.rows).toBe(preset.gridHeight);
     expect(maze.cols).toBe(preset.gridWidth);
@@ -205,6 +206,57 @@ describe('Generate Multiple Mazes', () => {
           const cell2 = result2.mazes[i].grid.getCell(row, col);
           expect(cell1.walls).toEqual(cell2.walls);
         }
+      }
+    }
+  });
+});
+
+describe('Recursive Backtracker algorithm', () => {
+  it('produces a valid (solvable) maze with fixed seed', () => {
+    const maze = generateMaze({
+      ageRange: '3-5',
+      seed: 4242,
+      algorithm: 'recursive-backtracker',
+    });
+    expect(validateMaze(maze.grid)).toBe(true);
+  });
+
+  it('produces identical mazes for same seed and algorithm', () => {
+    const maze1 = generateMaze({
+      ageRange: '9-13',
+      seed: 55555,
+      algorithm: 'recursive-backtracker',
+    });
+    const maze2 = generateMaze({
+      ageRange: '9-13',
+      seed: 55555,
+      algorithm: 'recursive-backtracker',
+    });
+    expect(maze1.rows).toBe(maze2.rows);
+    expect(maze1.cols).toBe(maze2.cols);
+    for (let row = 0; row < maze1.rows; row++) {
+      for (let col = 0; col < maze1.cols; col++) {
+        const cell1 = maze1.grid.getCell(row, col);
+        const cell2 = maze2.grid.getCell(row, col);
+        expect(cell1.walls).toEqual(cell2.walls);
+      }
+    }
+  });
+
+  it('default algorithm is Prim (no algorithm param)', () => {
+    const mazeNoParam = generateMaze({ ageRange: '3-5', seed: 77777 });
+    const mazePrim = generateMaze({
+      ageRange: '3-5',
+      seed: 77777,
+      algorithm: 'prim',
+    });
+    expect(mazeNoParam.rows).toBe(mazePrim.rows);
+    expect(mazeNoParam.cols).toBe(mazePrim.cols);
+    for (let row = 0; row < mazeNoParam.rows; row++) {
+      for (let col = 0; col < mazeNoParam.cols; col++) {
+        const c1 = mazeNoParam.grid.getCell(row, col);
+        const c2 = mazePrim.grid.getCell(row, col);
+        expect(c1.walls).toEqual(c2.walls);
       }
     }
   });
