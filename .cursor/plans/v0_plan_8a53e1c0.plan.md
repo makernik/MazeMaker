@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: c4-ui
     content: "C4: UI controls + styling (age, style, theme, quantity)"
-    status: pending
+    status: completed
   - id: c5-themes
     content: "C5: Theme decorations (shapes, animals)"
     status: pending

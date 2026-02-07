@@ -4,55 +4,117 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MakerNik Maze Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
-    <main id="app">
-      <header>
-        <h1>Maze Generator</h1>
-        <p>Generate printable maze packs for kids</p>
-      </header>
+    <div class="app-layout">
+      <!-- Control Panel (Left) -->
+      <aside class="control-panel">
+        <header class="panel-header">
+          <h1>Maze Generator</h1>
+          <p class="tagline">Printable maze packs for kids</p>
+        </header>
 
-      <section class="controls">
-        <div class="control-group">
-          <label for="age-range">Age Range</label>
-          <select id="age-range">
-            <option value="3-5">3-5 years</option>
-            <option value="6-8">6-8 years</option>
-            <option value="9-13">9-13 years</option>
-            <option value="14-17">14-17 years</option>
-          </select>
-        </div>
+        <form class="controls" id="maze-form">
+          <!-- Age Range: Segmented Buttons -->
+          <fieldset class="control-group">
+            <legend>Age Range</legend>
+            <div class="segmented-control" role="radiogroup" aria-label="Age Range">
+              <label class="segment">
+                <input type="radio" name="age-range" value="3-5" checked />
+                <span>3–5</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="age-range" value="6-8" />
+                <span>6–8</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="age-range" value="9-13" />
+                <span>9–13</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="age-range" value="14-17" />
+                <span>14–17</span>
+              </label>
+            </div>
+          </fieldset>
 
-        <div class="control-group">
-          <label for="maze-style">Maze Style</label>
-          <select id="maze-style">
-            <option value="square">Square Corners</option>
-            <option value="rounded">Rounded Corners</option>
-          </select>
-        </div>
+          <!-- Maze Style: Toggle Group -->
+          <fieldset class="control-group">
+            <legend>Maze Style</legend>
+            <div class="toggle-group" role="radiogroup" aria-label="Maze Style">
+              <label class="toggle">
+                <input type="radio" name="maze-style" value="square" checked />
+                <span>Square Corners</span>
+              </label>
+              <label class="toggle">
+                <input type="radio" name="maze-style" value="rounded" />
+                <span>Rounded Corners</span>
+              </label>
+            </div>
+          </fieldset>
 
-        <div class="control-group">
-          <label for="theme">Theme</label>
-          <select id="theme">
-            <option value="none">None</option>
-            <option value="shapes">Shapes</option>
-            <option value="animals">Animals</option>
-          </select>
-        </div>
+          <!-- Theme: Toggle Group -->
+          <fieldset class="control-group">
+            <legend>Theme</legend>
+            <div class="toggle-group" role="radiogroup" aria-label="Theme">
+              <label class="toggle">
+                <input type="radio" name="theme" value="none" checked />
+                <span>None</span>
+              </label>
+              <label class="toggle">
+                <input type="radio" name="theme" value="shapes" />
+                <span>Shapes</span>
+              </label>
+              <label class="toggle">
+                <input type="radio" name="theme" value="animals" />
+                <span>Animals</span>
+              </label>
+            </div>
+          </fieldset>
 
-        <div class="control-group">
-          <label for="quantity">Quantity: <span id="quantity-display">5</span></label>
-          <input type="range" id="quantity" min="1" max="10" value="5" />
-        </div>
+          <!-- Quantity: Slider with Numeric Display -->
+          <div class="control-group">
+            <label for="quantity" class="quantity-label">
+              Quantity: <output id="quantity-display" for="quantity">5</output>
+            </label>
+            <div class="slider-container">
+              <span class="slider-bound">1</span>
+              <input 
+                type="range" 
+                id="quantity" 
+                name="quantity"
+                min="1" 
+                max="10" 
+                value="5"
+                aria-describedby="quantity-display"
+              />
+              <span class="slider-bound">10</span>
+            </div>
+          </div>
 
-        <button id="generate-btn" type="button">Generate Printable PDF</button>
-      </section>
+          <!-- Primary Action -->
+          <button id="generate-btn" type="submit" class="primary-action">
+            Generate Printable PDF
+          </button>
 
-      <section class="output">
-        <p id="status"></p>
-      </section>
-    </main>
+          <!-- Status -->
+          <p id="status" class="status" aria-live="polite"></p>
+        </form>
+
+        <footer class="panel-footer">
+          <p>makernik.com</p>
+        </footer>
+      </aside>
+
+      <!-- Preview Area (Right) - Intentional whitespace in v0 -->
+      <main class="preview-area">
+        <div class="maze-background" aria-hidden="true"></div>
+      </main>
+    </div>
 
     <script type="module" src="./main.js"></script>
   </body>

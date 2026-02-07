@@ -10,32 +10,36 @@ import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
 import { generateSeed } from './utils/rng.js';
 
 // DOM elements
-const ageRangeSelect = document.getElementById('age-range');
-const mazeStyleSelect = document.getElementById('maze-style');
-const themeSelect = document.getElementById('theme');
+const form = document.getElementById('maze-form');
 const quantitySlider = document.getElementById('quantity');
 const quantityDisplay = document.getElementById('quantity-display');
 const generateBtn = document.getElementById('generate-btn');
 const statusEl = document.getElementById('status');
 
 /**
- * Get current form values
+ * Get current form values from radio buttons and slider
  */
 function getFormValues() {
+  const formData = new FormData(form);
   return {
-    ageRange: ageRangeSelect.value,
-    mazeStyle: mazeStyleSelect.value,
-    theme: themeSelect.value,
-    quantity: parseInt(quantitySlider.value, 10),
+    ageRange: formData.get('age-range'),
+    mazeStyle: formData.get('maze-style'),
+    theme: formData.get('theme'),
+    quantity: parseInt(formData.get('quantity'), 10),
   };
 }
 
 /**
  * Update status message
  */
-function setStatus(message, isError = false) {
+function setStatus(message, type = 'info') {
   statusEl.textContent = message;
-  statusEl.classList.toggle('error', isError);
+  statusEl.classList.remove('error', 'success');
+  if (type === 'error') {
+    statusEl.classList.add('error');
+  } else if (type === 'success') {
+    statusEl.classList.add('success');
+  }
 }
 
 /**
@@ -48,7 +52,9 @@ quantitySlider.addEventListener('input', () => {
 /**
  * Generate mazes and create PDF
  */
-async function generateAndDownload() {
+async function generateAndDownload(event) {
+  event.preventDefault();
+  
   const values = getFormValues();
   console.log('Generate clicked with values:', values);
   
@@ -96,21 +102,21 @@ async function generateAndDownload() {
     const filename = `mazes-${values.ageRange}-${values.quantity}pk.pdf`;
     downloadPdf(pdfBytes, filename);
     
-    setStatus(`Downloaded ${values.quantity} maze(s)!`);
+    setStatus(`Downloaded ${values.quantity} maze${values.quantity > 1 ? 's' : ''}!`, 'success');
     console.log('PDF generated successfully');
     
   } catch (error) {
     console.error('Generation failed:', error);
-    setStatus('Generation failed. Please try again.', true);
+    setStatus('Generation failed. Please try again.', 'error');
   } finally {
     generateBtn.disabled = false;
   }
 }
 
 /**
- * Handle generate button click
+ * Handle form submission
  */
-generateBtn.addEventListener('click', generateAndDownload);
+form.addEventListener('submit', generateAndDownload);
 
 // Initialize
 console.log('MakerNik Maze Generator loaded');
