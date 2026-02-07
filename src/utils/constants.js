@@ -13,15 +13,15 @@
  */
 export const DIFFICULTY_PRESETS = {
   '3-5': {
-    gridWidth: 6,
+    gridWidth: 7,
     gridHeight: 8,
-    cellSize: 60,       // points
+    cellSize: 60,       // points (~10% more cells: 7×8 = 56 vs 6×8 = 48)
     lineThickness: 4,   // points
     label: 'Easy',
   },
   '6-8': {
     // Maps to 3-5 preset
-    gridWidth: 6,
+    gridWidth: 7,
     gridHeight: 8,
     cellSize: 60,
     lineThickness: 4,

@@ -94,7 +94,9 @@ export async function renderMazesToPdf(config) {
  */
 function drawMaze(page, grid, options) {
   const { offsetX, offsetY, cellSize, lineThickness, style } = options;
-  const cornerRadius = style === 'rounded' ? Math.min(cellSize * 0.15, 4) : 0;
+  const isRounded = style === 'rounded';
+  // Rounded: use 2x thickness so round line caps are visible at corners (cap radius = half thickness)
+  const effectiveThickness = isRounded ? Math.max(lineThickness * 2, 6) : lineThickness;
   
   // Draw walls for each cell
   for (let row = 0; row < grid.rows; row++) {
@@ -106,32 +108,32 @@ function drawMaze(page, grid, options) {
       
       // Draw each wall if it exists
       if (cell.hasWall(DIRECTIONS.TOP)) {
-        drawWall(page, x, y + cellSize, x + cellSize, y + cellSize, lineThickness, cornerRadius);
+        drawWall(page, x, y + cellSize, x + cellSize, y + cellSize, effectiveThickness, isRounded);
       }
       if (cell.hasWall(DIRECTIONS.BOTTOM)) {
-        drawWall(page, x, y, x + cellSize, y, lineThickness, cornerRadius);
+        drawWall(page, x, y, x + cellSize, y, effectiveThickness, isRounded);
       }
       if (cell.hasWall(DIRECTIONS.LEFT)) {
-        drawWall(page, x, y, x, y + cellSize, lineThickness, cornerRadius);
+        drawWall(page, x, y, x, y + cellSize, effectiveThickness, isRounded);
       }
       if (cell.hasWall(DIRECTIONS.RIGHT)) {
-        drawWall(page, x + cellSize, y, x + cellSize, y + cellSize, lineThickness, cornerRadius);
+        drawWall(page, x + cellSize, y, x + cellSize, y + cellSize, effectiveThickness, isRounded);
       }
     }
   }
 }
 
 /**
- * Draw a wall line
+ * Draw a wall line.
+ * Rounded style uses round line caps so segment ends (and corners where two walls meet) appear rounded.
  */
-function drawWall(page, x1, y1, x2, y2, thickness, cornerRadius) {
-  // For now, draw simple lines (rounded corners would need more complex path logic)
+function drawWall(page, x1, y1, x2, y2, thickness, isRounded) {
   page.drawLine({
     start: { x: x1, y: y1 },
     end: { x: x2, y: y2 },
     thickness,
     color: rgb(0, 0, 0),
-    lineCap: cornerRadius > 0 ? 1 : 0, // 1 = round cap, 0 = butt cap
+    lineCap: isRounded ? 1 : 0, // 1 = round cap (radius = thickness/2), 0 = butt
   });
 }
 
