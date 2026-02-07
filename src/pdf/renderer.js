@@ -116,8 +116,8 @@ export async function renderMazesToPdf(config) {
       await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/animals/', animalImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     }
 
-    // Draw footer
-    drawFooter(page, font);
+    // Draw footer (include difficulty + age range in debug mode)
+    drawFooter(page, font, debugMode ? { label: maze.preset.label, ageRange: maze.ageRange } : null);
   }
   
   // Save and return PDF bytes
@@ -354,16 +354,21 @@ async function fetchThemeImage(url) {
 }
 
 /**
- * Draw the footer on a page
+ * Draw the footer on a page.
+ * @param {PDFPage} page
+ * @param {PDFFont} font
+ * @param {{ label: string, ageRange: string } | null} debugInfo - When set (debug mode), append difficulty label and age range to footer
  */
-function drawFooter(page, font) {
+function drawFooter(page, font, debugInfo = null) {
   const fontSize = 8;
   const footerY = MARGIN / 2;
-  
-  // Combined footer text
-  const text = `${FOOTER_TEXT} • ${FOOTER_URL}`;
+
+  let text = `${FOOTER_TEXT} • ${FOOTER_URL}`;
+  if (debugInfo) {
+    text += ` • ${debugInfo.label} • ${debugInfo.ageRange}`;
+  }
   const textWidth = font.widthOfTextAtSize(text, fontSize);
-  
+
   page.drawText(text, {
     x: (PAGE_WIDTH - textWidth) / 2,
     y: footerY,
