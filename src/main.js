@@ -158,6 +158,7 @@ async function generateAndDownload(event) {
       mazes: result.mazes,
       style: values.mazeStyle,
       ageRange: values.ageRange,
+      theme: values.theme,
       debugMode: isDebugMode(),
     });
 

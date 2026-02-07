@@ -1,8 +1,16 @@
 /**
- * Animal Theme Decorations
- * 
- * Corner/edge decorations: dog, cat, duck, bear, fox, butterfly
+ * Animal Theme — image-based corner decorations
+ *
+ * Uses PNG/JPG images from public/themes/animals/ (see README there).
+ * Order: dog, cat, duck, bear, fox, butterfly. One image per corner.
  */
 
-// Placeholder - will be implemented in C5
-export const animalDecorations = [];
+/** Image filenames for corner decorations (place in public/themes/animals/) */
+export const animalImageFiles = [
+  'dog.png',
+  'cat.png',
+  'duck.png',
+  'bear.png',
+  'fox.png',
+  'butterfly.png',
+];

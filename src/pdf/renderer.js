@@ -18,6 +18,17 @@ import {
   FOOTER_URL,
   FOOTER_HEIGHT,
 } from './layout.js';
+import { shapeImageFiles } from '../themes/shapes.js';
+import { animalImageFiles } from '../themes/animals.js';
+
+const DECOR_INSET = 28;
+const DECOR_SIZE = 12;
+
+/** Base URL for theme images (same-origin in browser; empty in Node so fetch may skip) */
+function getThemesBase() {
+  if (typeof window !== 'undefined' && window.location) return window.location.origin;
+  return '';
+}
 
 /**
  * Render mazes to a PDF document
@@ -26,14 +37,17 @@ import {
  * @param {object[]} config.mazes - Array of maze objects from generator
  * @param {string} config.style - 'square' or 'rounded'
  * @param {string} config.ageRange - Age range for label style
+ * @param {string} [config.theme] - 'none', 'shapes', or 'animals' (corner decorations only)
  * @param {boolean} [config.debugMode] - If true, draw solver path overlay on each page
  * @returns {Promise<Uint8Array>} PDF document as bytes
  */
 export async function renderMazesToPdf(config) {
-  const { mazes, style = 'square', ageRange = '9-13', debugMode = false } = config;
+  const { mazes, style = 'square', ageRange = '9-13', theme = 'none', debugMode = false } = config;
   
   // Create PDF document
   const pdfDoc = await PDFDocument.create();
+  /** @type {Map<string, import('pdf-lib').PDFImage>} cache of image path -> embedded image */
+  const imageEmbedCache = new Map();
   
   // Embed font for text
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -93,6 +107,13 @@ export async function renderMazesToPdf(config) {
           cellSize,
         });
       }
+    }
+
+    // Theme decorations: image-based, in margin corners only (never inside maze area)
+    if (theme === 'shapes' && shapeImageFiles.length > 0) {
+      await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/shapes/', shapeImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
+    } else if (theme === 'animals' && animalImageFiles.length > 0) {
+      await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/animals/', animalImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     }
 
     // Draw footer
@@ -258,6 +279,77 @@ function drawSolverOverlay(page, grid, path, options) {
       opacity: 0.7,
       dashArray: [4, 4],
     });
+  }
+}
+
+/**
+ * Draw one image in each corner, strictly outside maze boundaries.
+ * Top two: in the top margin strip. Bottom two: in strip below maze.
+ * Images are fetched from base + subPath + file; missing images are skipped (no throw).
+ * @param {import('pdf-lib').PDFPage} page
+ * @param {import('pdf-lib').PDFDocument} pdfDoc
+ * @param {string} base - Origin (e.g. window.location.origin) or '' for Node
+ * @param {string} subPath - e.g. '/themes/shapes/' or '/themes/animals/'
+ * @param {string[]} imageFiles - Filenames in order (one per corner, rotated)
+ * @param {Map<string, import('pdf-lib').PDFImage>} cache - Reuse embeds across pages
+ * @param {number} inset - Distance from page edge to decoration center
+ * @param {number} maxSize - Max width/height in points
+ */
+async function drawCornerImageDecorations(page, pdfDoc, base, subPath, imageFiles, cache, inset, maxSize) {
+  const topY = PAGE_HEIGHT - MARGIN / 2;
+  const bottomY = MARGIN + maxSize;
+  const corners = [
+    { x: MARGIN + inset, y: topY },
+    { x: PAGE_WIDTH - MARGIN - inset, y: topY },
+    { x: MARGIN + inset, y: bottomY },
+    { x: PAGE_WIDTH - MARGIN - inset, y: bottomY },
+  ];
+  for (let i = 0; i < corners.length; i++) {
+    const file = imageFiles[i % imageFiles.length];
+    const path = base + subPath + file;
+    let image = cache.get(path);
+    if (!image) {
+      const bytes = await fetchThemeImage(path);
+      if (!bytes) continue;
+      try {
+        image = await pdfDoc.embedPng(bytes);
+      } catch {
+        try {
+          image = await pdfDoc.embedJpg(bytes);
+        } catch {
+          continue;
+        }
+      }
+      cache.set(path, image);
+    }
+    const corner = corners[i];
+    const w = image.width;
+    const h = image.height;
+    const scale = Math.min(maxSize / w, maxSize / h, 1);
+    const drawW = w * scale;
+    const drawH = h * scale;
+    page.drawImage(image, {
+      x: corner.x - drawW / 2,
+      y: corner.y - drawH / 2,
+      width: drawW,
+      height: drawH,
+    });
+  }
+}
+
+/**
+ * Fetch theme image bytes (same-origin). Returns null on failure (caller skips drawing).
+ * @param {string} url - Full URL or path
+ * @returns {Promise<Uint8Array | null>}
+ */
+async function fetchThemeImage(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    return new Uint8Array(buf);
+  } catch {
+    return null;
   }
 }
 

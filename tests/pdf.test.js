@@ -107,6 +107,30 @@ describe('PDF Renderer', () => {
     expect(Array.from(pdf1)).not.toEqual(Array.from(pdf2));
   });
   
+  it('renders with shapes theme (corner decorations)', async () => {
+    const maze = generateMaze({ ageRange: '3-5', seed: 99990 });
+    const pdfBytes = await renderMazesToPdf({
+      mazes: [maze],
+      style: 'square',
+      ageRange: '3-5',
+      theme: 'shapes',
+    });
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.length).toBeGreaterThan(1000);
+  });
+
+  it('renders with animals theme (corner decorations)', async () => {
+    const maze = generateMaze({ ageRange: '3-5', seed: 99991 });
+    const pdfBytes = await renderMazesToPdf({
+      mazes: [maze],
+      style: 'square',
+      ageRange: '3-5',
+      theme: 'animals',
+    });
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.length).toBeGreaterThan(1000);
+  });
+
   it('generates larger PDF for harder difficulty', async () => {
     const easyMaze = generateMaze({ ageRange: '3-5', seed: 99999 });
     const hardMaze = generateMaze({ ageRange: '9-13', seed: 99999 });

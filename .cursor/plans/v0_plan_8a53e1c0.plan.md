@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: c8-themes
     content: "C8: Theme decorations (shapes, animals)"
-    status: pending
+    status: completed
   - id: c9-polish
     content: "C9: Polish (final UI and behavior)"
     status: pending
