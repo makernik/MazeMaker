@@ -53,11 +53,11 @@ export async function renderMazesToPdf(config) {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
-  // Determine if young age (arrows) or older (text labels)
-  const useArrows = ageRange === '3-5' || ageRange === '6-8';
-  
   // Render each maze on its own page
   for (const maze of mazes) {
+    // Per-maze age range for label style (arrows vs text); fallback to config when all mazes share one range
+    const mazeAgeRange = maze.ageRange ?? ageRange;
+    const useArrows = mazeAgeRange === '3-5' || mazeAgeRange === '6-8';
     const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     
     // Calculate maze dimensions to fit in printable area

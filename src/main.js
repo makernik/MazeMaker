@@ -4,10 +4,10 @@
  * Wires up UI controls and orchestrates maze generation + PDF export.
  */
 
-import { generateMazes } from './maze/generator.js';
+import { generateMaze, generateMazes } from './maze/generator.js';
 import { validateMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
-import { getDifficultyPreset } from './utils/constants.js';
+import { getDifficultyPreset, DIFFICULTY_PRESETS } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
 
 // DOM elements
@@ -21,6 +21,7 @@ const debugSeedEl = document.getElementById('debug-seed');
 const debugGridEl = document.getElementById('debug-grid');
 const debugCellSizeEl = document.getElementById('debug-cell-size');
 const debugLineThicknessEl = document.getElementById('debug-line-thickness');
+const debugOneOfEachCheckbox = document.getElementById('debug-one-of-each');
 
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
 let debugMode = false;
@@ -133,13 +134,37 @@ async function generateAndDownload(event) {
     const baseSeed = generateSeed();
     console.log('Base seed:', baseSeed);
 
-    const preset = getDifficultyPreset(values.ageRange);
-    const result = generateMazes({
-      ageRange: values.ageRange,
-      quantity: values.quantity,
-      baseSeed,
-      algorithm: preset.algorithm,
-    });
+    let result;
+    let styleForPdf = values.mazeStyle;
+    let filename;
+    const oneOfEach = debugMode && debugOneOfEachCheckbox && debugOneOfEachCheckbox.checked;
+
+    if (oneOfEach) {
+      const ageRangeKeys = Object.keys(DIFFICULTY_PRESETS);
+      const mazes = [];
+      for (let i = 0; i < ageRangeKeys.length; i++) {
+        const ageRange = ageRangeKeys[i];
+        const preset = getDifficultyPreset(ageRange);
+        const maze = generateMaze({
+          ageRange,
+          seed: baseSeed + i,
+          algorithm: preset.algorithm,
+        });
+        mazes.push(maze);
+      }
+      result = { mazes, baseSeed, ageRange: null, quantity: mazes.length };
+      styleForPdf = 'rounded';
+      filename = 'mazes-one-of-each.pdf';
+    } else {
+      const preset = getDifficultyPreset(values.ageRange);
+      result = generateMazes({
+        ageRange: values.ageRange,
+        quantity: values.quantity,
+        baseSeed,
+        algorithm: preset.algorithm,
+      });
+      filename = `mazes-${values.ageRange}-${result.mazes.length}pk.pdf`;
+    }
 
     console.log(`Generated ${result.mazes.length} mazes`);
 
@@ -160,18 +185,17 @@ async function generateAndDownload(event) {
     setStatus('Rendering PDF...');
     const pdfBytes = await renderMazesToPdf({
       mazes: result.mazes,
-      style: values.mazeStyle,
-      ageRange: values.ageRange,
+      style: styleForPdf,
+      ageRange: oneOfEach ? undefined : values.ageRange,
       theme: values.theme,
       debugMode: isDebugMode(),
     });
 
-    const filename = `mazes-${values.ageRange}-${values.quantity}pk.pdf`;
     downloadPdf(pdfBytes, filename);
 
     consecutiveFailures = 0;
     updateDebugPanel(result.mazes, baseSeed);
-    setStatus(`Downloaded ${values.quantity} maze${values.quantity > 1 ? 's' : ''}!`, 'success');
+    setStatus(`Downloaded ${result.mazes.length} maze${result.mazes.length > 1 ? 's' : ''}!`, 'success');
     console.log('PDF generated successfully');
   } catch (error) {
     consecutiveFailures += 1;

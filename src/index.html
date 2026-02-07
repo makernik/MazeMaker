@@ -108,6 +108,13 @@
           <!-- Debug panel (hidden unless debug mode) -->
           <section id="debug-panel" class="debug-panel" aria-label="Debug info" hidden>
             <h2 class="debug-panel__title">Debug</h2>
+            <div class="debug-panel__option">
+              <label>
+                <input type="checkbox" id="debug-one-of-each" name="debug-one-of-each" />
+                <span>1 of each</span>
+              </label>
+              <p class="debug-panel__option-hint">Generate one maze per difficulty (rounded corners).</p>
+            </div>
             <dl class="debug-panel__list">
               <dt>Seed</dt>
               <dd id="debug-seed" class="debug-panel__value">—</dd>
