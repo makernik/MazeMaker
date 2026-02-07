@@ -4,7 +4,7 @@ Local, offline, print-first maze packs for kids.
 
 ## What This Is
 
-A small web app that generates printable PDF maze packs. Choose age range, style, theme, and quantity—then download a single PDF. Built for parents; structured to be inspectable and testable.
+A small web app that generates printable PDF maze packs. Choose age range, style, and quantity—then download a single PDF. Built for parents; structured to be inspectable and testable.
 
 ## Quick Start
 
@@ -28,7 +28,7 @@ Open http://localhost:5173 in your browser. Use the controls, click **Generate P
 
 ## How It Works
 
-1. You set age range, maze style (square/rounded corners), theme (none/shapes/animals), and quantity (1–10).
+1. You set age range, maze style (square/rounded corners), and quantity (1–10). (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
 2. The app generates that many perfect mazes (Prim's algorithm, seeded for determinism).
 3. Each maze is validated with a BFS solver.
 4. A single PDF is built (one maze per page, US Letter) and downloaded.
@@ -64,7 +64,7 @@ src/
   index.html
   maze/             # Generator (Prim's), grid, solver (BFS)
   pdf/              # Renderer, layout
-  themes/           # Shape/animal decorations (v0: corner icons)
+  themes/           # Shape/animal decorations (corner icons; theme UI currently hidden)
   utils/            # RNG, constants (difficulty presets)
   styles/
 tests/              # Unit tests

@@ -21,7 +21,8 @@ test.describe('Generate PDF flow', () => {
     await page.getByRole('button', { name: 'Generate Printable PDF' }).click();
 
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/^mazes-\d+-\d+pk\.pdf$/);
+    // Filename: mazes-{ageRange}-{quantity}pk.pdf (e.g. mazes-3-5-5pk.pdf or mazes-9-13-1pk.pdf)
+    expect(download.suggestedFilename()).toMatch(/^mazes-\d+-\d+-\d+pk\.pdf$/);
   });
 
   test('status shows success after generation', async ({ page }) => {
