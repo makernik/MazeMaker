@@ -24,6 +24,9 @@ const debugLineThicknessEl = document.getElementById('debug-line-thickness');
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
 let debugMode = false;
 
+// Consecutive generation failure count (for inline error messaging only)
+let consecutiveFailures = 0;
+
 function isDebugMode() {
   return debugMode;
 }
@@ -161,12 +164,18 @@ async function generateAndDownload(event) {
     const filename = `mazes-${values.ageRange}-${values.quantity}pk.pdf`;
     downloadPdf(pdfBytes, filename);
 
+    consecutiveFailures = 0;
     updateDebugPanel(result.mazes, baseSeed);
     setStatus(`Downloaded ${values.quantity} maze${values.quantity > 1 ? 's' : ''}!`, 'success');
     console.log('PDF generated successfully');
   } catch (error) {
+    consecutiveFailures += 1;
     console.error('Generation failed:', error);
-    setStatus('Generation failed. Please try again.', 'error');
+    if (consecutiveFailures >= 2) {
+      setStatus('Generation failed again. Check the console for details.', 'error');
+    } else {
+      setStatus('Generation failed. Please try again.', 'error');
+    }
   } finally {
     generateBtn.disabled = false;
   }

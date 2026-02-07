@@ -22,7 +22,7 @@ todos:
     status: completed
   - id: c6-errors
     content: "C6: Error handling (inline error, no stack traces)"
-    status: pending
+    status: completed
   - id: c7-tests
     content: "C7: Tests + documentation"
     status: pending
