@@ -42,7 +42,7 @@ class WallEntry {
  * Generate a maze using the selected algorithm
  *
  * @param {object} config - Generation configuration
- * @param {string} config.ageRange - Age range ('3-5', '6-8', '9-13', '14-17')
+ * @param {string} config.ageRange - Age range ('3', '4-5', '6-8', '9-11', '12-14', '15-17', '18+')
  * @param {number} [config.seed] - Optional seed for deterministic generation
  * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' (default 'prim')
  * @returns {object} Generated maze with grid and metadata

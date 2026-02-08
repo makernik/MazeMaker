@@ -58,4 +58,4 @@ Architectural and design decisions for the Printable Maze Generator.
 
 **Update:** Recursive Backtracker (DFS) is available as an alternative algorithm, selectable via `config.algorithm: 'recursive-backtracker'`. Default remains `'prim'`. Same seed and algorithm yield the same maze (deterministic).
 
-**Future consideration:** Use Prim's for ages 3-8 and Recursive Backtracker for ages 9+ to provide age-appropriate challenge levels (see DEFERRED_IDEAS.md).
+**Future consideration:** Map algorithms to age bands (e.g. Recursive Backtracker for younger, Prim for older) for age-appropriate challenge (see DEFERRED_IDEAS.md). Age ranges in v0: 3, 4–5, 6–8, 9–11, 12–14, 15–17, 18+ (label: Epic Adventure).

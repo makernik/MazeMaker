@@ -10,7 +10,7 @@ import { generateMaze, generateMazes } from '../src/maze/generator.js';
 
 describe('PDF Renderer', () => {
   it('generates a valid PDF document', async () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 12345 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 12345 });
     const pdfBytes = await renderSingleMaze(maze, 'square');
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -22,11 +22,11 @@ describe('PDF Renderer', () => {
   });
   
   it('generates PDF with multiple pages', async () => {
-    const result = generateMazes({ ageRange: '9-13', quantity: 3, baseSeed: 5000 });
+    const result = generateMazes({ ageRange: '9-11', quantity: 3, baseSeed: 5000 });
     const pdfBytes = await renderMazesToPdf({
       mazes: result.mazes,
       style: 'square',
-      ageRange: '9-13',
+      ageRange: '9-11',
     });
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -35,7 +35,7 @@ describe('PDF Renderer', () => {
   });
   
   it('renders maze with square style', async () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 11111 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 11111 });
     const pdfBytes = await renderSingleMaze(maze, 'square');
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -43,7 +43,7 @@ describe('PDF Renderer', () => {
   });
   
   it('renders maze with rounded style', async () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 22222 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 22222 });
     const pdfBytes = await renderSingleMaze(maze, 'rounded');
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -51,11 +51,11 @@ describe('PDF Renderer', () => {
   });
   
   it('handles young age range (arrows)', async () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 33333 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 33333 });
     const pdfBytes = await renderMazesToPdf({
       mazes: [maze],
       style: 'square',
-      ageRange: '3-5',
+      ageRange: '4-5',
     });
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -63,11 +63,11 @@ describe('PDF Renderer', () => {
   });
   
   it('handles older age range (text labels)', async () => {
-    const maze = generateMaze({ ageRange: '9-13', seed: 44444 });
+    const maze = generateMaze({ ageRange: '9-11', seed: 44444 });
     const pdfBytes = await renderMazesToPdf({
       mazes: [maze],
       style: 'square',
-      ageRange: '9-13',
+      ageRange: '9-11',
     });
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -76,7 +76,7 @@ describe('PDF Renderer', () => {
   });
   
   it('generates PDF with footer', async () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 55555 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 55555 });
     const pdfBytes = await renderSingleMaze(maze);
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -85,8 +85,8 @@ describe('PDF Renderer', () => {
   });
   
   it('produces deterministic output for same maze', async () => {
-    const maze1 = generateMaze({ ageRange: '3-5', seed: 66666 });
-    const maze2 = generateMaze({ ageRange: '3-5', seed: 66666 });
+    const maze1 = generateMaze({ ageRange: '4-5', seed: 66666 });
+    const maze2 = generateMaze({ ageRange: '4-5', seed: 66666 });
     
     const pdf1 = await renderSingleMaze(maze1, 'square');
     const pdf2 = await renderSingleMaze(maze2, 'square');
@@ -97,8 +97,8 @@ describe('PDF Renderer', () => {
   });
   
   it('generates different PDFs for different mazes', async () => {
-    const maze1 = generateMaze({ ageRange: '3-5', seed: 77777 });
-    const maze2 = generateMaze({ ageRange: '3-5', seed: 88888 });
+    const maze1 = generateMaze({ ageRange: '4-5', seed: 77777 });
+    const maze2 = generateMaze({ ageRange: '4-5', seed: 88888 });
     
     const pdf1 = await renderSingleMaze(maze1, 'square');
     const pdf2 = await renderSingleMaze(maze2, 'square');
@@ -108,11 +108,11 @@ describe('PDF Renderer', () => {
   });
   
   it('renders with shapes theme (corner decorations)', async () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 99990 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 99990 });
     const pdfBytes = await renderMazesToPdf({
       mazes: [maze],
       style: 'square',
-      ageRange: '3-5',
+      ageRange: '4-5',
       theme: 'shapes',
     });
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -120,11 +120,11 @@ describe('PDF Renderer', () => {
   });
 
   it('renders with animals theme (corner decorations)', async () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 99991 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 99991 });
     const pdfBytes = await renderMazesToPdf({
       mazes: [maze],
       style: 'square',
-      ageRange: '3-5',
+      ageRange: '4-5',
       theme: 'animals',
     });
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
@@ -132,8 +132,8 @@ describe('PDF Renderer', () => {
   });
 
   it('generates larger PDF for harder difficulty', async () => {
-    const easyMaze = generateMaze({ ageRange: '3-5', seed: 99999 });
-    const hardMaze = generateMaze({ ageRange: '9-13', seed: 99999 });
+    const easyMaze = generateMaze({ ageRange: '4-5', seed: 99999 });
+    const hardMaze = generateMaze({ ageRange: '9-11', seed: 99999 });
     
     const easyPdf = await renderSingleMaze(easyMaze, 'square');
     const hardPdf = await renderSingleMaze(hardMaze, 'square');

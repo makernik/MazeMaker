@@ -43,7 +43,7 @@ function getThemesBase() {
  * @returns {Promise<Uint8Array>} PDF document as bytes
  */
 export async function renderMazesToPdf(config) {
-  const { mazes, style = 'square', ageRange = '9-13', theme = 'none', debugMode = false, showSolution = false } = config;
+  const { mazes, style = 'square', ageRange = '9-11', theme = 'none', debugMode = false, showSolution = false } = config;
   
   // Create PDF document
   const pdfDoc = await PDFDocument.create();
@@ -58,7 +58,7 @@ export async function renderMazesToPdf(config) {
   for (const maze of mazes) {
     // Per-maze age range for label style (arrows vs text); fallback to config when all mazes share one range
     const mazeAgeRange = maze.ageRange ?? ageRange;
-    const useArrows = mazeAgeRange === '3-5' || mazeAgeRange === '6-8';
+    const useArrows = mazeAgeRange === '3' || mazeAgeRange === '4-5' || mazeAgeRange === '6-8';
     const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     
     // Calculate maze dimensions to fit in printable area

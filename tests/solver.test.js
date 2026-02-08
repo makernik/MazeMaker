@@ -11,7 +11,7 @@ import { MazeGrid, DIRECTIONS } from '../src/maze/grid.js';
 
 describe('Maze Solver', () => {
   it('finds a path from start to finish', () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 12345 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 12345 });
     const solution = solveMaze(maze.grid);
     
     expect(solution).not.toBeNull();
@@ -27,7 +27,7 @@ describe('Maze Solver', () => {
   });
   
   it('confirms maze has exactly one solution (perfect maze)', () => {
-    const maze = generateMaze({ ageRange: '9-13', seed: 54321 });
+    const maze = generateMaze({ ageRange: '9-11', seed: 54321 });
     const result = isPerfectMaze(maze.grid);
     
     expect(result.isPerfect).toBe(true);
@@ -36,7 +36,7 @@ describe('Maze Solver', () => {
   });
   
   it('validateMaze returns true for valid mazes', () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 99999 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 99999 });
     expect(validateMaze(maze.grid)).toBe(true);
   });
   
@@ -45,7 +45,7 @@ describe('Maze Solver', () => {
     const seeds = [1, 100, 1000, 10000, 100000];
     
     for (const seed of seeds) {
-      const maze = generateMaze({ ageRange: '9-13', seed });
+      const maze = generateMaze({ ageRange: '9-11', seed });
       const solution = solveMaze(maze.grid);
       
       expect(solution).not.toBeNull();
@@ -54,14 +54,14 @@ describe('Maze Solver', () => {
   });
   
   it('all cells are reachable in generated mazes', () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 77777 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 77777 });
     const result = isPerfectMaze(maze.grid);
     
     expect(result.reachableCells).toBe(maze.rows * maze.cols);
   });
   
   it('path contains consecutive adjacent cells', () => {
-    const maze = generateMaze({ ageRange: '3-5', seed: 11111 });
+    const maze = generateMaze({ ageRange: '4-5', seed: 11111 });
     const solution = solveMaze(maze.grid);
     
     for (let i = 1; i < solution.path.length; i++) {
@@ -75,7 +75,7 @@ describe('Maze Solver', () => {
   });
   
   it('path length matches path array length', () => {
-    const maze = generateMaze({ ageRange: '9-13', seed: 22222 });
+    const maze = generateMaze({ ageRange: '9-11', seed: 22222 });
     const solution = solveMaze(maze.grid);
     
     expect(solution.length).toBe(solution.path.length);
@@ -134,8 +134,8 @@ describe('pathToDirections', () => {
 
 describe('Solver Determinism', () => {
   it('produces same solution path for same maze', () => {
-    const maze1 = generateMaze({ ageRange: '3-5', seed: 33333 });
-    const maze2 = generateMaze({ ageRange: '3-5', seed: 33333 });
+    const maze1 = generateMaze({ ageRange: '4-5', seed: 33333 });
+    const maze2 = generateMaze({ ageRange: '4-5', seed: 33333 });
     
     const solution1 = solveMaze(maze1.grid);
     const solution2 = solveMaze(maze2.grid);

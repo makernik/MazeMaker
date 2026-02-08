@@ -19,11 +19,19 @@ export const ALGORITHMS = {
  * Each preset includes algorithm; add new algorithms in generator.js and reference here.
  */
 export const DIFFICULTY_PRESETS = {
-  '3-5': {
+  '3': {
+    gridWidth: 6,
+    gridHeight: 7,
+    cellSize: 72,
+    lineThickness: 4,
+    label: 'Intro',
+    algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
+  },
+  '4-5': {
     gridWidth: 7,
     gridHeight: 8,
-    cellSize: 60,       // points (~10% more cells: 7×8 = 56 vs 6×8 = 48)
-    lineThickness: 4,   // points
+    cellSize: 60,
+    lineThickness: 4,
     label: 'Easy',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
   },
@@ -35,15 +43,23 @@ export const DIFFICULTY_PRESETS = {
     label: 'Medium',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
   },
-  '9-13': {
-    gridWidth: 14,
-    gridHeight: 20,
-    cellSize: 24,       // points
-    lineThickness: 2,   // points
+  '9-11': {
+    gridWidth: 12,
+    gridHeight: 18,
+    cellSize: 24,
+    lineThickness: 2,
     label: 'Hard',
     algorithm: ALGORITHMS.PRIM,
   },
-  '14-17': {
+  '12-14': {
+    gridWidth: 14,
+    gridHeight: 20,
+    cellSize: 24,
+    lineThickness: 2,
+    label: 'Challenging',
+    algorithm: ALGORITHMS.PRIM,
+  },
+  '15-17': {
     gridWidth: 24,
     gridHeight: 30,
     cellSize: 20,
@@ -54,9 +70,9 @@ export const DIFFICULTY_PRESETS = {
   '18+': {
     gridWidth: 36,
     gridHeight: 42,
-    cellSize: 12,       // points
-    lineThickness: 1, // points
-    label: 'Extreme',
+    cellSize: 12,
+    lineThickness: 1,
+    label: 'Epic Adventure',
     algorithm: ALGORITHMS.PRIM,
   },
 };
@@ -66,7 +82,7 @@ export const DIFFICULTY_PRESETS = {
  * Caller may use preset.algorithm for generation; defaults to 'prim' if missing.
  */
 export function getDifficultyPreset(ageRange) {
-  const preset = DIFFICULTY_PRESETS[ageRange] || DIFFICULTY_PRESETS['9-13'];
+  const preset = DIFFICULTY_PRESETS[ageRange] || DIFFICULTY_PRESETS['9-11'];
   return { ...preset, algorithm: preset.algorithm ?? ALGORITHMS.PRIM };
 }
 
