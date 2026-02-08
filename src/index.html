@@ -16,37 +16,44 @@
         </header>
 
         <form class="controls" id="maze-form">
-          <!-- Age Range: Segmented Buttons -->
+          <!-- Select level: vertical list, label + age (parentheses) -->
           <fieldset class="control-group">
-            <legend>Age Range</legend>
-            <div class="segmented-control" role="radiogroup" aria-label="Age Range">
-              <label class="segment">
+            <legend>Select level</legend>
+            <div class="level-select" role="radiogroup" aria-label="Select level">
+              <label class="level-option">
                 <input type="radio" name="age-range" value="3" checked />
-                <span>3</span>
+                <span class="level-option__label">Intro</span>
+                <span class="level-option__age">(3)</span>
               </label>
-              <label class="segment">
+              <label class="level-option">
                 <input type="radio" name="age-range" value="4-5" />
-                <span>4–5</span>
+                <span class="level-option__label">Easy</span>
+                <span class="level-option__age">(4–5)</span>
               </label>
-              <label class="segment">
+              <label class="level-option">
                 <input type="radio" name="age-range" value="6-8" />
-                <span>6–8</span>
+                <span class="level-option__label">Medium</span>
+                <span class="level-option__age">(6–8)</span>
               </label>
-              <label class="segment">
+              <label class="level-option">
                 <input type="radio" name="age-range" value="9-11" />
-                <span>9–11</span>
+                <span class="level-option__label">Hard</span>
+                <span class="level-option__age">(9–11)</span>
               </label>
-              <label class="segment">
+              <label class="level-option">
                 <input type="radio" name="age-range" value="12-14" />
-                <span>12–14</span>
+                <span class="level-option__label">Challenging</span>
+                <span class="level-option__age">(12–14)</span>
               </label>
-              <label class="segment">
+              <label class="level-option">
                 <input type="radio" name="age-range" value="15-17" />
-                <span>15–17</span>
+                <span class="level-option__label">Difficult</span>
+                <span class="level-option__age">(15–17)</span>
               </label>
-              <label class="segment">
+              <label class="level-option">
                 <input type="radio" name="age-range" value="18+" />
-                <span>18+</span>
+                <span class="level-option__label">Epic Adventure</span>
+                <span class="level-option__age">(18+)</span>
               </label>
             </div>
           </fieldset>
