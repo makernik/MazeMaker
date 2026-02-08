@@ -7,7 +7,7 @@
 import { generateMaze, generateMazes } from './maze/generator.js';
 import { validateMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
-import { getDifficultyPreset, DIFFICULTY_PRESETS } from './utils/constants.js';
+import { getDifficultyPreset, DIFFICULTY_PRESETS, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
 
 // DOM elements
@@ -143,15 +143,16 @@ async function generateAndDownload(event) {
     if (oneOfEach) {
       const ageRangeKeys = Object.keys(DIFFICULTY_PRESETS);
       const mazes = [];
-      for (let i = 0; i < ageRangeKeys.length; i++) {
-        const ageRange = ageRangeKeys[i];
-        const preset = getDifficultyPreset(ageRange);
-        const maze = generateMaze({
-          ageRange,
-          seed: baseSeed + i,
-          algorithm: preset.algorithm,
-        });
-        mazes.push(maze);
+      for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+        for (let l = 0; l < ageRangeKeys.length; l++) {
+          const ageRange = ageRangeKeys[l];
+          const maze = generateMaze({
+            ageRange,
+            seed: baseSeed + a * 100 + l,
+            algorithm: ALGORITHM_IDS[a],
+          });
+          mazes.push(maze);
+        }
       }
       result = { mazes, baseSeed, ageRange: null, quantity: mazes.length };
       styleForPdf = 'rounded';
@@ -163,6 +164,7 @@ async function generateAndDownload(event) {
         quantity: values.quantity,
         baseSeed,
         algorithm: preset.algorithm,
+        useAlgorithmRandomizerForOlderAges: OLDER_AGE_RANGES_FOR_RANDOMIZER.includes(values.ageRange),
       });
       filename = `mazes-${values.ageRange}-${result.mazes.length}pk.pdf`;
     }

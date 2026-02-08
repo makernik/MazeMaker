@@ -14,6 +14,12 @@ export const ALGORITHMS = {
   RECURSIVE_BACKTRACKER: 'recursive-backtracker',
 };
 
+/** Ordered list of all algorithm ids (for randomizer and debug "1 of each") */
+export const ALGORITHM_IDS = Object.values(ALGORITHMS);
+
+/** Age ranges that use algorithm randomizer for additional mazes (quantity > 1). First maze always uses preset.algorithm. */
+export const OLDER_AGE_RANGES_FOR_RANDOMIZER = ['12-14', '15-17', '18+'];
+
 /**
  * Difficulty presets by age range.
  * Each preset includes algorithm; add new algorithms in generator.js and reference here.

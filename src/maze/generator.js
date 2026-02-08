@@ -25,7 +25,7 @@
 
 import { MazeGrid, DIRECTIONS, DIRECTION_OFFSETS, OPPOSITE } from './grid.js';
 import { createRng, generateSeed } from '../utils/rng.js';
-import { getDifficultyPreset } from '../utils/constants.js';
+import { getDifficultyPreset, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from '../utils/constants.js';
 
 /**
  * Wall entry for Prim's algorithm
@@ -189,19 +189,38 @@ function addWallsToList(grid, cell, walls) {
  * @param {string} config.ageRange - Age range
  * @param {number} config.quantity - Number of mazes to generate
  * @param {number} [config.baseSeed] - Optional base seed (each maze gets baseSeed + index)
- * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' (default 'prim')
+ * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' (default 'prim'); used for first maze and when randomizer off
+ * @param {boolean} [config.useAlgorithmRandomizerForOlderAges] - If true and ageRange is in OLDER_AGE_RANGES_FOR_RANDOMIZER, maze index > 0 uses deterministic random choice from ALGORITHM_IDS
  * @returns {object} Object with mazes array and metadata
  */
 export function generateMazes(config) {
-  const { ageRange, quantity, baseSeed = generateSeed(), algorithm = 'prim' } = config;
+  const {
+    ageRange,
+    quantity,
+    baseSeed = generateSeed(),
+    algorithm = 'prim',
+    useAlgorithmRandomizerForOlderAges = false,
+  } = config;
+
+  const preset = getDifficultyPreset(ageRange);
+  const useRandomizer =
+    useAlgorithmRandomizerForOlderAges &&
+    quantity > 1 &&
+    OLDER_AGE_RANGES_FOR_RANDOMIZER.includes(ageRange);
 
   const mazes = [];
 
   for (let i = 0; i < quantity; i++) {
+    let algo = preset.algorithm ?? algorithm;
+    if (useRandomizer && i > 0) {
+      const rng = createRng(baseSeed + i);
+      const idx = rng.randomInt(0, ALGORITHM_IDS.length - 1);
+      algo = ALGORITHM_IDS[idx];
+    }
     const maze = generateMaze({
       ageRange,
       seed: baseSeed + i,
-      algorithm,
+      algorithm: algo,
     });
     mazes.push(maze);
   }
