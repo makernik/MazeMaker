@@ -379,6 +379,7 @@ async function fetchThemeImage(url) {
 function formatAlgorithmLabel(algorithmId) {
   if (algorithmId === 'prim') return 'Prim';
   if (algorithmId === 'recursive-backtracker') return 'Recursive backtracker';
+  if (algorithmId === 'kruskal') return 'Kruskal';
   return algorithmId || 'Prim';
 }
 

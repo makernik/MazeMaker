@@ -21,6 +21,11 @@
  * 1. Start at a random cell, push onto stack
  * 2. While stack not empty: get unvisited neighbors, shuffle, pick one,
  *    remove wall, mark visited, push neighbor; if none, pop and backtrack
+ *
+ * Kruskal's (spanning tree):
+ * 1. List all edges (walls between adjacent cells), shuffle
+ * 2. Union-Find: for each edge, if the two cells are in different sets,
+ *    remove the wall and union the sets. Yields a different "twisty" character.
  */
 
 import { MazeGrid, DIRECTIONS, DIRECTION_OFFSETS, OPPOSITE } from './grid.js';
@@ -44,7 +49,7 @@ class WallEntry {
  * @param {object} config - Generation configuration
  * @param {string} config.ageRange - Age range ('3', '4-5', '6-8', '9-11', '12-14', '15-17', '18+')
  * @param {number} [config.seed] - Optional seed for deterministic generation
- * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' (default 'prim')
+ * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' | 'kruskal' (default 'prim')
  * @returns {object} Generated maze with grid and metadata
  */
 export function generateMaze(config) {
@@ -62,6 +67,8 @@ export function generateMaze(config) {
 
   if (algorithm === 'recursive-backtracker') {
     recursiveBacktrackerGenerate(grid, rng);
+  } else if (algorithm === 'kruskal') {
+    kruskalGenerate(grid, rng);
   } else {
     primGenerate(grid, rng);
   }
@@ -162,6 +169,65 @@ function recursiveBacktrackerGenerate(grid, rng) {
 }
 
 /**
+ * Union-Find (disjoint set) for Kruskal's. Path compression only.
+ */
+function makeUnionFind(size) {
+  const parent = Array.from({ length: size }, (_, i) => i);
+  function find(i) {
+    if (parent[i] !== i) parent[i] = find(parent[i]);
+    return parent[i];
+  }
+  function union(i, j) {
+    const pi = find(i);
+    const pj = find(j);
+    if (pi !== pj) parent[pi] = pj;
+  }
+  return { find, union };
+}
+
+/**
+ * Kruskal's algorithm: shuffle all edges, then add each if it connects two disjoint sets.
+ * Produces a different "twisty" character than Prim or Recursive Backtracker.
+ *
+ * @param {MazeGrid} grid - The maze grid to populate
+ * @param {object} rng - Seeded random number generator
+ */
+function kruskalGenerate(grid, rng) {
+  const { rows, cols } = grid;
+  const edges = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (c < cols - 1) edges.push({ row: r, col: c, direction: DIRECTIONS.RIGHT });
+      if (r < rows - 1) edges.push({ row: r, col: c, direction: DIRECTIONS.BOTTOM });
+    }
+  }
+  rng.shuffle(edges);
+  const n = rows * cols;
+  const uf = makeUnionFind(n);
+  const id = (r, c) => r * cols + c;
+
+  for (const { row, col, direction } of edges) {
+    const [dr, dc] = DIRECTION_OFFSETS[direction];
+    const nr = row + dr;
+    const nc = col + dc;
+    const id1 = id(row, col);
+    const id2 = id(nr, nc);
+    if (uf.find(id1) !== uf.find(id2)) {
+      const cell = grid.getCell(row, col);
+      const neighbor = grid.getCell(nr, nc);
+      grid.removeWallBetween(cell, neighbor);
+      uf.union(id1, id2);
+    }
+  }
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      grid.getCell(r, c).markVisited();
+    }
+  }
+}
+
+/**
  * Add all walls of a cell to the wall list
  * Only adds walls that lead to valid, unvisited cells
  * 
@@ -190,7 +256,7 @@ function addWallsToList(grid, cell, walls) {
  * @param {string} config.ageRange - Age range
  * @param {number} config.quantity - Number of mazes to generate
  * @param {number} [config.baseSeed] - Optional base seed (each maze gets baseSeed + index)
- * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' (default 'prim'); used for first maze and when randomizer off
+ * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' | 'kruskal' (default 'prim'); used for first maze and when randomizer off
  * @param {boolean} [config.useAlgorithmRandomizerForOlderAges] - If true and ageRange is in OLDER_AGE_RANGES_FOR_RANDOMIZER, maze index > 0 uses deterministic random choice from ALGORITHM_IDS
  * @returns {object} Object with mazes array and metadata
  */

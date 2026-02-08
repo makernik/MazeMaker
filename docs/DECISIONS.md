@@ -56,6 +56,6 @@ Architectural and design decisions for the Printable Maze Generator.
 
 **Decision:** Use Prim's algorithm for all age ranges in v0. Prim's creates mazes with short branching dead-ends, which are more intuitive and forgiving for younger children.
 
-**Update:** Recursive Backtracker (DFS) is available as an alternative algorithm, selectable via `config.algorithm: 'recursive-backtracker'`. Default remains `'prim'`. Same seed and algorithm yield the same maze (deterministic).
+**Update:** Recursive Backtracker (DFS) and Kruskal's are available as alternative algorithms, selectable via `config.algorithm: 'recursive-backtracker'` or `'kruskal'`. Default remains `'prim'`. Same seed and algorithm yield the same maze (deterministic). Kruskal's produces a different "twisty" character; all three are used by the algorithm randomizer for older-age multi-maze packs.
 
 **Future consideration:** Map algorithms to age bands (e.g. Recursive Backtracker for younger, Prim for older) for age-appropriate challenge (see DEFERRED_IDEAS.md). Age ranges in v0: 3, 4–5, 6–8, 9–11, 12–14, 15–17, 18+ (label: Epic Adventure).

@@ -5,13 +5,14 @@
  * - Grid size (fewer cells = easier)
  * - Cell size (larger = easier to trace)
  * - Line thickness (thicker = easier to see)
- * - algorithm: which maze generator to use ('prim' | 'recursive-backtracker'; more can be added in generator.js)
+ * - algorithm: which maze generator to use ('prim' | 'recursive-backtracker' | 'kruskal'; more can be added in generator.js)
  */
 
 /** Supported algorithm ids (generator.js branches on these) */
 export const ALGORITHMS = {
   PRIM: 'prim',
   RECURSIVE_BACKTRACKER: 'recursive-backtracker',
+  KRUSKAL: 'kruskal',
 };
 
 /** Ordered list of all algorithm ids (for randomizer and debug "1 of each") */

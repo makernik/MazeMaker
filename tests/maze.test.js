@@ -278,3 +278,36 @@ describe('Recursive Backtracker algorithm', () => {
     }
   });
 });
+
+describe('Kruskal algorithm', () => {
+  it('produces a valid (solvable) maze with fixed seed', () => {
+    const maze = generateMaze({
+      ageRange: '9-11',
+      seed: 12345,
+      algorithm: 'kruskal',
+    });
+    expect(validateMaze(maze.grid)).toBe(true);
+  });
+
+  it('produces identical mazes for same seed and algorithm', () => {
+    const maze1 = generateMaze({
+      ageRange: '12-14',
+      seed: 99999,
+      algorithm: 'kruskal',
+    });
+    const maze2 = generateMaze({
+      ageRange: '12-14',
+      seed: 99999,
+      algorithm: 'kruskal',
+    });
+    expect(maze1.rows).toBe(maze2.rows);
+    expect(maze1.cols).toBe(maze2.cols);
+    for (let row = 0; row < maze1.rows; row++) {
+      for (let col = 0; col < maze1.cols; col++) {
+        const c1 = maze1.grid.getCell(row, col);
+        const c2 = maze2.grid.getCell(row, col);
+        expect(c1.walls).toEqual(c2.walls);
+      }
+    }
+  });
+});
