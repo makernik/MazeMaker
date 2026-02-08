@@ -117,8 +117,8 @@ export async function renderMazesToPdf(config) {
       await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/animals/', animalImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     }
 
-    // Draw footer (include difficulty, age range, algorithm in debug mode)
-    drawFooter(page, font, debugMode ? { label: maze.preset.label, ageRange: maze.ageRange, algorithm: maze.preset.algorithm } : null);
+    // Draw footer (include difficulty, age range, algorithm in debug mode; use algorithm actually used for this maze)
+    drawFooter(page, font, debugMode ? { label: maze.preset.label, ageRange: maze.ageRange, algorithm: maze.algorithm ?? maze.preset.algorithm } : null);
   }
   
   // Save and return PDF bytes

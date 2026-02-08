@@ -75,6 +75,7 @@ export function generateMaze(config) {
     seed,
     ageRange,
     preset,
+    algorithm, // algorithm actually used (for debug footer; may differ from preset.algorithm in "1 of each" or randomizer)
     rows: gridHeight,
     cols: gridWidth,
   };
