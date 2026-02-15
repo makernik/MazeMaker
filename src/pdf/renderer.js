@@ -196,53 +196,100 @@ function drawWall(page, x1, y1, x2, y2, thickness, isRounded) {
 }
 
 /**
- * Draw organic maze: for each closed wall, draw the circular arc on the cell boundary
- * (the arc between the two chord endpoints that faces the neighbor). Uses drawSvgPath;
- * pdf-lib flips Y so path coords use (x, -y) for PDF (x, y).
+ * Draw organic maze: white corridors with thin black outlines so paths read as
+ * "walkable" (white) with visible walls (black), not solid black.
+ * pdf-lib drawSvgPath flips Y so path coords use (x, -y) for PDF (x, y).
  */
 function drawOrganicMaze(page, maze, options) {
   const { transform, lineThickness, scale } = options;
   const { graph } = maze;
-  const thickness = lineThickness;
 
+  const corridorWidth = Math.max(lineThickness * 4, 10);
+  const wallThickness = lineThickness * scale;
+  const drawnConnections = new Set();
+
+  const buildPath = (node, nid, other) => {
+    const midX = (node.x + other.x) / 2;
+    const midY = (node.y + other.y) / 2;
+    const dx = other.x - node.x;
+    const dy = other.y - node.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const perpX = (-dy / dist) * dist * 0.15;
+    const perpY = (dx / dist) * dist * 0.15;
+    const variation = Math.sin(node.id * 0.7 + nid * 0.3) * 0.5;
+    const ctrlX = midX + perpX * variation;
+    const ctrlY = midY + perpY * variation;
+    const start = transform(node.x, node.y);
+    const ctrl = transform(ctrlX, ctrlY);
+    const end = transform(other.x, other.y);
+    const widthVariation = 1 + Math.sin(node.id * 0.5) * 0.1;
+    const pathWidth = corridorWidth * widthVariation * scale;
+    const svgPath = `M ${start.x} ${-start.y} Q ${ctrl.x} ${-ctrl.y} ${end.x} ${-end.y}`;
+    return { svgPath, pathWidth };
+  };
+
+  // Pass 1: Wide white corridors (slightly wider to accommodate wall)
   for (const node of graph.nodes) {
     for (const nid of node.neighbors) {
-      if (nid <= node.id) continue;
-      if (!graph.hasWall(node.id, nid)) continue;
+      const connectionKey = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
+      if (drawnConnections.has(connectionKey)) continue;
+      if (graph.hasWall(node.id, nid)) continue;
+      drawnConnections.add(connectionKey);
       const other = graph.getNode(nid);
       if (!other) continue;
-      const dx = other.x - node.x;
-      const dy = other.y - node.y;
-      const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
-      const ux = dx / d;
-      const uy = dy / d;
-      const tx = node.x + ux * node.r;
-      const ty = node.y + uy * node.r;
-      const halfLen = Math.min(node.r, other.r) * 0.85;
-      const px = -uy * halfLen;
-      const py = ux * halfLen;
-      const q1 = transform(tx - px, ty - py);
-      const q2 = transform(tx + px, ty + py);
-      const qMid = transform(tx, ty);
-      const cx = transform(node.x, node.y).x;
-      const cy = transform(node.x, node.y).y;
-      const r = node.r * scale;
-      const a1 = Math.atan2(q1.y - cy, q1.x - cx);
-      const a2 = Math.atan2(q2.y - cy, q2.x - cx);
-      const aMid = Math.atan2(qMid.y - cy, qMid.x - cx);
-      const twoPi = 2 * Math.PI;
-      const dCCW = ((a2 - a1) % twoPi + twoPi) % twoPi;
-      const dMid = ((aMid - a1) % twoPi + twoPi) % twoPi;
-      const useCCW = dMid > 1e-6 && dMid < dCCW - 1e-6;
-      const largeArc = useCCW ? (dCCW > Math.PI ? 1 : 0) : (twoPi - dCCW > Math.PI ? 1 : 0);
-      const sweep = useCCW ? 1 : 0;
-      const svgPath = `M ${q1.x} ${-q1.y} A ${r} ${r} 0 ${largeArc} ${sweep} ${q2.x} ${-q2.y}`;
+      const { svgPath, pathWidth } = buildPath(node, nid, other);
       page.drawSvgPath(svgPath, {
-        borderColor: rgb(0, 0, 0),
-        borderWidth: thickness,
+        borderColor: rgb(1, 1, 1),
+        borderWidth: pathWidth + wallThickness * 2,
         borderLineCap: 1,
       });
     }
+  }
+
+  drawnConnections.clear();
+
+  // Pass 2: Thin black outlines (wall edges)
+  for (const node of graph.nodes) {
+    for (const nid of node.neighbors) {
+      const connectionKey = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
+      if (drawnConnections.has(connectionKey)) continue;
+      if (graph.hasWall(node.id, nid)) continue;
+      drawnConnections.add(connectionKey);
+      const other = graph.getNode(nid);
+      if (!other) continue;
+      const { svgPath } = buildPath(node, nid, other);
+      page.drawSvgPath(svgPath, {
+        borderColor: rgb(0, 0, 0),
+        borderWidth: wallThickness,
+        borderLineCap: 1,
+        borderLineJoin: 1,
+      });
+    }
+  }
+
+  // Junctions: white fill + black outline (arc only)
+  for (const node of graph.nodes) {
+    const openConnections = node.neighbors.filter(nid => !graph.hasWall(node.id, nid));
+    if (openConnections.length === 0) continue;
+
+    const pos = transform(node.x, node.y);
+    const widthVariation = 1 + Math.sin(node.id * 0.5) * 0.1;
+    const circleRadius = (corridorWidth * widthVariation * scale) / 2;
+    const junctionRadius = circleRadius + wallThickness;
+
+    page.drawCircle({
+      x: pos.x,
+      y: pos.y,
+      size: junctionRadius,
+      color: rgb(1, 1, 1),
+    });
+    page.drawCircle({
+      x: pos.x,
+      y: pos.y,
+      size: junctionRadius,
+      borderColor: rgb(0, 0, 0),
+      borderWidth: wallThickness,
+    });
   }
 }
 
