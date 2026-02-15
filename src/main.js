@@ -5,6 +5,7 @@
  */
 
 import { generateMaze, generateMazes } from './maze/generator.js';
+import { generateOrganicMaze } from './maze/organic-generator.js';
 import { validateMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
 import { getDifficultyPreset, DIFFICULTY_PRESETS, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
@@ -93,7 +94,11 @@ function updateDebugPanel(mazes, baseSeed) {
   if (mazes.length > 1) {
     debugSeedEl.textContent += ` (base: ${baseSeed}, +0…${mazes.length - 1})`;
   }
-  debugGridEl.textContent = `${maze.cols} × ${maze.rows}`;
+  if (maze.layout === 'organic') {
+    debugGridEl.textContent = `organic, ${maze.graph.nodes.length} cells`;
+  } else {
+    debugGridEl.textContent = `${maze.cols} × ${maze.rows}`;
+  }
   debugCellSizeEl.textContent = `${preset.cellSize} pt`;
   debugLineThicknessEl.textContent = `${preset.lineThickness} pt`;
 }
@@ -134,6 +139,9 @@ async function generateAndDownload(event) {
   try {
     const baseSeed = generateSeed();
     console.log('Base seed:', baseSeed);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:generateAndDownload',message:'form values',data:{mazeStyle:values.mazeStyle,ageRange:values.ageRange,quantity:values.quantity},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     let result;
     let styleForPdf = values.mazeStyle;
@@ -157,6 +165,19 @@ async function generateAndDownload(event) {
       result = { mazes, baseSeed, ageRange: null, quantity: mazes.length };
       styleForPdf = 'rounded';
       filename = 'mazes-one-of-each.pdf';
+      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:branch',message:'branch taken',data:{branch:'oneOfEach'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    } else if (values.mazeStyle === 'organic') {
+      const mazes = [];
+      for (let i = 0; i < values.quantity; i++) {
+        mazes.push(generateOrganicMaze({
+          ageRange: values.ageRange,
+          seed: baseSeed + i,
+        }));
+      }
+      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
+      styleForPdf = 'organic';
+      filename = `mazes-organic-${values.ageRange}-${mazes.length}pk.pdf`;
+      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:branch',message:'branch taken',data:{branch:'organic'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
     } else {
       const preset = getDifficultyPreset(values.ageRange);
       result = generateMazes({
@@ -167,14 +188,16 @@ async function generateAndDownload(event) {
         useAlgorithmRandomizerForOlderAges: OLDER_AGE_RANGES_FOR_RANDOMIZER.includes(values.ageRange),
       });
       filename = `mazes-${values.ageRange}-${result.mazes.length}pk.pdf`;
+      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:branch',message:'branch taken',data:{branch:'grid',mazeStyle:values.mazeStyle},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
     }
 
+    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:afterGen',message:'first maze layout',data:{layout:result.mazes[0].layout,styleForPdf},timestamp:Date.now(),hypothesisId:'C,E'})}).catch(()=>{});
     console.log(`Generated ${result.mazes.length} mazes`);
 
     setStatus('Validating mazes...');
     let validCount = 0;
     for (const maze of result.mazes) {
-      if (validateMaze(maze.grid)) {
+      if (validateMaze(maze)) {
         validCount++;
       } else {
         console.warn('Invalid maze detected, seed:', maze.seed);
@@ -184,8 +207,14 @@ async function generateAndDownload(event) {
     if (validCount !== result.mazes.length) {
       throw new Error(`Only ${validCount}/${result.mazes.length} mazes are valid`);
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:phase',message:'validation complete',data:{phase:'validationComplete'},timestamp:Date.now(),hypothesisId:'err1'})}).catch(()=>{});
+    // #endregion
 
     setStatus('Rendering PDF...');
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:phase',message:'render start',data:{phase:'renderStart'},timestamp:Date.now(),hypothesisId:'err2'})}).catch(()=>{});
+    // #endregion
     const pdfBytes = await renderMazesToPdf({
       mazes: result.mazes,
       style: styleForPdf,
@@ -204,6 +233,9 @@ async function generateAndDownload(event) {
   } catch (error) {
     consecutiveFailures += 1;
     console.error('Generation failed:', error);
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:catch',message:'generation failed',data:{errorMessage:String(error&&error.message),errorName:error&&error.name,stack:(error&&error.stack||'').slice(0,600)},timestamp:Date.now(),hypothesisId:'err0'})}).catch(()=>{});
+    // #endregion
     if (consecutiveFailures >= 2) {
       setStatus('Generation failed again. Check the console for details.', 'error');
     } else {

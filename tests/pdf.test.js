@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderMazesToPdf, renderSingleMaze } from '../src/pdf/renderer.js';
 import { generateMaze, generateMazes } from '../src/maze/generator.js';
+import { generateOrganicMaze } from '../src/maze/organic-generator.js';
 
 describe('PDF Renderer', () => {
   it('generates a valid PDF document', async () => {
@@ -92,6 +93,24 @@ describe('PDF Renderer', () => {
     const pdf2 = await renderSingleMaze(maze2, 'square');
     
     // PDFs should be identical
+    expect(pdf1.length).toBe(pdf2.length);
+    expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
+  });
+
+  it('renders organic maze', async () => {
+    const maze = generateOrganicMaze({ ageRange: '4-5', seed: 88880 });
+    const pdfBytes = await renderSingleMaze(maze, 'square');
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.length).toBeGreaterThan(1000);
+    const header = String.fromCharCode(...pdfBytes.slice(0, 5));
+    expect(header).toBe('%PDF-');
+  });
+
+  it('produces deterministic PDF for same organic maze', async () => {
+    const maze1 = generateOrganicMaze({ ageRange: '4-5', seed: 88881 });
+    const maze2 = generateOrganicMaze({ ageRange: '4-5', seed: 88881 });
+    const pdf1 = await renderSingleMaze(maze1, 'square');
+    const pdf2 = await renderSingleMaze(maze2, 'square');
     expect(pdf1.length).toBe(pdf2.length);
     expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
   });

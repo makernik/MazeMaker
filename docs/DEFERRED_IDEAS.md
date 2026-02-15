@@ -9,7 +9,7 @@ Ideas considered but explicitly deferred from v0 scope.
 ## Maze Topology
 
 ### Organic / Curvy Maze Paths
-Maze walls with smooth, organic curves instead of grid-aligned walls. Requires fundamentally different generation algorithm.
+**Organic (implemented):** Maze style "Organic" uses circle-packing layout and a non-grid graph; DFS generates the maze (see DECISIONS.md D-008). Curvy (grid + Bezier rendering) was removed in favor of Organic.
 
 ### Polar / Circular Mazes
 Concentric ring topology with radial passages. Different data structure and rendering approach.

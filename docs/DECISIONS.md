@@ -30,6 +30,16 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-008 — Organic style: non-grid graph topology (2026-02-07)
+
+**Context:** Users may want maze layouts that are not grid-aligned. D-007 had introduced "Curvy" as grid + Bezier rendering; DEFERRED_IDEAS listed true organic (non-grid) topology as deferred.
+
+**Decision:** "Organic" is a **maze style** that uses a different topology and generation path: circle packing (deterministic, variable radii) produces an arbitrary graph of touching cells; DFS on that graph carves a perfect maze. Solver and renderer support both grid and organic via a unified maze object (layout discriminator). Same seed → same PDF. The previous "Curvy" style (grid + Bezier rendering) has been removed and replaced by Organic.
+
+**Scope:** Grid styles remain Square and Rounded. Organic is the only non-grid style in v0.
+
+---
+
 ## D-003 — pdf-lib for PDF generation (2026-01-31)
 
 **Context:** Need vector-first PDF rendering for crisp print output at any DPI.
