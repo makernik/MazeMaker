@@ -227,8 +227,11 @@ function drawOrganicMaze(page, maze, options) {
   const maxCorridorW = avgDist * 0.35;
   const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
   const halfW = corridorWidth / 2;
-  const junctionR = halfW * 1.5;
+  // Junction arc radius: 1.05× halfW keeps arcs nearly corridor-width
+  const junctionR = halfW * 1.05;
   const halfOpenAngle = Math.asin(Math.min(halfW / junctionR, 1));
+  // Geometric trim: wall endpoints lie exactly on the junction circle
+  const geometricTrim = Math.sqrt(junctionR * junctionR - halfW * halfW);
   const drawnEdges = new Set();
 
   // Per-node: collect open-passage angles for junction arcs
@@ -264,8 +267,8 @@ function drawOrganicMaze(page, maze, options) {
       const px = -uy;
       const py = ux;
 
-      const trimA = Math.min(junctionR, dist * 0.4);
-      const trimB = Math.min(junctionR, dist * 0.4);
+      const trimA = Math.min(geometricTrim, dist * 0.45);
+      const trimB = Math.min(geometricTrim, dist * 0.45);
 
       const ax = node.x + ux * trimA;
       const ay = node.y + uy * trimA;
@@ -287,7 +290,7 @@ function drawOrganicMaze(page, maze, options) {
     }
   }
 
-  // Junction arcs and dead-end caps at each node
+  // Junction arcs, straight wedges, and dead-end caps at each node
   for (const node of graph.nodes) {
     const passages = nodePassages.get(node.id);
     if (!passages || passages.length === 0) continue;
@@ -302,19 +305,39 @@ function drawOrganicMaze(page, maze, options) {
       const startAngle = curr.angle + halfOpenAngle;
       let endAngle = next.angle - halfOpenAngle;
       if (i === n - 1) endAngle += 2 * Math.PI;
-      let span = endAngle - startAngle;
-      if (span < 0.05) continue;
+      const span = endAngle - startAngle;
 
-      const steps = Math.max(2, Math.ceil(span / 0.2));
-      for (let s = 0; s < steps; s++) {
-        const a1 = startAngle + (span * s) / steps;
-        const a2 = startAngle + (span * (s + 1)) / steps;
+      if (span < 0.02) continue;
+
+      if (span < 0) {
+        // Acute gap: draw straight line connecting wall endpoints (wedge)
+        // Right wall end of curr passage
+        const t1 = geometricTrim;
+        const rx = cx + Math.cos(curr.angle) * t1 + Math.sin(curr.angle) * halfW;
+        const ry = cy + Math.sin(curr.angle) * t1 - Math.cos(curr.angle) * halfW;
+        // Left wall end of next passage
+        const t2 = geometricTrim;
+        const lx = cx + Math.cos(next.angle) * t2 - Math.sin(next.angle) * halfW;
+        const ly = cy + Math.sin(next.angle) * t2 + Math.cos(next.angle) * halfW;
         page.drawLine({
-          start: transform(cx + junctionR * Math.cos(a1), cy + junctionR * Math.sin(a1)),
-          end: transform(cx + junctionR * Math.cos(a2), cy + junctionR * Math.sin(a2)),
+          start: transform(rx, ry),
+          end: transform(lx, ly),
           thickness: wallThickness,
           color: rgb(0, 0, 0),
         });
+      } else {
+        // Normal gap: draw arc at junctionR
+        const steps = Math.max(2, Math.ceil(span / 0.2));
+        for (let s = 0; s < steps; s++) {
+          const a1 = startAngle + (span * s) / steps;
+          const a2 = startAngle + (span * (s + 1)) / steps;
+          page.drawLine({
+            start: transform(cx + junctionR * Math.cos(a1), cy + junctionR * Math.sin(a1)),
+            end: transform(cx + junctionR * Math.cos(a2), cy + junctionR * Math.sin(a2)),
+            thickness: wallThickness,
+            color: rgb(0, 0, 0),
+          });
+        }
       }
     }
   }
