@@ -326,33 +326,40 @@ function drawOrganicMaze(page, maze, options) {
           color: rgb(0, 0, 0),
         });
       } else {
-        // Normal gap: draw arc at junctionR
-        const steps = Math.max(2, Math.ceil(span / 0.2));
-        for (let s = 0; s < steps; s++) {
-          const a1 = startAngle + (span * s) / steps;
-          const a2 = startAngle + (span * (s + 1)) / steps;
-          page.drawLine({
-            start: transform(cx + junctionR * Math.cos(a1), cy + junctionR * Math.sin(a1)),
-            end: transform(cx + junctionR * Math.cos(a2), cy + junctionR * Math.sin(a2)),
-            thickness: wallThickness,
-            color: rgb(0, 0, 0),
-          });
-        }
+        // Normal gap: true SVG arc at junctionR
+        const p1 = transform(cx + junctionR * Math.cos(startAngle), cy + junctionR * Math.sin(startAngle));
+        const p2 = transform(cx + junctionR * Math.cos(endAngle), cy + junctionR * Math.sin(endAngle));
+        const r = junctionR * scale;
+        const largeArc = span > Math.PI ? 1 : 0;
+        const svgPath = `M ${p1.x} ${-p1.y} A ${r} ${r} 0 ${largeArc} 0 ${p2.x} ${-p2.y}`;
+        page.drawSvgPath(svgPath, {
+          borderColor: rgb(0, 0, 0),
+          borderWidth: wallThickness,
+          borderLineCap: 1,
+        });
       }
     }
   }
 
-  // Outer boundary rectangle
+  // Outer boundary with entrance/exit gaps
   const bw = maze.boundsWidth;
   const bh = maze.boundsHeight;
-  const bl = transform(0, 0);
-  const br = transform(bw, 0);
-  const tl = transform(0, bh);
-  const tr = transform(bw, bh);
-  page.drawLine({ start: bl, end: br, thickness: wallThickness, color: rgb(0, 0, 0) });
-  page.drawLine({ start: br, end: tr, thickness: wallThickness, color: rgb(0, 0, 0) });
-  page.drawLine({ start: tr, end: tl, thickness: wallThickness, color: rgb(0, 0, 0) });
-  page.drawLine({ start: tl, end: bl, thickness: wallThickness, color: rgb(0, 0, 0) });
+  const startPos = maze.nodePositions.get(maze.startId);
+  const finishPos = maze.nodePositions.get(maze.finishId);
+  const gapHalf = halfW;
+  const lineOpts = { thickness: wallThickness, color: rgb(0, 0, 0) };
+
+  // Top edge: gap at startPos.x
+  page.drawLine({ start: transform(0, bh), end: transform(startPos.x - gapHalf, bh), ...lineOpts });
+  page.drawLine({ start: transform(startPos.x + gapHalf, bh), end: transform(bw, bh), ...lineOpts });
+
+  // Bottom edge: gap at finishPos.x
+  page.drawLine({ start: transform(0, 0), end: transform(finishPos.x - gapHalf, 0), ...lineOpts });
+  page.drawLine({ start: transform(finishPos.x + gapHalf, 0), end: transform(bw, 0), ...lineOpts });
+
+  // Left and right edges: solid
+  page.drawLine({ start: transform(0, 0), end: transform(0, bh), ...lineOpts });
+  page.drawLine({ start: transform(bw, 0), end: transform(bw, bh), ...lineOpts });
 }
 
 /**
