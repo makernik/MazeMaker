@@ -6,8 +6,6 @@
 
 import { createRng } from '../utils/rng.js';
 
-const TOUCH_EPSILON = 0.5;
-
 /**
  * Pack circles into a rectangle. Deterministic given seed.
  *
@@ -63,11 +61,12 @@ export function packCircles(options) {
         const dy = a.y - b.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
         const overlap = a.r + b.r - dist;
-        if (overlap > 0) {
+        if (overlap > -2) {
           const f = overlap / dist;
-          fx += (dx / dist) * f;
-          fy += (dy / dist) * f;
-          moved = true;
+          const strength = overlap > 0 ? 1 : 0.1;
+          fx += (dx / dist) * f * strength;
+          fy += (dy / dist) * f * strength;
+          if (overlap > 0) moved = true;
         }
       }
       // Keep in bounds
@@ -100,7 +99,7 @@ export function computeNeighbors(circles) {
       const dx = a.x - b.x;
       const dy = a.y - b.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= a.r + b.r + TOUCH_EPSILON) {
+      if (dist <= a.r + b.r + Math.max(2, (a.r + b.r) * 0.05)) {
         list.push(b.id);
         neighborMap.get(b.id).push(a.id);
       }
