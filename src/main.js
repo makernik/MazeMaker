@@ -151,21 +151,30 @@ async function generateAndDownload(event) {
     if (oneOfEach) {
       const ageRangeKeys = Object.keys(DIFFICULTY_PRESETS);
       const mazes = [];
-      for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+      if (values.mazeStyle === 'organic') {
         for (let l = 0; l < ageRangeKeys.length; l++) {
-          const ageRange = ageRangeKeys[l];
-          const maze = generateMaze({
-            ageRange,
-            seed: baseSeed + a * 100 + l,
-            algorithm: ALGORITHM_IDS[a],
-          });
-          mazes.push(maze);
+          mazes.push(generateOrganicMaze({
+            ageRange: ageRangeKeys[l],
+            seed: baseSeed + l,
+          }));
         }
+        styleForPdf = 'organic';
+      } else {
+        for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+          for (let l = 0; l < ageRangeKeys.length; l++) {
+            const ageRange = ageRangeKeys[l];
+            const maze = generateMaze({
+              ageRange,
+              seed: baseSeed + a * 100 + l,
+              algorithm: ALGORITHM_IDS[a],
+            });
+            mazes.push(maze);
+          }
+        }
+        styleForPdf = values.mazeStyle;
       }
       result = { mazes, baseSeed, ageRange: null, quantity: mazes.length };
-      styleForPdf = 'rounded';
-      filename = 'mazes-one-of-each.pdf';
-      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:branch',message:'branch taken',data:{branch:'oneOfEach'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      filename = `mazes-one-of-each-${values.mazeStyle}.pdf`;
     } else if (values.mazeStyle === 'organic') {
       const mazes = [];
       for (let i = 0; i < values.quantity; i++) {

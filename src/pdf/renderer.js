@@ -86,7 +86,9 @@ export async function renderMazesToPdf(config) {
           drawOrganicSolverOverlay(page, maze, solution.path, { transform });
         }
       }
-      drawOrganicLabels(page, maze, { transform, useArrows, font, boldFont });
+      const boundaryTop = transform(0, boundsHeight).y;
+      const boundaryBottom = transform(0, 0).y;
+      drawOrganicLabels(page, maze, { transform, useArrows, font, boldFont, boundaryTop, boundaryBottom });
     } else {
       const cellWidth = mazeWidth / maze.cols;
       const cellHeight = mazeHeight / maze.rows;
@@ -204,10 +206,28 @@ function drawOrganicMaze(page, maze, options) {
   const { transform, lineThickness, scale } = options;
   const { graph } = maze;
 
-  const corridorWidth = Math.max(lineThickness * 3, 8);
   const wallThickness = lineThickness * scale;
+
+  // Compute average neighbor distance to scale corridor width for dense packings
+  let totalDist = 0;
+  let edgeCount = 0;
+  for (const node of graph.nodes) {
+    for (const nid of node.neighbors) {
+      if (nid > node.id) {
+        const other = graph.getNode(nid);
+        if (!other) continue;
+        const dx = other.x - node.x;
+        const dy = other.y - node.y;
+        totalDist += Math.sqrt(dx * dx + dy * dy);
+        edgeCount++;
+      }
+    }
+  }
+  const avgDist = edgeCount > 0 ? totalDist / edgeCount : 30;
+  const maxCorridorW = avgDist * 0.35;
+  const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
   const halfW = corridorWidth / 2;
-  const junctionR = halfW;
+  const junctionR = halfW * 1.5;
   const halfOpenAngle = Math.asin(Math.min(halfW / junctionR, 1));
   const drawnEdges = new Set();
 
@@ -313,29 +333,33 @@ function drawOrganicMaze(page, maze, options) {
 }
 
 /**
- * Draw start/finish labels for organic maze (at node positions).
+ * Draw start/finish labels for organic maze.
+ * Labels are positioned above/below the boundary rectangle (not relative to nodes)
+ * so they stay clear of the maze content at any density.
  */
 function drawOrganicLabels(page, maze, options) {
-  const { transform, useArrows, font, boldFont } = options;
+  const { transform, useArrows, font, boldFont, boundaryTop, boundaryBottom } = options;
   const startPos = maze.nodePositions.get(maze.startId);
   const finishPos = maze.nodePositions.get(maze.finishId);
   if (!startPos || !finishPos) return;
   const startX = transform(startPos.x, startPos.y).x;
-  const startY = transform(startPos.x, startPos.y).y;
   const finishX = transform(finishPos.x, finishPos.y).x;
-  const finishY = transform(finishPos.x, finishPos.y).y;
 
-  const labelOffset = 14;
+  const gap = 4;
   if (useArrows) {
-    drawArrow(page, startX, startY + labelOffset + 15, startX, startY + labelOffset, 8);
-    drawArrow(page, finishX, finishY - labelOffset - 15, finishX, finishY - labelOffset, 8);
+    const arrowBase = boundaryTop + gap + 15;
+    const arrowTip = boundaryTop + gap;
+    drawArrow(page, startX, arrowBase, startX, arrowTip, 8);
+    const fArrowTip = boundaryBottom - gap;
+    const fArrowBase = boundaryBottom - gap - 15;
+    drawArrow(page, finishX, fArrowBase, finishX, fArrowTip, 8);
   } else {
     const fontSize = 10;
     const startText = 'Start';
     const startTextWidth = boldFont.widthOfTextAtSize(startText, fontSize);
     page.drawText(startText, {
       x: startX - startTextWidth / 2,
-      y: startY + labelOffset,
+      y: boundaryTop + gap,
       size: fontSize,
       font: boldFont,
       color: rgb(0, 0, 0),
@@ -344,7 +368,7 @@ function drawOrganicLabels(page, maze, options) {
     const finishTextWidth = boldFont.widthOfTextAtSize(finishText, fontSize);
     page.drawText(finishText, {
       x: finishX - finishTextWidth / 2,
-      y: finishY - fontSize - labelOffset,
+      y: boundaryBottom - fontSize - gap,
       size: fontSize,
       font: boldFont,
       color: rgb(0, 0, 0),
