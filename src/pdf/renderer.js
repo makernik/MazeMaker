@@ -67,6 +67,7 @@ export async function renderMazesToPdf(config) {
     fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'renderer.js:loop',message:'maze layout and style',data:{layout:maze.layout,style,hasGrid:!!maze.grid,branchTaken:isOrganic?'organic':'grid',layoutType:typeof maze.layout},timestamp:Date.now(),hypothesisId:'C,D,H4'})}).catch(()=>{});
     // #endregion
 
+    let organicStats = null;
     if (maze.layout === 'organic') {
       const { boundsWidth, boundsHeight } = maze;
       const scale = Math.min(mazeWidth / boundsWidth, mazeHeight / boundsHeight);
@@ -79,7 +80,7 @@ export async function renderMazesToPdf(config) {
         y: offsetY + y * scale,
       });
 
-      drawOrganicMaze(page, maze, { transform, lineThickness, scale });
+      organicStats = drawOrganicMaze(page, maze, { transform, lineThickness, scale });
       if (debugMode && showSolution) {
         const solution = solveMaze(maze);
         if (solution && solution.path.length > 1) {
@@ -130,7 +131,17 @@ export async function renderMazesToPdf(config) {
     } else if (theme === 'animals' && animalImageFiles.length > 0) {
       await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/animals/', animalImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     }
-    drawFooter(page, font, debugMode ? { label: maze.preset.label, ageRange: maze.ageRange, algorithm: maze.algorithm ?? maze.preset.algorithm } : null);
+    drawFooter(page, font, debugMode ? {
+      label: maze.preset.label,
+      ageRange: maze.ageRange,
+      algorithm: maze.algorithm ?? maze.preset.algorithm,
+      seed: maze.seed,
+      style: maze.layout === 'organic' ? 'organic' : style,
+      nodeCount: maze.layout === 'organic' ? maze.graph.nodes.length : undefined,
+      connectedCount: maze.layout === 'organic' ? maze.connectedCount : undefined,
+      corridorWidth: organicStats?.corridorWidth,
+      avgDist: organicStats?.avgDist,
+    } : null);
   }
   
   // Save and return PDF bytes
@@ -249,6 +260,18 @@ function drawOrganicMaze(page, maze, options) {
     nodePassages.set(node.id, passages);
   }
 
+  // Inject virtual entrance/exit passages so junction arcs leave openings
+  const startPassages = nodePassages.get(maze.startId);
+  if (startPassages) {
+    startPassages.push({ nid: -1, angle: Math.PI / 2 });
+    startPassages.sort((a, b) => a.angle - b.angle);
+  }
+  const finishPassages = nodePassages.get(maze.finishId);
+  if (finishPassages) {
+    finishPassages.push({ nid: -2, angle: -Math.PI / 2 });
+    finishPassages.sort((a, b) => a.angle - b.angle);
+  }
+
   // Draw parallel corridor walls for each open passage
   for (const node of graph.nodes) {
     for (const nid of node.neighbors) {
@@ -280,12 +303,14 @@ function drawOrganicMaze(page, maze, options) {
         end: transform(bx + px * halfW, by + py * halfW),
         thickness: wallThickness,
         color: rgb(0, 0, 0),
+        lineCap: 1,
       });
       page.drawLine({
         start: transform(ax - px * halfW, ay - py * halfW),
         end: transform(bx - px * halfW, by - py * halfW),
         thickness: wallThickness,
         color: rgb(0, 0, 0),
+        lineCap: 1,
       });
     }
   }
@@ -324,7 +349,21 @@ function drawOrganicMaze(page, maze, options) {
           end: transform(lx, ly),
           thickness: wallThickness,
           color: rgb(0, 0, 0),
+          lineCap: 1,
         });
+      } else if (Math.abs(span - Math.PI) < 0.01) {
+        // Near-π arc: endpoints are nearly diametrically opposite — split
+        // into two sub-arcs at the midpoint to avoid SVG arc degeneracy.
+        const midAngle = (startAngle + endAngle) / 2;
+        const p1 = transform(cx + junctionR * Math.cos(startAngle), cy + junctionR * Math.sin(startAngle));
+        const pm = transform(cx + junctionR * Math.cos(midAngle), cy + junctionR * Math.sin(midAngle));
+        const p2 = transform(cx + junctionR * Math.cos(endAngle), cy + junctionR * Math.sin(endAngle));
+        const r = junctionR * scale;
+        const halfPath = `M ${p1.x} ${-p1.y} A ${r} ${r} 0 0 0 ${pm.x} ${-pm.y}`;
+        const halfPath2 = `M ${pm.x} ${-pm.y} A ${r} ${r} 0 0 0 ${p2.x} ${-p2.y}`;
+        const arcOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
+        page.drawSvgPath(halfPath, arcOpts);
+        page.drawSvgPath(halfPath2, arcOpts);
       } else {
         // Normal gap: true SVG arc at junctionR
         const p1 = transform(cx + junctionR * Math.cos(startAngle), cy + junctionR * Math.sin(startAngle));
@@ -341,13 +380,26 @@ function drawOrganicMaze(page, maze, options) {
     }
   }
 
-  // Outer boundary with entrance/exit gaps
+  // Entrance/exit tunnel walls from boundary to start/finish nodes
   const bw = maze.boundsWidth;
   const bh = maze.boundsHeight;
   const startPos = maze.nodePositions.get(maze.startId);
   const finishPos = maze.nodePositions.get(maze.finishId);
+  const lineOpts = { thickness: wallThickness, color: rgb(0, 0, 0), lineCap: 1 };
+  // Extend tunnel walls by half line-thickness at each end so butt-joints
+  // fully overlap the boundary line and junction arc (no hairline gaps).
+  const halfThick = lineThickness / 2;
+
+  // Start tunnel: vertical walls from top boundary down to start node
+  page.drawLine({ start: transform(startPos.x - halfW, bh + halfThick), end: transform(startPos.x - halfW, startPos.y + geometricTrim - halfThick), ...lineOpts });
+  page.drawLine({ start: transform(startPos.x + halfW, bh + halfThick), end: transform(startPos.x + halfW, startPos.y + geometricTrim - halfThick), ...lineOpts });
+
+  // Finish tunnel: vertical walls from bottom boundary up to finish node
+  page.drawLine({ start: transform(finishPos.x - halfW, 0 - halfThick), end: transform(finishPos.x - halfW, finishPos.y - geometricTrim + halfThick), ...lineOpts });
+  page.drawLine({ start: transform(finishPos.x + halfW, 0 - halfThick), end: transform(finishPos.x + halfW, finishPos.y - geometricTrim + halfThick), ...lineOpts });
+
+  // Outer boundary with entrance/exit gaps
   const gapHalf = halfW;
-  const lineOpts = { thickness: wallThickness, color: rgb(0, 0, 0) };
 
   // Top edge: gap at startPos.x
   page.drawLine({ start: transform(0, bh), end: transform(startPos.x - gapHalf, bh), ...lineOpts });
@@ -360,6 +412,8 @@ function drawOrganicMaze(page, maze, options) {
   // Left and right edges: solid
   page.drawLine({ start: transform(0, 0), end: transform(0, bh), ...lineOpts });
   page.drawLine({ start: transform(bw, 0), end: transform(bw, bh), ...lineOpts });
+
+  return { corridorWidth, avgDist };
 }
 
 /**
@@ -380,8 +434,8 @@ function drawOrganicLabels(page, maze, options) {
     const arrowBase = boundaryTop + gap + 15;
     const arrowTip = boundaryTop + gap;
     drawArrow(page, startX, arrowBase, startX, arrowTip, 8);
-    const fArrowTip = boundaryBottom - gap;
-    const fArrowBase = boundaryBottom - gap - 15;
+    const fArrowBase = boundaryBottom - gap;
+    const fArrowTip = boundaryBottom - gap - 15;
     drawArrow(page, finishX, fArrowBase, finishX, fArrowTip, 8);
   } else {
     const fontSize = 10;
@@ -644,7 +698,7 @@ function formatAlgorithmLabel(algorithmId) {
  * Draw the footer on a page.
  * @param {PDFPage} page
  * @param {PDFFont} font
- * @param {{ label: string, ageRange: string, algorithm?: string } | null} debugInfo - When set (debug mode), append difficulty, age range, algorithm to footer
+ * @param {object|null} debugInfo - When set (debug mode), append diagnostic fields to footer
  */
 function drawFooter(page, font, debugInfo = null) {
   const fontSize = 8;
@@ -653,6 +707,13 @@ function drawFooter(page, font, debugInfo = null) {
   let text = `${FOOTER_TEXT} • ${FOOTER_URL}`;
   if (debugInfo) {
     text += ` • ${debugInfo.label} • ${debugInfo.ageRange} • ${formatAlgorithmLabel(debugInfo.algorithm)}`;
+    text += ` • ${debugInfo.style}`;
+    if (debugInfo.seed != null) text += ` • seed:${debugInfo.seed}`;
+    if (debugInfo.nodeCount != null) {
+      text += ` • nodes:${debugInfo.connectedCount ?? '?'}/${debugInfo.nodeCount}`;
+    }
+    if (debugInfo.corridorWidth != null) text += ` • cw:${debugInfo.corridorWidth.toFixed(1)}`;
+    if (debugInfo.avgDist != null) text += ` • avg:${debugInfo.avgDist.toFixed(1)}`;
   }
   const textWidth = font.widthOfTextAtSize(text, fontSize);
 
@@ -661,7 +722,7 @@ function drawFooter(page, font, debugInfo = null) {
     y: footerY,
     size: fontSize,
     font,
-    color: rgb(0.4, 0.4, 0.4), // Gray
+    color: rgb(0.4, 0.4, 0.4),
   });
 }
 

@@ -61,7 +61,8 @@ export function packCircles(options) {
         const dy = a.y - b.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
         const overlap = a.r + b.r - dist;
-        if (overlap > -2) {
+        const attractRange = Math.max(2, (a.r + b.r) * 0.15);
+        if (overlap > -attractRange) {
           const f = overlap / dist;
           const strength = overlap > 0 ? 1 : 0.1;
           fx += (dx / dist) * f * strength;

@@ -59,6 +59,7 @@ export function generateOrganicMaze(config) {
     boundsWidth,
     boundsHeight,
     ageRange,
+    connectedCount: carvedIds.size,
   };
 }
 
