@@ -22,7 +22,7 @@ const MAZE_TOP_MARGIN = 20;
 export function generateOrganicMaze(config) {
   const { ageRange, seed = generateSeed() } = config;
   const preset = getDifficultyPreset(ageRange);
-  const targetCount = (preset.gridWidth || 10) * (preset.gridHeight || 14);
+  const targetCount = preset.organicNodeCount || (preset.gridWidth || 10) * (preset.gridHeight || 14);
 
   const boundsWidth = PRINTABLE_WIDTH;
   const boundsHeight = PRINTABLE_HEIGHT - FOOTER_HEIGHT - MAZE_TOP_MARGIN;

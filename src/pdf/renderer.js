@@ -196,101 +196,120 @@ function drawWall(page, x1, y1, x2, y2, thickness, isRounded) {
 }
 
 /**
- * Draw organic maze: white corridors with thin black outlines so paths read as
- * "walkable" (white) with visible walls (black), not solid black.
- * pdf-lib drawSvgPath flips Y so path coords use (x, -y) for PDF (x, y).
+ * Draw organic maze as corridors with parallel wall lines.
+ * For each open passage (no wall), draw two black lines offset ±halfW
+ * from the centerline. Junction arcs and dead-end caps close the gaps.
  */
 function drawOrganicMaze(page, maze, options) {
   const { transform, lineThickness, scale } = options;
   const { graph } = maze;
 
-  const corridorWidth = Math.max(lineThickness * 4, 10);
+  const corridorWidth = Math.max(lineThickness * 3, 8);
   const wallThickness = lineThickness * scale;
-  const drawnConnections = new Set();
+  const halfW = corridorWidth / 2;
+  const junctionR = halfW;
+  const halfOpenAngle = Math.asin(Math.min(halfW / junctionR, 1));
+  const drawnEdges = new Set();
 
-  const buildPath = (node, nid, other) => {
-    const midX = (node.x + other.x) / 2;
-    const midY = (node.y + other.y) / 2;
-    const dx = other.x - node.x;
-    const dy = other.y - node.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const perpX = (-dy / dist) * dist * 0.15;
-    const perpY = (dx / dist) * dist * 0.15;
-    const variation = Math.sin(node.id * 0.7 + nid * 0.3) * 0.5;
-    const ctrlX = midX + perpX * variation;
-    const ctrlY = midY + perpY * variation;
-    const start = transform(node.x, node.y);
-    const ctrl = transform(ctrlX, ctrlY);
-    const end = transform(other.x, other.y);
-    const widthVariation = 1 + Math.sin(node.id * 0.5) * 0.1;
-    const pathWidth = corridorWidth * widthVariation * scale;
-    const svgPath = `M ${start.x} ${-start.y} Q ${ctrl.x} ${-ctrl.y} ${end.x} ${-end.y}`;
-    return { svgPath, pathWidth };
-  };
-
-  // Pass 1: Wide white corridors (slightly wider to accommodate wall)
+  // Per-node: collect open-passage angles for junction arcs
+  const nodePassages = new Map();
   for (const node of graph.nodes) {
+    const passages = [];
     for (const nid of node.neighbors) {
-      const connectionKey = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
-      if (drawnConnections.has(connectionKey)) continue;
       if (graph.hasWall(node.id, nid)) continue;
-      drawnConnections.add(connectionKey);
       const other = graph.getNode(nid);
       if (!other) continue;
-      const { svgPath, pathWidth } = buildPath(node, nid, other);
-      page.drawSvgPath(svgPath, {
-        borderColor: rgb(1, 1, 1),
-        borderWidth: pathWidth + wallThickness * 2,
-        borderLineCap: 1,
+      const angle = Math.atan2(other.y - node.y, other.x - node.x);
+      passages.push({ nid, angle });
+    }
+    passages.sort((a, b) => a.angle - b.angle);
+    nodePassages.set(node.id, passages);
+  }
+
+  // Draw parallel corridor walls for each open passage
+  for (const node of graph.nodes) {
+    for (const nid of node.neighbors) {
+      const key = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
+      if (drawnEdges.has(key)) continue;
+      if (graph.hasWall(node.id, nid)) continue;
+      drawnEdges.add(key);
+      const other = graph.getNode(nid);
+      if (!other) continue;
+
+      const dx = other.x - node.x;
+      const dy = other.y - node.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ux = dx / dist;
+      const uy = dy / dist;
+      const px = -uy;
+      const py = ux;
+
+      const trimA = Math.min(junctionR, dist * 0.4);
+      const trimB = Math.min(junctionR, dist * 0.4);
+
+      const ax = node.x + ux * trimA;
+      const ay = node.y + uy * trimA;
+      const bx = other.x - ux * trimB;
+      const by = other.y - uy * trimB;
+
+      page.drawLine({
+        start: transform(ax + px * halfW, ay + py * halfW),
+        end: transform(bx + px * halfW, by + py * halfW),
+        thickness: wallThickness,
+        color: rgb(0, 0, 0),
+      });
+      page.drawLine({
+        start: transform(ax - px * halfW, ay - py * halfW),
+        end: transform(bx - px * halfW, by - py * halfW),
+        thickness: wallThickness,
+        color: rgb(0, 0, 0),
       });
     }
   }
 
-  drawnConnections.clear();
-
-  // Pass 2: Thin black outlines (wall edges)
+  // Junction arcs and dead-end caps at each node
   for (const node of graph.nodes) {
-    for (const nid of node.neighbors) {
-      const connectionKey = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
-      if (drawnConnections.has(connectionKey)) continue;
-      if (graph.hasWall(node.id, nid)) continue;
-      drawnConnections.add(connectionKey);
-      const other = graph.getNode(nid);
-      if (!other) continue;
-      const { svgPath } = buildPath(node, nid, other);
-      page.drawSvgPath(svgPath, {
-        borderColor: rgb(0, 0, 0),
-        borderWidth: wallThickness,
-        borderLineCap: 1,
-        borderLineJoin: 1,
-      });
+    const passages = nodePassages.get(node.id);
+    if (!passages || passages.length === 0) continue;
+    const cx = node.x;
+    const cy = node.y;
+    const n = passages.length;
+
+    for (let i = 0; i < n; i++) {
+      const curr = passages[i];
+      const next = passages[(i + 1) % n];
+
+      const startAngle = curr.angle + halfOpenAngle;
+      let endAngle = next.angle - halfOpenAngle;
+      if (i === n - 1) endAngle += 2 * Math.PI;
+      let span = endAngle - startAngle;
+      if (span < 0.05) continue;
+
+      const steps = Math.max(2, Math.ceil(span / 0.2));
+      for (let s = 0; s < steps; s++) {
+        const a1 = startAngle + (span * s) / steps;
+        const a2 = startAngle + (span * (s + 1)) / steps;
+        page.drawLine({
+          start: transform(cx + junctionR * Math.cos(a1), cy + junctionR * Math.sin(a1)),
+          end: transform(cx + junctionR * Math.cos(a2), cy + junctionR * Math.sin(a2)),
+          thickness: wallThickness,
+          color: rgb(0, 0, 0),
+        });
+      }
     }
   }
 
-  // Junctions: white fill + black outline (arc only)
-  for (const node of graph.nodes) {
-    const openConnections = node.neighbors.filter(nid => !graph.hasWall(node.id, nid));
-    if (openConnections.length === 0) continue;
-
-    const pos = transform(node.x, node.y);
-    const widthVariation = 1 + Math.sin(node.id * 0.5) * 0.1;
-    const circleRadius = (corridorWidth * widthVariation * scale) / 2;
-    const junctionRadius = circleRadius + wallThickness;
-
-    page.drawCircle({
-      x: pos.x,
-      y: pos.y,
-      size: junctionRadius,
-      color: rgb(1, 1, 1),
-    });
-    page.drawCircle({
-      x: pos.x,
-      y: pos.y,
-      size: junctionRadius,
-      borderColor: rgb(0, 0, 0),
-      borderWidth: wallThickness,
-    });
-  }
+  // Outer boundary rectangle
+  const bw = maze.boundsWidth;
+  const bh = maze.boundsHeight;
+  const bl = transform(0, 0);
+  const br = transform(bw, 0);
+  const tl = transform(0, bh);
+  const tr = transform(bw, bh);
+  page.drawLine({ start: bl, end: br, thickness: wallThickness, color: rgb(0, 0, 0) });
+  page.drawLine({ start: br, end: tr, thickness: wallThickness, color: rgb(0, 0, 0) });
+  page.drawLine({ start: tr, end: tl, thickness: wallThickness, color: rgb(0, 0, 0) });
+  page.drawLine({ start: tl, end: bl, thickness: wallThickness, color: rgb(0, 0, 0) });
 }
 
 /**
@@ -306,17 +325,17 @@ function drawOrganicLabels(page, maze, options) {
   const finishX = transform(finishPos.x, finishPos.y).x;
   const finishY = transform(finishPos.x, finishPos.y).y;
 
+  const labelOffset = 14;
   if (useArrows) {
-    drawArrow(page, startX, startY + 15, startX, startY, 8);
-    // Finish: arrow from below pointing up into the cell so the head is visible at path end
-    drawArrow(page, finishX, finishY - 15, finishX, finishY, 8);
+    drawArrow(page, startX, startY + labelOffset + 15, startX, startY + labelOffset, 8);
+    drawArrow(page, finishX, finishY - labelOffset - 15, finishX, finishY - labelOffset, 8);
   } else {
     const fontSize = 10;
     const startText = 'Start';
     const startTextWidth = boldFont.widthOfTextAtSize(startText, fontSize);
     page.drawText(startText, {
       x: startX - startTextWidth / 2,
-      y: startY + 5,
+      y: startY + labelOffset,
       size: fontSize,
       font: boldFont,
       color: rgb(0, 0, 0),
@@ -325,7 +344,7 @@ function drawOrganicLabels(page, maze, options) {
     const finishTextWidth = boldFont.widthOfTextAtSize(finishText, fontSize);
     page.drawText(finishText, {
       x: finishX - finishTextWidth / 2,
-      y: finishY - fontSize - 5,
+      y: finishY - fontSize - labelOffset,
       size: fontSize,
       font: boldFont,
       color: rgb(0, 0, 0),

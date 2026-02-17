@@ -33,6 +33,7 @@ export const DIFFICULTY_PRESETS = {
     lineThickness: 4,
     label: 'Intro',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
+    organicNodeCount: 20,
   },
   '4-5': {
     gridWidth: 7,
@@ -41,6 +42,7 @@ export const DIFFICULTY_PRESETS = {
     lineThickness: 4,
     label: 'Easy',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
+    organicNodeCount: 35,
   },
   '6-8': {
     gridWidth: 10,
@@ -49,6 +51,7 @@ export const DIFFICULTY_PRESETS = {
     lineThickness: 4,
     label: 'Medium',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
+    organicNodeCount: 70,
   },
   '9-11': {
     gridWidth: 12,
@@ -57,6 +60,7 @@ export const DIFFICULTY_PRESETS = {
     lineThickness: 2,
     label: 'Hard',
     algorithm: ALGORITHMS.PRIM,
+    organicNodeCount: 120,
   },
   '12-14': {
     gridWidth: 14,
@@ -65,6 +69,7 @@ export const DIFFICULTY_PRESETS = {
     lineThickness: 2,
     label: 'Challenging',
     algorithm: ALGORITHMS.PRIM,
+    organicNodeCount: 180,
   },
   '15-17': {
     gridWidth: 24,
@@ -73,6 +78,7 @@ export const DIFFICULTY_PRESETS = {
     lineThickness: 2,
     label: 'Difficult',
     algorithm: ALGORITHMS.PRIM,
+    organicNodeCount: 300,
   },
   '18+': {
     gridWidth: 36,
@@ -81,6 +87,7 @@ export const DIFFICULTY_PRESETS = {
     lineThickness: 1,
     label: 'Epic Adventure',
     algorithm: ALGORITHMS.PRIM,
+    organicNodeCount: 500,
   },
 };
 
