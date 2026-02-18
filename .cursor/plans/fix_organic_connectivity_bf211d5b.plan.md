@@ -4,16 +4,16 @@ overview: Fix the circle packing to guarantee 100% node connectivity for organic
 todos:
   - id: fix-a-attraction
     content: Increase attraction range from 0.15 to 0.4 and scale maxIterations with targetCount in packCircles (circle-packing.js)
-    status: pending
+    status: completed
   - id: fix-b-ensure-connected
     content: "Add ensureConnected(circles, width, height) function in circle-packing.js: BFS components, relocate orphans, brief re-relax, repeat until single component"
-    status: pending
+    status: completed
   - id: integrate-generator
     content: Call ensureConnected between packCircles and computeNeighbors in organic-generator.js
-    status: pending
+    status: completed
   - id: test-validate
     content: Run all tests, verify 73 pass, check lints, confirm connectivity via footer data
-    status: pending
+    status: completed
 isProject: false
 ---
 

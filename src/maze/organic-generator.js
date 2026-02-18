@@ -5,7 +5,7 @@
 
 import { createRng, generateSeed } from '../utils/rng.js';
 import { getDifficultyPreset } from '../utils/constants.js';
-import { packCircles, computeNeighbors } from './circle-packing.js';
+import { packCircles, computeNeighbors, ensureConnected } from './circle-packing.js';
 import { buildOrganicGraph } from './organic-graph.js';
 import { PRINTABLE_WIDTH, PRINTABLE_HEIGHT, FOOTER_HEIGHT } from '../pdf/layout.js';
 
@@ -35,6 +35,7 @@ export function generateOrganicMaze(config) {
     seed,
   });
 
+  ensureConnected(circles, boundsWidth, boundsHeight);
   const neighborMap = computeNeighbors(circles);
   const graph = buildOrganicGraph(circles, neighborMap);
 
