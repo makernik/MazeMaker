@@ -12,6 +12,19 @@ import { getDifficultyPreset, DIFFICULTY_PRESETS, ALGORITHM_IDS, OLDER_AGE_RANGE
 import { generateSeed } from './utils/rng.js';
 import { getSampleImagePath } from './utils/samplePreview.js';
 
+/** Visible placeholder when sample file is missing or a tiny transparent placeholder (maze-only, no solver). */
+const SAMPLE_PLACEHOLDER_DATA_URL =
+  'data:image/svg+xml,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="260" viewBox="0 0 200 260">' +
+    '<rect width="200" height="260" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1" rx="4"/>' +
+    '<text x="100" y="130" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#64748b">Sample maze</text>' +
+    '<text x="100" y="150" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">(no preview for this combination)</text>' +
+    '</svg>'
+  );
+
+/** Paths that we treat as placeholders (tiny or missing); show visible SVG instead. */
+const SAMPLE_PLACEHOLDER_PATHS = new Set(['samples/3-rounded.png', 'samples/4-5-rounded.png']);
+
 // DOM elements
 const form = document.getElementById('maze-form');
 const quantitySlider = document.getElementById('quantity');
@@ -25,6 +38,7 @@ const debugCellSizeEl = document.getElementById('debug-cell-size');
 const debugLineThicknessEl = document.getElementById('debug-line-thickness');
 const debugOneOfEachCheckbox = document.getElementById('debug-one-of-each');
 const debugShowSolutionCheckbox = document.getElementById('debug-show-solution');
+const debugSamplePathEl = document.getElementById('debug-sample-path');
 const samplePreviewImg = document.getElementById('sample-preview-img');
 
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
@@ -44,6 +58,7 @@ function setDebugMode(on) {
   if (debugMode) {
     quantitySlider.value = '1';
     quantityDisplay.textContent = '1';
+    updateSamplePreview(); // refresh debug panel sample path
   }
 
   // Update URL without reload (for sharing debug link)
@@ -123,20 +138,31 @@ function setStatus(message, type = 'info') {
  * Samples are static app assets (maze-only, no solver). Missing file: hide image.
  */
 function updateSamplePreview() {
+  if (!samplePreviewImg) return;
   const values = getFormValues();
   const path = getSampleImagePath(values.ageRange, values.mazeStyle);
+  if (debugMode && debugSamplePathEl) {
+    debugSamplePathEl.textContent = path || '—';
+  }
   if (!path) {
     samplePreviewImg.removeAttribute('src');
     samplePreviewImg.alt = '';
+    if (debugMode) console.log('[sample-preview] no path for', values.ageRange, values.mazeStyle);
     return;
   }
-  const src = '/' + path;
+  const usePlaceholderSvg = SAMPLE_PLACEHOLDER_PATHS.has(path);
+  const src = usePlaceholderSvg ? SAMPLE_PLACEHOLDER_DATA_URL : '/' + path;
   samplePreviewImg.alt = `Sample maze: ${values.ageRange}, ${values.mazeStyle}`;
-  samplePreviewImg.src = src;
   samplePreviewImg.onerror = () => {
-    samplePreviewImg.removeAttribute('src');
-    samplePreviewImg.alt = '';
+    samplePreviewImg.src = SAMPLE_PLACEHOLDER_DATA_URL;
+    samplePreviewImg.alt = `Sample maze: ${values.ageRange}, ${values.mazeStyle}`;
+    if (debugMode) console.warn('[sample-preview] failed to load, showing placeholder:', path);
   };
+  samplePreviewImg.onload = () => {
+    if (debugMode) console.log('[sample-preview] loaded:', usePlaceholderSvg ? 'placeholder' : path);
+  };
+  samplePreviewImg.src = src;
+  if (debugMode) console.log('[sample-preview] setting src:', usePlaceholderSvg ? 'placeholder SVG' : path);
 }
 
 /**

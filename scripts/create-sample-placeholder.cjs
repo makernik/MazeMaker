@@ -14,5 +14,6 @@ const minimalPng = Buffer.from(
 );
 
 fs.mkdirSync(samplesDir, { recursive: true });
+fs.writeFileSync(path.join(samplesDir, '3-rounded.png'), minimalPng);
 fs.writeFileSync(path.join(samplesDir, '4-5-rounded.png'), minimalPng);
-console.log('Created public/samples/4-5-rounded.png');
+console.log('Created public/samples/3-rounded.png and 4-5-rounded.png');

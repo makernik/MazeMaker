@@ -21,8 +21,8 @@ test.describe('Generate PDF flow', () => {
     await page.getByRole('button', { name: 'Generate Printable PDF' }).click();
 
     const download = await downloadPromise;
-    // Filename: mazes-{ageRange}-{quantity}pk.pdf (e.g. mazes-3-5-5pk.pdf or mazes-9-13-1pk.pdf)
-    expect(download.suggestedFilename()).toMatch(/^mazes-\d+-\d+-\d+pk\.pdf$/);
+    // Filename: mazes-{ageRange}-{quantity}pk.pdf (e.g. mazes-3-5pk.pdf, mazes-4-5-5pk.pdf, mazes-18+-1pk.pdf)
+    expect(download.suggestedFilename()).toMatch(/^mazes-.+-\d+pk\.pdf$/);
   });
 
   test('status shows success after generation', async ({ page }) => {
@@ -39,13 +39,12 @@ test.describe('Generate PDF flow', () => {
     await page.goto('/');
 
     await expect(page.getByText('Sample output')).toBeVisible();
-    await expect(page.locator('#sample-preview-img')).toBeAttached();
-
-    // Select level 4-5 and style rounded; we have samples/4-5-rounded.png
-    await page.getByRole('radio', { name: /Easy/ }).click();
-    await page.getByRole('radio', { name: 'Grid' }).click();
-
     const img = page.locator('#sample-preview-img');
-    await expect(img).toHaveAttribute('src', /\/samples\/4-5-rounded\.png/);
+    await expect(img).toBeAttached();
+
+    // Select level Easy (4-5); style rounded is already default. We have samples/4-5-rounded.png
+    await page.getByRole('radio', { name: /Easy/ }).click();
+
+    await expect(img).toHaveAttribute('src', /samples\/4-5-rounded\.png/, { timeout: 5000 });
   });
 });
