@@ -60,6 +60,8 @@ If conflicts exist, stop and raise them.
 4. Tests
 5. Code comments
 
+**Version:** Release version lives in `package.json` (`version`). v0 = first release (e.g. 0.1.0). See DECISIONS D-013.
+
 README is descriptive only. Never authoritative.
 
 ---

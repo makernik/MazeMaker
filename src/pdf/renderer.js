@@ -2,11 +2,10 @@
  * PDF Renderer
  * 
  * Renders mazes to PDF using pdf-lib with vector paths.
- * Supports square and rounded corner styles.
+ * Supports square, grid (rounded corners), and organic styles.
  */
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { DIRECTIONS } from '../maze/grid.js';
 import { solveMaze } from '../maze/solver.js';
 import {
   PAGE_WIDTH,
@@ -17,7 +16,9 @@ import {
   FOOTER_TEXT,
   FOOTER_URL,
   FOOTER_HEIGHT,
+  getLayoutForMaze,
 } from './layout.js';
+import { getDrawer } from './drawers/index.js';
 import { shapeImageFiles } from '../themes/shapes.js';
 import { animalImageFiles } from '../themes/animals.js';
 
@@ -35,14 +36,15 @@ function getThemesBase() {
  * 
  * @param {object} config - Rendering configuration
  * @param {object[]} config.mazes - Array of maze objects from generator
- * @param {string} config.style - 'square' or 'rounded'
+ * @param {string} config.style - 'square', 'rounded' (Grid), or 'organic'
  * @param {string} config.ageRange - Age range for label style
  * @param {string} [config.theme] - 'none', 'shapes', or 'animals' (corner decorations only)
- * @param {boolean} [config.debugMode] - If true, draw solver path overlay on each page
+ * @param {boolean} [config.debugMode] - If true, footer shows difficulty/age; solution drawn when showSolution is true
+ * @param {boolean} [config.showSolution] - When debugMode, if true draw solver path overlay (prove capabilities)
  * @returns {Promise<Uint8Array>} PDF document as bytes
  */
 export async function renderMazesToPdf(config) {
-  const { mazes, style = 'square', ageRange = '9-13', theme = 'none', debugMode = false } = config;
+  const { mazes, style = 'square', ageRange = '9-11', theme = 'none', debugMode = false, showSolution = false } = config;
   
   // Create PDF document
   const pdfDoc = await PDFDocument.create();
@@ -53,233 +55,46 @@ export async function renderMazesToPdf(config) {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
-  // Determine if young age (arrows) or older (text labels)
-  const useArrows = ageRange === '3-5' || ageRange === '6-8';
-  
   // Render each maze on its own page
-  for (const maze of mazes) {
-    const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    
-    // Calculate maze dimensions to fit in printable area
-    const mazeHeight = PRINTABLE_HEIGHT - FOOTER_HEIGHT - 20; // Leave room for footer
-    const mazeWidth = PRINTABLE_WIDTH;
-    
-    // Calculate cell size based on grid dimensions
-    const cellWidth = mazeWidth / maze.cols;
-    const cellHeight = mazeHeight / maze.rows;
-    const cellSize = Math.min(cellWidth, cellHeight);
-    
-    // Center the maze horizontally
-    const actualMazeWidth = cellSize * maze.cols;
-    const actualMazeHeight = cellSize * maze.rows;
-    const offsetX = MARGIN + (PRINTABLE_WIDTH - actualMazeWidth) / 2;
-    const offsetY = PAGE_HEIGHT - MARGIN - actualMazeHeight;
-    
-    // Get line thickness from preset
-    const lineThickness = maze.preset.lineThickness;
-    
-    // Draw the maze
-    drawMaze(page, maze.grid, {
-      offsetX,
-      offsetY,
-      cellSize,
-      lineThickness,
-      style,
-    });
-    
-    // Draw start/finish labels
-    drawLabels(page, maze.grid, {
-      offsetX,
-      offsetY,
-      cellSize,
-      useArrows,
-      font,
-      boldFont,
-    });
+  const mazeHeight = PRINTABLE_HEIGHT - FOOTER_HEIGHT - 20;
+  const mazeWidth = PRINTABLE_WIDTH;
 
-    // Debug: draw solver path overlay (never in normal mode)
-    if (debugMode) {
-      const solution = solveMaze(maze.grid);
+  for (const maze of mazes) {
+    const mazeAgeRange = maze.ageRange ?? ageRange;
+    const useArrows = mazeAgeRange === '3' || mazeAgeRange === '4-5' || mazeAgeRange === '6-8';
+    const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    const layoutResult = getLayoutForMaze(maze, { mazeWidth, mazeHeight, style });
+
+    const drawer = getDrawer(layoutResult.layoutType);
+    const organicStats = drawer.drawWalls(page, maze, layoutResult);
+    drawer.drawLabels(page, maze, layoutResult, { useArrows, font, boldFont });
+    if (debugMode && showSolution) {
+      const solution = solveMaze(maze);
       if (solution && solution.path.length > 1) {
-        drawSolverOverlay(page, maze.grid, solution.path, {
-          offsetX,
-          offsetY,
-          cellSize,
-        });
+        drawer.drawSolutionOverlay(page, maze, solution.path, layoutResult);
       }
     }
 
-    // Theme decorations: image-based, in margin corners only (never inside maze area)
     if (theme === 'shapes' && shapeImageFiles.length > 0) {
       await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/shapes/', shapeImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     } else if (theme === 'animals' && animalImageFiles.length > 0) {
       await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/animals/', animalImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     }
-
-    // Draw footer
-    drawFooter(page, font);
+    drawFooter(page, font, debugMode ? {
+      label: maze.preset.label,
+      ageRange: maze.ageRange,
+      algorithm: maze.algorithm ?? maze.preset.algorithm,
+      seed: maze.seed,
+      style: maze.layout === 'organic' ? 'organic' : style,
+      nodeCount: maze.layout === 'organic' ? maze.graph.nodes.length : undefined,
+      connectedCount: maze.layout === 'organic' ? maze.connectedCount : undefined,
+      corridorWidth: organicStats?.corridorWidth,
+      avgDist: organicStats?.avgDist,
+    } : null);
   }
   
   // Save and return PDF bytes
   return await pdfDoc.save();
-}
-
-/**
- * Draw the maze grid on a PDF page
- */
-function drawMaze(page, grid, options) {
-  const { offsetX, offsetY, cellSize, lineThickness, style } = options;
-  const isRounded = style === 'rounded';
-  // Rounded: use 2x thickness so round line caps are visible at corners (cap radius = half thickness)
-  const effectiveThickness = isRounded ? Math.max(lineThickness * 2, 6) : lineThickness;
-  
-  // Draw walls for each cell
-  for (let row = 0; row < grid.rows; row++) {
-    for (let col = 0; col < grid.cols; col++) {
-      const cell = grid.getCell(row, col);
-      const x = offsetX + col * cellSize;
-      // PDF y-coordinates are bottom-up, so we flip
-      const y = offsetY + (grid.rows - 1 - row) * cellSize;
-      
-      // Draw each wall if it exists
-      if (cell.hasWall(DIRECTIONS.TOP)) {
-        drawWall(page, x, y + cellSize, x + cellSize, y + cellSize, effectiveThickness, isRounded);
-      }
-      if (cell.hasWall(DIRECTIONS.BOTTOM)) {
-        drawWall(page, x, y, x + cellSize, y, effectiveThickness, isRounded);
-      }
-      if (cell.hasWall(DIRECTIONS.LEFT)) {
-        drawWall(page, x, y, x, y + cellSize, effectiveThickness, isRounded);
-      }
-      if (cell.hasWall(DIRECTIONS.RIGHT)) {
-        drawWall(page, x + cellSize, y, x + cellSize, y + cellSize, effectiveThickness, isRounded);
-      }
-    }
-  }
-}
-
-/**
- * Draw a wall line.
- * Rounded style uses round line caps so segment ends (and corners where two walls meet) appear rounded.
- */
-function drawWall(page, x1, y1, x2, y2, thickness, isRounded) {
-  page.drawLine({
-    start: { x: x1, y: y1 },
-    end: { x: x2, y: y2 },
-    thickness,
-    color: rgb(0, 0, 0),
-    lineCap: isRounded ? 1 : 0, // 1 = round cap (radius = thickness/2), 0 = butt
-  });
-}
-
-/**
- * Draw start/finish labels
- */
-function drawLabels(page, grid, options) {
-  const { offsetX, offsetY, cellSize, useArrows, font, boldFont } = options;
-  
-  // Start position (top-left, entrance is above)
-  const startX = offsetX + cellSize / 2;
-  const startY = offsetY + (grid.rows - 1) * cellSize + cellSize + 5;
-  
-  // Finish position (bottom-right, exit is below)
-  const finishX = offsetX + (grid.cols - 1) * cellSize + cellSize / 2;
-  const finishY = offsetY - 5;
-  
-  if (useArrows) {
-    // Draw arrows for young ages
-    drawArrow(page, startX, startY + 15, startX, startY, 8); // Down arrow at start
-    drawArrow(page, finishX, finishY, finishX, finishY - 15, 8); // Down arrow at finish
-  } else {
-    // Draw text labels for older ages
-    const fontSize = 10;
-    
-    // "Start" label above entrance
-    const startText = 'Start';
-    const startTextWidth = boldFont.widthOfTextAtSize(startText, fontSize);
-    page.drawText(startText, {
-      x: startX - startTextWidth / 2,
-      y: startY + 5,
-      size: fontSize,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
-    
-    // "Finish" label below exit
-    const finishText = 'Finish';
-    const finishTextWidth = boldFont.widthOfTextAtSize(finishText, fontSize);
-    page.drawText(finishText, {
-      x: finishX - finishTextWidth / 2,
-      y: finishY - fontSize - 5,
-      size: fontSize,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
-  }
-}
-
-/**
- * Draw an arrow
- */
-function drawArrow(page, x1, y1, x2, y2, headSize) {
-  // Draw the line
-  page.drawLine({
-    start: { x: x1, y: y1 },
-    end: { x: x2, y: y2 },
-    thickness: 2,
-    color: rgb(0, 0, 0),
-  });
-  
-  // Calculate arrow head direction
-  const angle = Math.atan2(y2 - y1, x2 - x1);
-  const headAngle = Math.PI / 6; // 30 degrees
-  
-  // Arrow head lines
-  const head1X = x2 - headSize * Math.cos(angle - headAngle);
-  const head1Y = y2 - headSize * Math.sin(angle - headAngle);
-  const head2X = x2 - headSize * Math.cos(angle + headAngle);
-  const head2Y = y2 - headSize * Math.sin(angle + headAngle);
-  
-  page.drawLine({
-    start: { x: x2, y: y2 },
-    end: { x: head1X, y: head1Y },
-    thickness: 2,
-    color: rgb(0, 0, 0),
-  });
-  
-  page.drawLine({
-    start: { x: x2, y: y2 },
-    end: { x: head2X, y: head2Y },
-    thickness: 2,
-    color: rgb(0, 0, 0),
-  });
-}
-
-/**
- * Draw solver path overlay (debug only). Path through cell centers, dashed gray line.
- */
-function drawSolverOverlay(page, grid, path, options) {
-  const { offsetX, offsetY, cellSize } = options;
-  const rows = grid.rows;
-
-  for (let i = 1; i < path.length; i++) {
-    const prev = path[i - 1];
-    const curr = path[i];
-    // Cell center in PDF coords (y flipped)
-    const x1 = offsetX + (prev.col + 0.5) * cellSize;
-    const y1 = offsetY + (rows - 1 - prev.row + 0.5) * cellSize;
-    const x2 = offsetX + (curr.col + 0.5) * cellSize;
-    const y2 = offsetY + (rows - 1 - curr.row + 0.5) * cellSize;
-
-    page.drawLine({
-      start: { x: x1, y: y1 },
-      end: { x: x2, y: y2 },
-      thickness: 1.5,
-      color: rgb(0.4, 0.4, 0.4),
-      opacity: 0.7,
-      dashArray: [4, 4],
-    });
-  }
 }
 
 /**
@@ -354,22 +169,46 @@ async function fetchThemeImage(url) {
 }
 
 /**
- * Draw the footer on a page
+ * Format algorithm id for footer display
+ * @param {string} [algorithmId]
+ * @returns {string}
  */
-function drawFooter(page, font) {
+function formatAlgorithmLabel(algorithmId) {
+  if (algorithmId === 'prim') return 'Prim';
+  if (algorithmId === 'recursive-backtracker') return 'Recursive backtracker';
+  if (algorithmId === 'kruskal') return 'Kruskal';
+  return algorithmId || 'Prim';
+}
+
+/**
+ * Draw the footer on a page.
+ * @param {PDFPage} page
+ * @param {PDFFont} font
+ * @param {object|null} debugInfo - When set (debug mode), append diagnostic fields to footer
+ */
+function drawFooter(page, font, debugInfo = null) {
   const fontSize = 8;
   const footerY = MARGIN / 2;
-  
-  // Combined footer text
-  const text = `${FOOTER_TEXT} • ${FOOTER_URL}`;
+
+  let text = `${FOOTER_TEXT} • ${FOOTER_URL}`;
+  if (debugInfo) {
+    text += ` • ${debugInfo.label} • ${debugInfo.ageRange} • ${formatAlgorithmLabel(debugInfo.algorithm)}`;
+    text += ` • ${debugInfo.style}`;
+    if (debugInfo.seed != null) text += ` • seed:${debugInfo.seed}`;
+    if (debugInfo.nodeCount != null) {
+      text += ` • nodes:${debugInfo.connectedCount ?? '?'}/${debugInfo.nodeCount}`;
+    }
+    if (debugInfo.corridorWidth != null) text += ` • cw:${debugInfo.corridorWidth.toFixed(1)}`;
+    if (debugInfo.avgDist != null) text += ` • avg:${debugInfo.avgDist.toFixed(1)}`;
+  }
   const textWidth = font.widthOfTextAtSize(text, fontSize);
-  
+
   page.drawText(text, {
     x: (PAGE_WIDTH - textWidth) / 2,
     y: footerY,
     size: fontSize,
     font,
-    color: rgb(0.4, 0.4, 0.4), // Gray
+    color: rgb(0.4, 0.4, 0.4),
   });
 }
 

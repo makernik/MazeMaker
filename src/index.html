@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MakerNik Maze Generator</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
@@ -16,25 +17,44 @@
         </header>
 
         <form class="controls" id="maze-form">
-          <!-- Age Range: Segmented Buttons -->
+          <!-- Select level: vertical list, label + age (parentheses) -->
           <fieldset class="control-group">
-            <legend>Age Range</legend>
-            <div class="segmented-control" role="radiogroup" aria-label="Age Range">
-              <label class="segment">
-                <input type="radio" name="age-range" value="3-5" checked />
-                <span>3–5</span>
+            <legend>Select level</legend>
+            <div class="level-select" role="radiogroup" aria-label="Select level">
+              <label class="level-option">
+                <input type="radio" name="age-range" value="3" checked />
+                <span class="level-option__label">Intro</span>
+                <span class="level-option__age">(3)</span>
               </label>
-              <label class="segment">
+              <label class="level-option">
+                <input type="radio" name="age-range" value="4-5" />
+                <span class="level-option__label">Easy</span>
+                <span class="level-option__age">(4–5)</span>
+              </label>
+              <label class="level-option">
                 <input type="radio" name="age-range" value="6-8" />
-                <span>6–8</span>
+                <span class="level-option__label">Medium</span>
+                <span class="level-option__age">(6–8)</span>
               </label>
-              <label class="segment">
-                <input type="radio" name="age-range" value="9-13" />
-                <span>9–13</span>
+              <label class="level-option">
+                <input type="radio" name="age-range" value="9-11" />
+                <span class="level-option__label">Hard</span>
+                <span class="level-option__age">(9–11)</span>
               </label>
-              <label class="segment">
-                <input type="radio" name="age-range" value="14-17" />
-                <span>14–17</span>
+              <label class="level-option">
+                <input type="radio" name="age-range" value="12-14" />
+                <span class="level-option__label">Challenging</span>
+                <span class="level-option__age">(12–14)</span>
+              </label>
+              <label class="level-option">
+                <input type="radio" name="age-range" value="15-17" />
+                <span class="level-option__label">Difficult</span>
+                <span class="level-option__age">(15–17)</span>
+              </label>
+              <label class="level-option">
+                <input type="radio" name="age-range" value="18+" />
+                <span class="level-option__label">Epic Adventure</span>
+                <span class="level-option__age">(18+)</span>
               </label>
             </div>
           </fieldset>
@@ -44,12 +64,16 @@
             <legend>Maze Style</legend>
             <div class="toggle-group" role="radiogroup" aria-label="Maze Style">
               <label class="toggle">
-                <input type="radio" name="maze-style" value="square" checked />
-                <span>Square Corners</span>
+                <input type="radio" name="maze-style" value="rounded" checked />
+                <span>Grid</span>
               </label>
               <label class="toggle">
-                <input type="radio" name="maze-style" value="rounded" />
-                <span>Rounded Corners</span>
+                <input type="radio" name="maze-style" value="organic" />
+                <span>Organic</span>
+              </label>
+              <label class="toggle">
+                <input type="radio" name="maze-style" value="square" />
+                <span>Square Corners</span>
               </label>
             </div>
           </fieldset>
@@ -104,8 +128,27 @@
           <!-- Debug panel (hidden unless debug mode) -->
           <section id="debug-panel" class="debug-panel" aria-label="Debug info" hidden>
             <h2 class="debug-panel__title">Debug</h2>
+            <div class="debug-panel__option">
+              <label>
+                <input type="checkbox" id="debug-one-of-each" name="debug-one-of-each" />
+                <span>1 of each</span>
+              </label>
+              <p class="debug-panel__option-hint">Generate one maze per difficulty level.</p>
+            </div>
+            <div class="debug-panel__option">
+              <label>
+                <input type="checkbox" id="debug-show-solution" name="debug-show-solution" checked />
+                <span>Show solution</span>
+              </label>
+              <p class="debug-panel__option-hint">Draw solver path on PDF (prove capabilities). Uncheck to test difficulty without solution.</p>
+            </div>
+            <div class="debug-panel__option">
+              <label for="debug-preview-seed">Preview seed</label>
+              <input type="text" id="debug-preview-seed" inputmode="numeric" placeholder="e.g. 12345" title="Seed for preview; edit to preview a specific maze (e.g. from PDF footer)" />
+              <p class="debug-panel__option-hint">Populated with current preview seed. Change to preview that maze (e.g. paste seed from PDF footer).</p>
+            </div>
             <dl class="debug-panel__list">
-              <dt>Seed</dt>
+              <dt>Last PDF seed</dt>
               <dd id="debug-seed" class="debug-panel__value">—</dd>
               <dt>Grid</dt>
               <dd id="debug-grid" class="debug-panel__value">—</dd>
@@ -114,7 +157,7 @@
               <dt>Line thickness</dt>
               <dd id="debug-line-thickness" class="debug-panel__value">—</dd>
             </dl>
-            <p class="debug-panel__hint">Solver path shown on PDF when debug is on.</p>
+            <p class="debug-panel__hint">Footer shows difficulty and age range when debug is on.</p>
           </section>
         </form>
 
@@ -123,9 +166,13 @@
         </footer>
       </aside>
 
-      <!-- Preview Area (Right) - Intentional whitespace in v0 -->
+      <!-- Preview Area (Right) -->
       <main class="preview-area">
         <div class="maze-background" aria-hidden="true"></div>
+        <div class="sample-preview" aria-live="polite">
+          <p class="sample-preview__label">Sample output</p>
+          <canvas id="sample-preview-canvas" class="sample-preview__canvas" width="560" height="720"></canvas>
+        </div>
       </main>
     </div>
 

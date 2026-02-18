@@ -3,6 +3,8 @@
 **Date:** 2026-02-02  
 **Scope:** Plan completion vs v0_spec, validation criteria, and readiness for release.
 
+**Later updates:** Organic maze style and **live canvas preview** (replacing static sample images) were added post-v0. Unused artifacts from the old preview approach are listed in **docs/Unused.md**.
+
 ---
 
 ## 1. Plan vs delivery

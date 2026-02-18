@@ -21,8 +21,8 @@ test.describe('Generate PDF flow', () => {
     await page.getByRole('button', { name: 'Generate Printable PDF' }).click();
 
     const download = await downloadPromise;
-    // Filename: mazes-{ageRange}-{quantity}pk.pdf (e.g. mazes-3-5-5pk.pdf or mazes-9-13-1pk.pdf)
-    expect(download.suggestedFilename()).toMatch(/^mazes-\d+-\d+-\d+pk\.pdf$/);
+    // Filename: mazes-{ageRange}-{quantity}pk.pdf (e.g. mazes-3-5pk.pdf, mazes-4-5-5pk.pdf, mazes-18+-1pk.pdf)
+    expect(download.suggestedFilename()).toMatch(/^mazes-.+-\d+pk\.pdf$/);
   });
 
   test('status shows success after generation', async ({ page }) => {
@@ -33,5 +33,21 @@ test.describe('Generate PDF flow', () => {
     await page.getByRole('button', { name: 'Generate Printable PDF' }).click();
 
     await expect(page.getByText(/Downloaded \d+ maze/)).toBeVisible({ timeout: 15000 });
+  });
+
+  test('preview area shows sample output on canvas and updates when level changes', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByText('Sample output')).toBeVisible();
+    const canvas = page.locator('#sample-preview-canvas');
+    await expect(canvas).toBeAttached();
+    await expect(canvas).toBeVisible();
+
+    // Select level Easy (4-5); preview redraws with live-generated maze
+    await page.getByRole('radio', { name: /Easy/ }).click();
+
+    // Canvas dimensions are set (live preview draws on load and on change)
+    await expect(canvas).toHaveAttribute('width', '560');
+    await expect(canvas).toHaveAttribute('height', '720');
   });
 });
