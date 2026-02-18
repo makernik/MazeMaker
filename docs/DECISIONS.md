@@ -4,6 +4,19 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-010 — Solver adapter and renderer drawer pattern (2026-02-08)
+
+**Context:** Support multiple maze topologies (grid, organic, future polar) and keep solver/renderer scalable and testable without large if-else branches.
+
+**Decision:**
+
+- **Solver:** Maze adapters normalize each topology to a single contract (getStart, getFinish, getNeighbors, key; optional getTotalCells). One BFS implementation in `solver-algorithms.js` runs against any adapter. Adapters live in `solver-adapters.js`; `solveMaze(maze, options?)` resolves layout to an adapter and looks up the algorithm (default `'bfs'`) in a registry. Adding a topology = add one adapter; adding a solver algorithm (e.g. DFS) = register one function.
+- **Renderer:** Layout is computed once per maze via `getLayoutForMaze(maze, pageOptions)` in `layout.js`. Drawers (e.g. `drawers/draw-grid.js`, `drawers/draw-organic.js`) implement a common interface: drawWalls, drawLabels, drawSolutionOverlay. The main renderer selects a drawer by layout and calls the three methods. Adding a topology = add one layout branch in getLayoutForMaze + one drawer module + register in `drawers/index.js`.
+
+**Pluggable solver algorithms:** Only BFS is implemented. The design allows future user-selectable solver (e.g. UI) and solver match-up (compare algorithms on the same maze); see DEFERRED_IDEAS.md (Solver / Pathfinding). No UI or match-up in this refactor.
+
+---
+
 ## D-009 — npm "Unknown env config devdir" warning (2026-02-08)
 
 **Context:** Running `npm install` may show: `npm warn Unknown env config "devdir". This will stop working in the next major version of npm.`

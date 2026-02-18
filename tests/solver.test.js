@@ -6,7 +6,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { solveMaze, validateMaze, isPerfectMaze, pathToDirections } from '../src/maze/solver.js';
+import { getSolver } from '../src/maze/solver-algorithms.js';
 import { generateMaze } from '../src/maze/generator.js';
+import { generateOrganicMaze } from '../src/maze/organic-generator.js';
 import { MazeGrid, DIRECTIONS } from '../src/maze/grid.js';
 
 describe('Maze Solver', () => {
@@ -85,9 +87,17 @@ describe('Maze Solver', () => {
     // Create a maze with all walls intact (no passages)
     const grid = new MazeGrid(3, 3);
     // Don't run any generation - all walls remain
-    
+
     const solution = solveMaze(grid);
     expect(solution).toBeNull();
+  });
+
+  it('isPerfectMaze returns true for organic mazes (all nodes reachable)', () => {
+    const maze = generateOrganicMaze({ ageRange: '4-5', seed: 400 });
+    const result = isPerfectMaze(maze);
+    expect(result.isPerfect).toBe(true);
+    expect(result.reachableCells).toBe(result.totalCells);
+    expect(result.totalCells).toBe(maze.graph.nodes.length);
   });
 });
 
@@ -116,6 +126,11 @@ describe('pathToDirections', () => {
     expect(pathToDirections(null)).toEqual([]);
     expect(pathToDirections(undefined)).toEqual([]);
   });
+
+  it('returns [] for organic path (node ids)', () => {
+    expect(pathToDirections([0, 1, 2], 'organic')).toEqual([]);
+    expect(pathToDirections([5, 3, 7])).toEqual([]);
+  });
   
   it('handles all four directions', () => {
     const path = [
@@ -136,10 +151,50 @@ describe('Solver Determinism', () => {
   it('produces same solution path for same maze', () => {
     const maze1 = generateMaze({ ageRange: '4-5', seed: 33333 });
     const maze2 = generateMaze({ ageRange: '4-5', seed: 33333 });
-    
+
     const solution1 = solveMaze(maze1.grid);
     const solution2 = solveMaze(maze2.grid);
-    
+
     expect(solution1.path).toEqual(solution2.path);
+  });
+});
+
+describe('Solver with mock adapter', () => {
+  it('BFS finds path on 3-node graph via adapter', () => {
+    const adapter = {
+      getStart: () => 0,
+      getFinish: () => 2,
+      getNeighbors: (state) => {
+        const id = typeof state === 'number' ? state : state;
+        if (id === 0) return [1];
+        if (id === 1) return [0, 2];
+        if (id === 2) return [1];
+        return [];
+      },
+      key: (state) => String(typeof state === 'number' ? state : state),
+    };
+    const solve = getSolver('bfs');
+    const solution = solve(adapter);
+    expect(solution).not.toBeNull();
+    expect(solution.solved).toBe(true);
+    expect(solution.path).toEqual([0, 1, 2]);
+    expect(solution.length).toBe(3);
+  });
+
+  it('BFS returns null when no path (disconnected finish)', () => {
+    const adapter = {
+      getStart: () => 0,
+      getFinish: () => 2,
+      getNeighbors: (state) => {
+        const id = typeof state === 'number' ? state : state;
+        if (id === 0) return [1];
+        if (id === 1) return [0];
+        return [];
+      },
+      key: (state) => String(typeof state === 'number' ? state : state),
+    };
+    const solve = getSolver('bfs');
+    const solution = solve(adapter);
+    expect(solution).toBeNull();
   });
 });
