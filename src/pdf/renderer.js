@@ -2,7 +2,7 @@
  * PDF Renderer
  * 
  * Renders mazes to PDF using pdf-lib with vector paths.
- * Supports square, rounded, and curvy (Bezier) corner styles.
+ * Supports square, grid (rounded corners), and organic styles.
  */
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
@@ -35,7 +35,7 @@ function getThemesBase() {
  * 
  * @param {object} config - Rendering configuration
  * @param {object[]} config.mazes - Array of maze objects from generator
- * @param {string} config.style - 'square', 'rounded', or 'organic'
+ * @param {string} config.style - 'square', 'rounded' (Grid), or 'organic'
  * @param {string} config.ageRange - Age range for label style
  * @param {string} [config.theme] - 'none', 'shapes', or 'animals' (corner decorations only)
  * @param {boolean} [config.debugMode] - If true, footer shows difficulty/age; solution drawn when showSolution is true
@@ -179,7 +179,7 @@ function drawMaze(page, grid, options) {
 
 /**
  * Draw a wall line.
- * Rounded style uses round line caps so segment ends (and corners where two walls meet) appear rounded.
+ * Grid (rounded) style uses round line caps so segment ends (and corners where two walls meet) appear rounded.
  * Square style: extend segment by half thickness at each end so butt-capped strokes overlap at corners and close gaps.
  */
 function drawWall(page, x1, y1, x2, y2, thickness, isRounded) {

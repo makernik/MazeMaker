@@ -43,7 +43,7 @@ describe('PDF Renderer', () => {
     expect(pdfBytes.length).toBeGreaterThan(1000); // Should have content
   });
   
-  it('renders maze with rounded style', async () => {
+  it('renders maze with grid (rounded) style', async () => {
     const maze = generateMaze({ ageRange: '4-5', seed: 22222 });
     const pdfBytes = await renderSingleMaze(maze, 'rounded');
     
