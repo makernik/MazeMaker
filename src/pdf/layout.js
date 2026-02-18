@@ -24,15 +24,21 @@ export const FOOTER_HEIGHT = 24;  // points
 const MAZE_TOP_MARGIN = 20;
 
 /**
- * Compute layout result for a maze (grid or organic). Used by renderer to get transform, cellSize, etc.
+ * Compute layout result for a maze (grid or organic). Used by renderer and preview canvas.
+ * Optional pageWidth, pageHeight, margin allow a viewport (e.g. preview) to use the same formula.
  *
  * @param {object} maze - Maze object (grid: rows, cols, grid, preset; organic: layout, boundsWidth, boundsHeight, preset)
- * @param {object} [pageOptions] - { mazeWidth?, mazeHeight?, style? }. Defaults use PRINTABLE_* and FOOTER_HEIGHT.
+ * @param {object} [pageOptions] - { pageWidth?, pageHeight?, margin?, mazeWidth?, mazeHeight?, style? }
  * @returns {object} Layout result: layoutType, lineThickness, and type-specific fields (grid: offsetX, offsetY, cellSize; organic: transform, scale, boundsWidth, boundsHeight)
  */
 export function getLayoutForMaze(maze, pageOptions = {}) {
-  const mazeWidth = pageOptions.mazeWidth ?? PRINTABLE_WIDTH;
-  const mazeHeight = pageOptions.mazeHeight ?? (PRINTABLE_HEIGHT - FOOTER_HEIGHT - MAZE_TOP_MARGIN);
+  const pageW = pageOptions.pageWidth ?? PAGE_WIDTH;
+  const pageH = pageOptions.pageHeight ?? PAGE_HEIGHT;
+  const margin = pageOptions.margin ?? MARGIN;
+  const printableW = pageW - 2 * margin;
+  const printableH = pageH - 2 * margin;
+  const mazeWidth = pageOptions.mazeWidth ?? printableW;
+  const mazeHeight = pageOptions.mazeHeight ?? (printableH - FOOTER_HEIGHT - MAZE_TOP_MARGIN);
   const style = pageOptions.style ?? 'square';
   const lineThickness = maze.preset?.lineThickness ?? 2;
 
@@ -41,8 +47,8 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
     const scale = Math.min(mazeWidth / boundsWidth, mazeHeight / boundsHeight);
     const actualMazeWidth = boundsWidth * scale;
     const actualMazeHeight = boundsHeight * scale;
-    const offsetX = MARGIN + (PRINTABLE_WIDTH - actualMazeWidth) / 2;
-    const offsetY = PAGE_HEIGHT - MARGIN - actualMazeHeight;
+    const offsetX = margin + (printableW - actualMazeWidth) / 2;
+    const offsetY = pageH - margin - actualMazeHeight;
     const transform = (x, y) => ({
       x: offsetX + x * scale,
       y: offsetY + y * scale,
@@ -62,8 +68,8 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
   const cellSize = Math.min(cellWidth, cellHeight);
   const actualMazeWidth = cellSize * maze.cols;
   const actualMazeHeight = cellSize * maze.rows;
-  const offsetX = MARGIN + (PRINTABLE_WIDTH - actualMazeWidth) / 2;
-  const offsetY = PAGE_HEIGHT - MARGIN - actualMazeHeight;
+  const offsetX = margin + (printableW - actualMazeWidth) / 2;
+  const offsetY = pageH - margin - actualMazeHeight;
   return {
     layoutType: 'grid',
     lineThickness,

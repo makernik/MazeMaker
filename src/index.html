@@ -142,8 +142,13 @@
               </label>
               <p class="debug-panel__option-hint">Draw solver path on PDF (prove capabilities). Uncheck to test difficulty without solution.</p>
             </div>
+            <div class="debug-panel__option">
+              <label for="debug-preview-seed">Preview seed</label>
+              <input type="text" id="debug-preview-seed" inputmode="numeric" placeholder="e.g. 12345" title="Seed for preview; edit to preview a specific maze (e.g. from PDF footer)" />
+              <p class="debug-panel__option-hint">Populated with current preview seed. Change to preview that maze (e.g. paste seed from PDF footer).</p>
+            </div>
             <dl class="debug-panel__list">
-              <dt>Seed</dt>
+              <dt>Last PDF seed</dt>
               <dd id="debug-seed" class="debug-panel__value">—</dd>
               <dt>Grid</dt>
               <dd id="debug-grid" class="debug-panel__value">—</dd>
@@ -151,8 +156,6 @@
               <dd id="debug-cell-size" class="debug-panel__value">—</dd>
               <dt>Line thickness</dt>
               <dd id="debug-line-thickness" class="debug-panel__value">—</dd>
-              <dt>Sample path</dt>
-              <dd id="debug-sample-path" class="debug-panel__value">—</dd>
             </dl>
             <p class="debug-panel__hint">Footer shows difficulty and age range when debug is on.</p>
           </section>
@@ -168,7 +171,7 @@
         <div class="maze-background" aria-hidden="true"></div>
         <div class="sample-preview" aria-live="polite">
           <p class="sample-preview__label">Sample output</p>
-          <img id="sample-preview-img" class="sample-preview__img" alt="" src="" />
+          <canvas id="sample-preview-canvas" class="sample-preview__canvas" width="560" height="720"></canvas>
         </div>
       </main>
     </div>

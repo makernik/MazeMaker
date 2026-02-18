@@ -8,22 +8,10 @@ import { generateMaze, generateMazes } from './maze/generator.js';
 import { generateOrganicMaze } from './maze/organic-generator.js';
 import { validateMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
+import { getLayoutForMaze } from './pdf/layout.js';
+import { getCanvasDrawer } from './pdf/drawers/index.js';
 import { getDifficultyPreset, DIFFICULTY_PRESETS, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
-import { getSampleImagePath } from './utils/samplePreview.js';
-
-/** Visible placeholder when sample file is missing or a tiny transparent placeholder (maze-only, no solver). */
-const SAMPLE_PLACEHOLDER_DATA_URL =
-  'data:image/svg+xml,' + encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="260" viewBox="0 0 200 260">' +
-    '<rect width="200" height="260" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1" rx="4"/>' +
-    '<text x="100" y="130" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#64748b">Sample maze</text>' +
-    '<text x="100" y="150" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" fill="#94a3b8">(no preview for this combination)</text>' +
-    '</svg>'
-  );
-
-/** Paths that we treat as placeholders (tiny or missing); show visible SVG instead. */
-const SAMPLE_PLACEHOLDER_PATHS = new Set(['samples/3-rounded.png', 'samples/4-5-rounded.png']);
 
 // DOM elements
 const form = document.getElementById('maze-form');
@@ -38,8 +26,8 @@ const debugCellSizeEl = document.getElementById('debug-cell-size');
 const debugLineThicknessEl = document.getElementById('debug-line-thickness');
 const debugOneOfEachCheckbox = document.getElementById('debug-one-of-each');
 const debugShowSolutionCheckbox = document.getElementById('debug-show-solution');
-const debugSamplePathEl = document.getElementById('debug-sample-path');
-const samplePreviewImg = document.getElementById('sample-preview-img');
+const debugPreviewSeedInput = document.getElementById('debug-preview-seed');
+const samplePreviewCanvas = document.getElementById('sample-preview-canvas');
 
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
 let debugMode = false;
@@ -58,7 +46,11 @@ function setDebugMode(on) {
   if (debugMode) {
     quantitySlider.value = '1';
     quantityDisplay.textContent = '1';
-    updateSamplePreview(); // refresh debug panel sample path
+    const values = getFormValues();
+    if (debugPreviewSeedInput) {
+      debugPreviewSeedInput.value = String(getPreviewSeed(values));
+    }
+    updatePreviewCanvas();
   }
 
   // Update URL without reload (for sharing debug link)
@@ -87,15 +79,19 @@ document.addEventListener('keydown', (e) => {
 });
 
 /**
- * Get current form values from radio buttons and slider
+ * Get current form values from radio buttons and slider.
+ * Reads checked radios explicitly so preview always reflects current selection.
  */
 function getFormValues() {
-  const formData = new FormData(form);
+  const ageRangeEl = form && form.querySelector('input[name="age-range"]:checked');
+  const mazeStyleEl = form && form.querySelector('input[name="maze-style"]:checked');
+  const themeEl = form && form.querySelector('input[name="theme"]:checked');
+  const quantityEl = form && form.querySelector('#quantity');
   return {
-    ageRange: formData.get('age-range'),
-    mazeStyle: formData.get('maze-style'),
-    theme: formData.get('theme'),
-    quantity: parseInt(formData.get('quantity'), 10),
+    ageRange: ageRangeEl ? ageRangeEl.value : null,
+    mazeStyle: mazeStyleEl ? mazeStyleEl.value : null,
+    theme: themeEl ? themeEl.value : null,
+    quantity: quantityEl ? parseInt(quantityEl.value, 10) : 1,
   };
 }
 
@@ -133,36 +129,128 @@ function setStatus(message, type = 'info') {
   }
 }
 
+/** Deterministic preview seed per level + style (no debug). */
+function previewSeedFor(ageRange, mazeStyle) {
+  let h = 0;
+  const s = (ageRange || '') + '-' + (mazeStyle || '');
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
+  return Math.abs(h) || 1;
+}
+
 /**
- * Update sample preview image from current level + maze style.
- * Samples are static app assets (maze-only, no solver). Missing file: hide image.
+ * Seed used for preview: in debug mode use value from input if valid number; else deterministic per level+style.
+ * @param {{ ageRange: string, mazeStyle: string }} [values] - Form values (defaults to getFormValues())
  */
-function updateSamplePreview() {
-  if (!samplePreviewImg) return;
-  const values = getFormValues();
-  const path = getSampleImagePath(values.ageRange, values.mazeStyle);
-  if (debugMode && debugSamplePathEl) {
-    debugSamplePathEl.textContent = path || '—';
+function getPreviewSeed(values) {
+  values = values ?? getFormValues();
+  if (debugMode && debugPreviewSeedInput) {
+    const n = parseInt(debugPreviewSeedInput.value.trim(), 10);
+    if (!Number.isNaN(n) && n >= 0) return n;
   }
-  if (!path) {
-    samplePreviewImg.removeAttribute('src');
-    samplePreviewImg.alt = '';
-    if (debugMode) console.log('[sample-preview] no path for', values.ageRange, values.mazeStyle);
+  return previewSeedFor(values.ageRange, values.mazeStyle);
+}
+
+/**
+ * Generate one maze for current form (and debug seed if set), draw to preview canvas.
+ * Uses same layout transform as PDF (getLayoutForMaze with preview viewport size).
+ */
+function updatePreviewCanvas() {
+  if (!samplePreviewCanvas) return;
+  const values = getFormValues();
+  const seed = getPreviewSeed(values);
+  if (debugMode && debugPreviewSeedInput) {
+    debugPreviewSeedInput.value = String(seed);
+  }
+  const isOrganic = values.mazeStyle === 'organic';
+  const layoutType = isOrganic ? 'organic' : 'grid';
+  const style = values.mazeStyle;
+  const ageRange = values.ageRange;
+
+  let maze;
+  try {
+    if (isOrganic) {
+      maze = generateOrganicMaze({ ageRange, seed });
+    } else {
+      const preset = getDifficultyPreset(ageRange);
+      maze = generateMaze({ ageRange, seed, algorithm: preset.algorithm });
+    }
+  } catch (e) {
+    if (debugMode) console.warn('[preview] generation failed:', e);
     return;
   }
-  const usePlaceholderSvg = SAMPLE_PLACEHOLDER_PATHS.has(path);
-  const src = usePlaceholderSvg ? SAMPLE_PLACEHOLDER_DATA_URL : '/' + path;
-  samplePreviewImg.alt = `Sample maze: ${values.ageRange}, ${values.mazeStyle}`;
-  samplePreviewImg.onerror = () => {
-    samplePreviewImg.src = SAMPLE_PLACEHOLDER_DATA_URL;
-    samplePreviewImg.alt = `Sample maze: ${values.ageRange}, ${values.mazeStyle}`;
-    if (debugMode) console.warn('[sample-preview] failed to load, showing placeholder:', path);
-  };
-  samplePreviewImg.onload = () => {
-    if (debugMode) console.log('[sample-preview] loaded:', usePlaceholderSvg ? 'placeholder' : path);
-  };
-  samplePreviewImg.src = src;
-  if (debugMode) console.log('[sample-preview] setting src:', usePlaceholderSvg ? 'placeholder SVG' : path);
+
+  const w = samplePreviewCanvas.width;
+  const h = samplePreviewCanvas.height;
+  const PREVIEW_MARGIN = 32;
+  const layoutResult = getLayoutForMaze(maze, {
+    pageWidth: w,
+    pageHeight: h,
+    margin: PREVIEW_MARGIN,
+    style,
+  });
+
+  const ctx = samplePreviewCanvas.getContext('2d');
+  if (!ctx) return;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, -1, 0, h);
+  ctx.clearRect(0, 0, w, h);
+  ctx.restore();
+  ctx.save();
+  ctx.setTransform(1, 0, 0, -1, 0, h);
+
+  const canvasDrawer = getCanvasDrawer(layoutResult.layoutType);
+  const useArrows = ageRange === '3' || ageRange === '4-5' || ageRange === '6-8';
+  canvasDrawer.drawWalls(ctx, maze, layoutResult);
+  canvasDrawer.drawLabels(ctx, maze, layoutResult, { useArrows, canvasHeight: h });
+
+  if (debugMode) {
+    drawPreviewDebugOverlay(ctx, maze, layoutResult, h);
+  }
+  ctx.restore();
+}
+
+/**
+ * Debug overlay on preview canvas: node IDs, neighbor counts, start/finish (organic).
+ * Draw in screen space (y-down) so text and circles are right-side up.
+ */
+function drawPreviewDebugOverlay(ctx, maze, layoutResult, canvasHeight) {
+  if (maze.layout === 'organic' && maze.graph && layoutResult.transform) {
+    const { transform } = layoutResult;
+    const toScreen = (x, y) => {
+      const p = transform(x, y);
+      return { x: p.x, y: canvasHeight - p.y };
+    };
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = '10px Inter, sans-serif';
+    ctx.fillStyle = '#64748b';
+    for (const node of maze.graph.nodes) {
+      const s = toScreen(node.x, node.y);
+      ctx.fillText(String(node.id), s.x - 4, s.y + 4);
+      ctx.fillText(`n:${node.neighbors.length}`, s.x - 6, s.y - 6);
+    }
+    const startPos = maze.nodePositions.get(maze.startId);
+    const finishPos = maze.nodePositions.get(maze.finishId);
+    if (startPos) {
+      const s = toScreen(startPos.x, startPos.y);
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.fillText('S', s.x - 3, s.y + 4);
+    }
+    if (finishPos) {
+      const s = toScreen(finishPos.x, finishPos.y);
+      ctx.fillStyle = '#b91c1c';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillText('F', s.x - 3, s.y + 4);
+    }
+    ctx.restore();
+  }
 }
 
 /**
@@ -177,7 +265,7 @@ quantitySlider.addEventListener('input', () => {
  */
 form.addEventListener('change', (e) => {
   if (e.target.name === 'age-range' || e.target.name === 'maze-style') {
-    updateSamplePreview();
+    updatePreviewCanvas();
   }
 });
 
@@ -316,7 +404,7 @@ async function generateAndDownload(event) {
 
 form.addEventListener('submit', generateAndDownload);
 
-// Initialize: restore debug from URL, then sample preview
+// Initialize: restore debug from URL, then live preview
 initDebugFromUrl();
-updateSamplePreview();
+updatePreviewCanvas();
 console.log('MakerNik Maze Generator loaded');

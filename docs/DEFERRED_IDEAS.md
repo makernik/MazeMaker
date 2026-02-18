@@ -46,3 +46,13 @@ Adapter contract should require `getNeighbors(state)` to return a **deterministi
 
 ### Match-up cost on large mazes
 Running multiple solver algorithms on one maze (e.g. for debug or educational match-up) may be slow on large mazes (e.g. 18+ organic, ~1900 nodes). If match-up is added later, consider limiting it to a subset of algorithms, smaller mazes only, or on-demand only. Not a refactor requirement; a note for future match-up UX.
+
+---
+
+## Preview / UX
+
+### Random preview on every click
+Preview could change to a new random maze each time the user changes level or style (new seed per interaction). Deferred in favor of deterministic preview per level+style so the same controls always show the same maze; avoids surprise and keeps behavior predictable.
+
+### Use debug seed for next PDF
+Option to "use this seed for next PDF" so the debug panel seed (e.g. pasted from a prior PDF footer) is used when the user clicks Generate Printable PDF. Lets users re-export a specific maze. Deferred; debug seed currently affects preview only.

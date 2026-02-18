@@ -4,7 +4,17 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
-## D-011 — Sample preview: static app assets, no solver (2026-02-07)
+## D-012 — Live canvas preview; shared transform with PDF (2026-02-07)
+
+**Context:** Preview should show a representative maze without maintaining static PNGs for every level×style. Same visual result as PDF for the same maze and layout.
+
+**Decision:** Preview is **live-generated**: one maze is generated (grid or organic) from the current level and maze style and drawn to a **canvas** in the right panel. Layout uses the same math as PDF: `getLayoutForMaze(maze, pageOptions)` with optional `pageWidth`, `pageHeight`, `margin` so the preview viewport (e.g. 400×520) gets the same transform shape. Canvas drawers (`draw-grid-canvas.js`, `draw-organic-canvas.js`) use the same `layoutResult` as the PDF drawers but draw via `CanvasRenderingContext2D` (no pdf-lib). **Preview seed:** When not in debug mode, a deterministic seed per (ageRange, mazeStyle) is used so the same controls always show the same maze. In **debug mode**, a "Preview seed" text input is shown and **populated** with the current preview seed; the user can **edit** it (e.g. paste a seed from a prior PDF footer) to get an instant preview of that maze. Debug overlay on the canvas (node IDs, neighbor counts, start/finish markers for organic) is drawn when debug is on. See DEFERRED_IDEAS.md for "random preview on every click" and "use debug seed for next PDF".
+
+**Supersedes:** D-011 for the preview mechanism (no static sample images for preview; `public/samples/` and `samplePreview.js` remain for any other use or removal later).
+
+---
+
+## D-011 — Sample preview: static app assets, no solver (2026-02-07) [superseded for preview by D-012]
 
 **Context:** The right-side preview area should show a sample maze image keyed by the selected level and maze style so users see representative output before generating a PDF. Samples must work offline and must not display a solver or solution path.
 

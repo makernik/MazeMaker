@@ -35,16 +35,19 @@ test.describe('Generate PDF flow', () => {
     await expect(page.getByText(/Downloaded \d+ maze/)).toBeVisible({ timeout: 15000 });
   });
 
-  test('preview area shows sample output and updates img by level and style', async ({ page }) => {
+  test('preview area shows sample output on canvas and updates when level changes', async ({ page }) => {
     await page.goto('/');
 
     await expect(page.getByText('Sample output')).toBeVisible();
-    const img = page.locator('#sample-preview-img');
-    await expect(img).toBeAttached();
+    const canvas = page.locator('#sample-preview-canvas');
+    await expect(canvas).toBeAttached();
+    await expect(canvas).toBeVisible();
 
-    // Select level Easy (4-5); style rounded is already default. We have samples/4-5-rounded.png
+    // Select level Easy (4-5); preview redraws with live-generated maze
     await page.getByRole('radio', { name: /Easy/ }).click();
 
-    await expect(img).toHaveAttribute('src', /samples\/4-5-rounded\.png/, { timeout: 5000 });
+    // Canvas dimensions are set (live preview draws on load and on change)
+    await expect(canvas).toHaveAttribute('width', '560');
+    await expect(canvas).toHaveAttribute('height', '720');
   });
 });
