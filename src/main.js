@@ -10,6 +10,7 @@ import { validateMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
 import { getDifficultyPreset, DIFFICULTY_PRESETS, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
+import { getSampleImagePath } from './utils/samplePreview.js';
 
 // DOM elements
 const form = document.getElementById('maze-form');
@@ -24,6 +25,7 @@ const debugCellSizeEl = document.getElementById('debug-cell-size');
 const debugLineThicknessEl = document.getElementById('debug-line-thickness');
 const debugOneOfEachCheckbox = document.getElementById('debug-one-of-each');
 const debugShowSolutionCheckbox = document.getElementById('debug-show-solution');
+const samplePreviewImg = document.getElementById('sample-preview-img');
 
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
 let debugMode = false;
@@ -117,10 +119,40 @@ function setStatus(message, type = 'info') {
 }
 
 /**
+ * Update sample preview image from current level + maze style.
+ * Samples are static app assets (maze-only, no solver). Missing file: hide image.
+ */
+function updateSamplePreview() {
+  const values = getFormValues();
+  const path = getSampleImagePath(values.ageRange, values.mazeStyle);
+  if (!path) {
+    samplePreviewImg.removeAttribute('src');
+    samplePreviewImg.alt = '';
+    return;
+  }
+  const src = '/' + path;
+  samplePreviewImg.alt = `Sample maze: ${values.ageRange}, ${values.mazeStyle}`;
+  samplePreviewImg.src = src;
+  samplePreviewImg.onerror = () => {
+    samplePreviewImg.removeAttribute('src');
+    samplePreviewImg.alt = '';
+  };
+}
+
+/**
  * Handle quantity slider change
  */
 quantitySlider.addEventListener('input', () => {
   quantityDisplay.textContent = quantitySlider.value;
+});
+
+/**
+ * Sample preview: update when level or maze style changes
+ */
+form.addEventListener('change', (e) => {
+  if (e.target.name === 'age-range' || e.target.name === 'maze-style') {
+    updateSamplePreview();
+  }
 });
 
 /**
@@ -258,6 +290,7 @@ async function generateAndDownload(event) {
 
 form.addEventListener('submit', generateAndDownload);
 
-// Initialize: restore debug from URL
+// Initialize: restore debug from URL, then sample preview
 initDebugFromUrl();
+updateSamplePreview();
 console.log('MakerNik Maze Generator loaded');

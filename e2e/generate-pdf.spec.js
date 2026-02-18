@@ -34,4 +34,18 @@ test.describe('Generate PDF flow', () => {
 
     await expect(page.getByText(/Downloaded \d+ maze/)).toBeVisible({ timeout: 15000 });
   });
+
+  test('preview area shows sample output and updates img by level and style', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByText('Sample output')).toBeVisible();
+    await expect(page.locator('#sample-preview-img')).toBeAttached();
+
+    // Select level 4-5 and style rounded; we have samples/4-5-rounded.png
+    await page.getByRole('radio', { name: /Easy/ }).click();
+    await page.getByRole('radio', { name: 'Grid' }).click();
+
+    const img = page.locator('#sample-preview-img');
+    await expect(img).toHaveAttribute('src', /\/samples\/4-5-rounded\.png/);
+  });
 });

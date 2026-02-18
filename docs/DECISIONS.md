@@ -4,6 +4,16 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-011 — Sample preview: static app assets, no solver (2026-02-07)
+
+**Context:** The right-side preview area should show a sample maze image keyed by the selected level and maze style so users see representative output before generating a PDF. Samples must work offline and must not display a solver or solution path.
+
+**Decision:** Sample preview uses **static image files** in `public/samples/`, keyed by level (age-range value) and maze style. Naming: `{ageRange}-{mazeStyle}.png` with filename-safe mapping for `18+` (e.g. `18plus`). Up to 7×3 = 21 assets; a subset is acceptable—when a file is missing, the preview shows no image (no error). Samples are **maze-only** (no solver path). They are read-only app assets, not user data; no persistence or database. Logic lives in `src/utils/samplePreview.js`; main.js updates the preview image on form change and on load.
+
+**Generating sample assets:** Export one page from the PDF pipeline without solution overlay (e.g. deterministic seed + render to PNG in a build script), or add hand-made PNGs. Document the process if a script is added.
+
+---
+
 ## D-010 — Solver adapter and renderer drawer pattern (2026-02-08)
 
 **Context:** Support multiple maze topologies (grid, organic, future polar) and keep solver/renderer scalable and testable without large if-else branches.
