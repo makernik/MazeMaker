@@ -51,6 +51,8 @@ Running multiple solver algorithms on one maze (e.g. for debug or educational ma
 
 ## Preview / UX
 
+**Current behavior:** Preview is a **live canvas** (one maze generated from current level + style, same layout as PDF). Static sample images in `public/samples/` are no longer used for preview; see DECISIONS D-012 and docs/Unused.md.
+
 ### Random preview on every click
 Preview could change to a new random maze each time the user changes level or style (new seed per interaction). Deferred in favor of deterministic preview per level+style so the same controls always show the same maze; avoids surprise and keeps behavior predictable.
 

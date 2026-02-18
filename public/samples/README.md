@@ -1,11 +1,5 @@
-# Sample preview images
+# Sample preview images (unused)
 
-Static maze-only images (no solver) shown in the right-side preview, keyed by **level** and **maze style**.
+**Deprecated.** Preview now uses a **live canvas** (one maze generated from current level + style). This folder and static PNGs are no longer used by the app.
 
-**Naming:** `{ageRange}-{mazeStyle}.png`  
-- Age values: `3`, `4-5`, `6-8`, `9-11`, `12-14`, `15-17`, `18+` (filename-safe: `18plus`).  
-- Style values: `rounded`, `organic`, `square`.
-
-Example: `4-5-rounded.png`, `18plus-organic.png`.
-
-Missing files are fine: the UI hides the image. See DECISIONS.md D-011 and the sample preview plan.
+**Legacy naming** (for reference only): `{ageRange}-{mazeStyle}.png` — e.g. `4-5-rounded.png`, `18plus-organic.png`. See DECISIONS D-011 (superseded by D-012) and **docs/Unused.md**.

@@ -10,7 +10,15 @@ Architectural and design decisions for the Printable Maze Generator.
 
 **Decision:** Preview is **live-generated**: one maze is generated (grid or organic) from the current level and maze style and drawn to a **canvas** in the right panel. Layout uses the same math as PDF: `getLayoutForMaze(maze, pageOptions)` with optional `pageWidth`, `pageHeight`, `margin` so the preview viewport (e.g. 400×520) gets the same transform shape. Canvas drawers (`draw-grid-canvas.js`, `draw-organic-canvas.js`) use the same `layoutResult` as the PDF drawers but draw via `CanvasRenderingContext2D` (no pdf-lib). **Preview seed:** When not in debug mode, a deterministic seed per (ageRange, mazeStyle) is used so the same controls always show the same maze. In **debug mode**, a "Preview seed" text input is shown and **populated** with the current preview seed; the user can **edit** it (e.g. paste a seed from a prior PDF footer) to get an instant preview of that maze. Debug overlay on the canvas (node IDs, neighbor counts, start/finish markers for organic) is drawn when debug is on. See DEFERRED_IDEAS.md for "random preview on every click" and "use debug seed for next PDF".
 
-**Supersedes:** D-011 for the preview mechanism (no static sample images for preview; `public/samples/` and `samplePreview.js` remain for any other use or removal later).
+**Supersedes:** D-011 for the preview mechanism. Static sample images and related code are unused for preview; see **docs/Unused.md** for a list and removal notes.
+
+---
+
+## D-013 — Version management (2026-02-07)
+
+**Context:** Need a single place for release version and a policy for v0 and future releases.
+
+**Decision:** The **canonical release version** is `package.json` → `"version"`. v0 corresponds to the **first release** (e.g. `0.1.0`). To release: run tests and build, then create a Git tag (e.g. `v0.1.0`) and a GitHub release; tag and `package.json` version should match. Bump `package.json` `version` when cutting a new release (manual edit). No separate VERSION file; docs (README, AGENTS.md) reference package.json as the source of truth for version.
 
 ---
 

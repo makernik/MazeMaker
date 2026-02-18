@@ -28,18 +28,20 @@ Open http://localhost:5173 in your browser. Use the controls, click **Generate P
 
 ## How It Works
 
-1. You set age range, maze style (square/rounded corners), and quantity (1–10). (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
-2. The app generates that many perfect mazes (Prim's algorithm, seeded for determinism).
-3. Each maze is validated with a BFS solver.
-4. A single PDF is built (one maze per page, US Letter) and downloaded.
+1. You set age range, maze style (square / rounded / organic), and quantity (1–10). (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
+2. The right panel shows a **live preview**: one maze is generated from the current level and style and drawn on a canvas (same layout as the PDF). Same controls always show the same preview maze (deterministic seed per level+style).
+3. Click **Generate Printable PDF**. The app generates that many perfect mazes (Prim's for grid, DFS for organic; seeded for determinism).
+4. Each maze is validated with a BFS solver. A single PDF is built (one maze per page, US Letter) and downloaded.
 
 ## Debug Mode
 
 Hidden mode for tuning and technical review. **Not** for end users.
 
 - **Toggle:** `Ctrl+Shift+D` or open the app with `?debug=1` in the URL.
-- **Shows:** Seed (read-only), grid dimensions, cell size, line thickness. Solver path is drawn on the PDF when debug is on.
+- **Shows:** Seed (read-only), grid dimensions, cell size, line thickness. **Preview seed** — editable; change it to see a different maze in the preview (e.g. paste a seed from a PDF footer). Debug overlay on the preview canvas (node IDs, neighbor counts, start/finish markers for organic). Solver path is drawn on the PDF when debug is on.
 - Quantity defaults to 1 when you enable debug but you can change it with the slider.
+
+**Version:** Release version is in `package.json` (`version`). v0 scope is complete; see `docs/V0_REVIEW.md` for release readiness.
 
 ## Key Design Choices
 
@@ -52,24 +54,24 @@ Hidden mode for tuning and technical review. **Not** for end users.
 ## Tech Stack
 
 - **Frontend:** Vanilla JS, Vite
-- **PDF:** pdf-lib (vector output)
-- **Maze:** Prim's algorithm, seeded PRNG (Mulberry32)
+- **PDF:** pdf-lib (vector output); preview uses canvas drawers (same layout math as PDF)
+- **Maze:** Prim's (grid), DFS (organic); seeded PRNG (Mulberry32)
 - **Tests:** Vitest (unit), Playwright (E2E)
 
 ## Project Structure
 
 ```
 src/
-  main.js           # App entry, UI wiring
+  main.js           # App entry, UI wiring, live preview canvas
   index.html
-  maze/             # Generator (Prim's), grid, solver (BFS)
-  pdf/              # Renderer, layout
+  maze/             # Generator (Prim's, organic DFS), grid/organic, solver (BFS)
+  pdf/              # Renderer, layout, drawers (PDF + canvas for preview)
   themes/           # Shape/animal decorations (corner icons; theme UI currently hidden)
   utils/            # RNG, constants (difficulty presets)
   styles/
 tests/              # Unit tests
 e2e/                # Playwright E2E tests
-docs/               # DECISIONS.md, DEFERRED_IDEAS.md
+docs/               # DECISIONS.md, DEFERRED_IDEAS.md, Unused.md
 ```
 
 ## License
