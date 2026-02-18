@@ -10,12 +10,12 @@ import { generateOrganicMaze } from '../src/maze/organic-generator.js';
 describe('getLayoutForMaze', () => {
   it('returns grid layout with default page dimensions', () => {
     const maze = generateMaze({ ageRange: '4-5', seed: 1 });
-    const layout = getLayoutForMaze(maze, { style: 'rounded' });
+    const layout = getLayoutForMaze(maze, { style: 'classic' });
     expect(layout.layoutType).toBe('grid');
     expect(layout.offsetX).toBeGreaterThanOrEqual(0);
     expect(layout.offsetY).toBeGreaterThanOrEqual(0);
     expect(layout.cellSize).toBeGreaterThan(0);
-    expect(layout.style).toBe('rounded');
+    expect(layout.style).toBe('classic');
   });
 
   it('returns organic layout with default page dimensions', () => {

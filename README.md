@@ -28,7 +28,7 @@ Open http://localhost:5173 in your browser. Use the controls, click **Generate P
 
 ## How It Works
 
-1. You set age range, maze style (square / rounded / organic), and quantity (1–10). (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
+1. You set age range, maze style (classic / organic / square), and quantity (1–10). (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
 2. The right panel shows a **live preview**: one maze is generated from the current level and style and drawn on a canvas (same layout as the PDF). Same controls always show the same preview maze (deterministic seed per level+style).
 3. Click **Generate Printable PDF**. The app generates that many perfect mazes (Prim's for grid, DFS for organic; seeded for determinism).
 4. Each maze is validated with a BFS solver. A single PDF is built (one maze per page, US Letter) and downloaded.

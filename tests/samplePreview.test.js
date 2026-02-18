@@ -24,16 +24,16 @@ describe('samplePreview', () => {
 
   describe('getSampleImagePath', () => {
     it('returns path for level and style', () => {
-      expect(getSampleImagePath('4-5', 'rounded')).toBe('samples/4-5-rounded.png');
+      expect(getSampleImagePath('4-5', 'classic')).toBe('samples/4-5-classic.png');
       expect(getSampleImagePath('9-11', 'organic')).toBe('samples/9-11-organic.png');
       expect(getSampleImagePath('3', 'square')).toBe('samples/3-square.png');
     });
     it('uses 18plus for 18+ level', () => {
       expect(getSampleImagePath('18+', 'organic')).toBe('samples/18plus-organic.png');
-      expect(getSampleImagePath('18+', 'rounded')).toBe('samples/18plus-rounded.png');
+      expect(getSampleImagePath('18+', 'classic')).toBe('samples/18plus-classic.png');
     });
     it('returns empty string when ageRange or mazeStyle missing', () => {
-      expect(getSampleImagePath('', 'rounded')).toBe('');
+      expect(getSampleImagePath('', 'classic')).toBe('');
       expect(getSampleImagePath('4-5', '')).toBe('');
       expect(getSampleImagePath(null, 'organic')).toBe('');
     });

@@ -43,9 +43,9 @@ describe('PDF Renderer', () => {
     expect(pdfBytes.length).toBeGreaterThan(1000); // Should have content
   });
   
-  it('renders maze with grid (rounded) style', async () => {
+  it('renders maze with classic style', async () => {
     const maze = generateMaze({ ageRange: '4-5', seed: 22222 });
-    const pdfBytes = await renderSingleMaze(maze, 'rounded');
+    const pdfBytes = await renderSingleMaze(maze, 'classic');
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
     expect(pdfBytes.length).toBeGreaterThan(1000);

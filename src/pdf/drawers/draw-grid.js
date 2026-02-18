@@ -1,5 +1,5 @@
 /**
- * Grid maze drawer: walls (square/rounded), labels, solution overlay.
+ * Grid maze drawer: walls (square/classic), labels, solution overlay.
  * Shared interface: drawWalls, drawLabels, drawSolutionOverlay.
  */
 
@@ -57,7 +57,7 @@ function drawArrow(page, x1, y1, x2, y2, headSize) {
 export function drawWalls(page, maze, layoutResult) {
   const grid = maze.grid;
   const { offsetX, offsetY, cellSize, lineThickness, style } = layoutResult;
-  const isRounded = style === 'rounded';
+  const isRounded = style === 'classic';
   const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
 
   for (let row = 0; row < grid.rows; row++) {

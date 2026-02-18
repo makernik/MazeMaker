@@ -71,11 +71,11 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
-## D-004 — "Rounded" style means rounded corners (2026-01-31)
+## D-004 — "Classic" style (formerly "Rounded") means rounded corners (2026-01-31, renamed 2026-02-08)
 
-**Context:** The spec lists "Square" and "Rounded" maze styles. Organic/curvy paths and polar/circular mazes were considered but deemed too complex for v0.
+**Context:** The spec listed "Square" and "Rounded" maze styles. Organic/curvy paths and polar/circular mazes were considered but deemed too complex for v0. "Rounded" was renamed to **"Classic"** to avoid vocabulary collision with upcoming curved, circular, and other geometry terms.
 
-**Decision:** "Rounded" in v0 means rounded corners on wall intersections, not organic curves or circular topology.
+**Decision:** "Classic" is a grid-topology maze with rounded corners on wall intersections (round line caps). Internal style value: `'classic'`.
 
 **Alternatives deferred:** Organic curves, polar mazes (see DEFERRED_IDEAS.md).
 
@@ -87,7 +87,7 @@ Architectural and design decisions for the Printable Maze Generator.
 
 **Decision:** "Organic" is a **maze style** that uses a different topology and generation path: circle packing (deterministic, variable radii) produces an arbitrary graph of touching cells; DFS on that graph carves a perfect maze. Solver and renderer support both grid and organic via a unified maze object (layout discriminator). Same seed → same PDF. The previous "Curvy" style (grid + Bezier rendering) has been removed and replaced by Organic.
 
-**Scope:** Grid styles remain Square and Rounded. Organic is the only non-grid style in v0.
+**Scope:** Grid styles remain Square and Classic (formerly Rounded). Organic is the only non-grid style in v0.
 
 ---
 

@@ -2,7 +2,7 @@
  * PDF Renderer
  * 
  * Renders mazes to PDF using pdf-lib with vector paths.
- * Supports square, grid (rounded corners), and organic styles.
+ * Supports square, classic (rounded corners), and organic styles.
  */
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
@@ -36,7 +36,7 @@ function getThemesBase() {
  * 
  * @param {object} config - Rendering configuration
  * @param {object[]} config.mazes - Array of maze objects from generator
- * @param {string} config.style - 'square', 'rounded' (Grid), or 'organic'
+ * @param {string} config.style - 'square', 'classic', or 'organic'
  * @param {string} config.ageRange - Age range for label style
  * @param {string} [config.theme] - 'none', 'shapes', or 'animals' (corner decorations only)
  * @param {boolean} [config.debugMode] - If true, footer shows difficulty/age; solution drawn when showSolution is true

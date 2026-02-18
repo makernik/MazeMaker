@@ -20,7 +20,7 @@ Artifacts that are no longer used by the app (superseded or only referenced by t
 | Artifact | Why unused | Safe to remove? |
 |----------|------------|-----------------|
 | **scripts/create-sample-placeholder.cjs** | One-time script that created `public/samples/` and placeholder PNGs for the old static preview. No longer needed for preview. | Yes. |
-| **public/samples/** | Directory and README described static images for the right-panel preview. Preview is now live canvas; no code loads these images. Any PNGs here (e.g. `3-rounded.png`, `4-5-rounded.png`) are unused. | Yes. Can delete the folder or keep README as a short “deprecated” note; README was updated to say unused. |
+| **public/samples/** | Directory and README described static images for the right-panel preview. Preview is now live canvas; no code loads these images. Any PNGs here (e.g. `3-classic.png`, `4-5-classic.png`) are unused. | Yes. Can delete the folder or keep README as a short “deprecated” note; README was updated to say unused. |
 
 ---
 

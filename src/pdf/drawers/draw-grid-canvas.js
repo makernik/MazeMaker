@@ -62,7 +62,7 @@ function drawArrow(ctx, x1, y1, x2, y2, headSize) {
 export function drawWalls(ctx, maze, layoutResult) {
   const grid = maze.grid;
   const { offsetX, offsetY, cellSize, lineThickness, style } = layoutResult;
-  const isRounded = style === 'rounded';
+  const isRounded = style === 'classic';
   const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
 
   for (let row = 0; row < grid.rows; row++) {
