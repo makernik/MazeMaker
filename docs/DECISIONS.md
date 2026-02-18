@@ -4,6 +4,16 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-009 — npm "Unknown env config devdir" warning (2026-02-08)
+
+**Context:** Running `npm install` may show: `npm warn Unknown env config "devdir". This will stop working in the next major version of npm.`
+
+**Cause:** The environment sets `NPM_CONFIG_DEVDIR` (e.g. Cursor sandbox or a user/node-gyp helper). npm 11 no longer recognizes this config key and warns that it will be removed.
+
+**Decision:** No project-level code or .npmrc change. Document the workaround for contributors who see the warning. To silence it: unset the environment variable (`$env:NPM_CONFIG_DEVDIR = ''` in PowerShell; `unset NPM_CONFIG_DEVDIR` in Bash), or if it was set in npm user config run `npm config delete devdir`. The project does not set this variable; it is external (IDE sandbox or system).
+
+---
+
 ## D-006 — Self-hosted fonts (2026-02-02)
 
 **Context:** UI rules require "Fonts should be self-hosted or bundled" and "No runtime dependency on Google Fonts CDN" for offline resilience.
