@@ -11,6 +11,20 @@ Ideas considered but explicitly deferred from v0 scope.
 ### Organic / Curvy Maze Paths
 **Organic (implemented):** Maze style "Organic" uses circle-packing layout and a non-grid graph; DFS generates the maze (see DECISIONS.md D-008). Curvy (grid + Bezier rendering) was removed in favor of Organic.
 
+**Planned enhancements (see `.cursor/plans/organic_enhancements_plan_048eced4.plan.md`):**
+- Split Organic into **Jagged** (current straight-line rendering) and **Curvy** (Catmull-Rom splines through shared miter-point geometry)
+- **Two-pass dense fill:** pass 1 generates maze at current density for difficulty control; pass 2 adds decorative disconnected corridors in void regions (visual complexity, not connected to solvable maze)
+- **Debug algorithm picker:** all 3 algorithms (DFS, Prim's, Kruskal's) available for organic-topology styles; "1 of each algorithm" debug mode
+
+### 2.5D Visual Bridges (Curvy)
+Allow corridors to visually cross over other corridors while the maze remains a perfect tree (single solution, no loops). The crossing is a rendering trick — the "over" corridor is drawn with a gap/shadow where it passes above the "under" corridor; optional bridge rails for visual clarity.
+
+**Generation:** Requires non-planar edges in the graph (tree edges of a planar graph don't cross). After circle packing and neighbor detection, add a small number of "bridge candidate" edges connecting circles separated by 1–2 intermediate circles. DFS/Prim's/Kruskal's may or may not carve through them. If carved, the corridor visually crosses intermediate corridors. Selection is seeded/deterministic.
+
+**Constraints:** Solver unaffected (operates on the tree graph). Perfect maze invariant preserved — no new connections at crossing points. Bridge frequency is a tuning parameter (age-scaled or constant).
+
+**Timing:** Depends on maturity of Curvy style and miter-point geometry. To be scheduled after Curvy is stable and visually validated.
+
 ### Polar / Circular Mazes
 Concentric ring topology with radial passages. Different data structure and rendering approach.
 
