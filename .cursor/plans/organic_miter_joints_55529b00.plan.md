@@ -4,16 +4,16 @@ overview: Replace uniform geometricTrim with a closed-form miter trim derived fr
 todos:
   - id: c0-shared-module
     content: "C0: Create organic-geometry.js with miterTrim + computeNodeTrims; revert experimental junctionR and lineCap changes"
-    status: pending
+    status: completed
   - id: c1-miter-trims
     content: "C1: Replace uniform geometricTrim with per-wall miter trims in corridor drawing (both drawers)"
-    status: pending
+    status: completed
   - id: c2-junction-walls
     content: "C2: Replace fixed-radius junction arcs with miter-aware wall sections (skip acute, variable-radius arc for obtuse)"
-    status: pending
+    status: completed
   - id: c3-tests-validation
     content: "C3: Unit tests for geometry module, run full test suite, visual validation across age ranges"
-    status: pending
+    status: completed
 isProject: false
 ---
 

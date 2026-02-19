@@ -3,6 +3,8 @@
  * Draws to CanvasRenderingContext2D. Caller must set ctx transform for y-up (e.g. setTransform(1,0,0,-1,0,canvas.height)).
  */
 
+import { computeNodeTrims } from './organic-geometry.js';
+
 /**
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} maze - Organic maze with graph, nodePositions, startId, finishId, boundsWidth, boundsHeight
@@ -31,9 +33,6 @@ export function drawWalls(ctx, maze, layoutResult) {
   const maxCorridorW = avgDist * 0.35;
   const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
   const halfW = corridorWidth / 2;
-  const junctionR = halfW * 1.25;
-  const halfOpenAngle = Math.asin(Math.min(halfW / junctionR, 1));
-  const geometricTrim = Math.sqrt(junctionR * junctionR - halfW * halfW);
   const drawnEdges = new Set();
 
   const nodePassages = new Map();
@@ -59,6 +58,14 @@ export function drawWalls(ctx, maze, layoutResult) {
     finishPassages.sort((a, b) => a.angle - b.angle);
   }
 
+  const allNodeTrims = new Map();
+  for (const node of graph.nodes) {
+    const passages = nodePassages.get(node.id);
+    if (passages && passages.length > 0) {
+      allNodeTrims.set(node.id, computeNodeTrims(passages, halfW));
+    }
+  }
+
   ctx.strokeStyle = '#000';
   ctx.lineCap = 'round';
   ctx.lineWidth = wallThickness;
@@ -77,20 +84,23 @@ export function drawWalls(ctx, maze, layoutResult) {
       const uy = dy / dist;
       const px = -uy;
       const py = ux;
-      const trimA = Math.min(geometricTrim, dist * 0.45);
-      const trimB = Math.min(geometricTrim, dist * 0.45);
-      const ax = node.x + ux * trimA;
-      const ay = node.y + uy * trimA;
-      const bx = other.x - ux * trimB;
-      const by = other.y - uy * trimB;
-      const s1 = transform(ax + px * halfW, ay + py * halfW);
-      const e1 = transform(bx + px * halfW, by + py * halfW);
+      const trimsA = allNodeTrims.get(node.id);
+      const trimsB = allNodeTrims.get(nid);
+      const aTrim = trimsA ? trimsA.get(nid) : null;
+      const bTrim = trimsB ? trimsB.get(node.id) : null;
+      const cap = dist * 0.45;
+      const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
+      const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
+      const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
+      const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
+      const s1 = transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW);
+      const e1 = transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW);
       ctx.beginPath();
       ctx.moveTo(s1.x, s1.y);
       ctx.lineTo(e1.x, e1.y);
       ctx.stroke();
-      const s2 = transform(ax - px * halfW, ay - py * halfW);
-      const e2 = transform(bx - px * halfW, by - py * halfW);
+      const s2 = transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW);
+      const e2 = transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW);
       ctx.beginPath();
       ctx.moveTo(s2.x, s2.y);
       ctx.lineTo(e2.x, e2.y);
@@ -107,31 +117,22 @@ export function drawWalls(ctx, maze, layoutResult) {
     for (let i = 0; i < n; i++) {
       const curr = passages[i];
       const next = passages[(i + 1) % n];
-      const startAngle = curr.angle + halfOpenAngle;
-      let endAngle = next.angle - halfOpenAngle;
-      if (i === n - 1) endAngle += 2 * Math.PI;
-      const span = endAngle - startAngle;
+      let gap = next.angle - curr.angle;
+      if (i === n - 1) gap += 2 * Math.PI;
+      if (gap < 0) gap += 2 * Math.PI;
+      if (gap <= Math.PI) continue;
+
+      const arcStart = curr.angle + Math.PI / 2;
+      let arcEnd = next.angle - Math.PI / 2;
+      if (i === n - 1) arcEnd += 2 * Math.PI;
+      const span = arcEnd - arcStart;
       if (span < 0.02) continue;
-      if (span < 0) {
-        const t1 = geometricTrim;
-        const rx = cx + Math.cos(curr.angle) * t1 + Math.sin(curr.angle) * halfW;
-        const ry = cy + Math.sin(curr.angle) * t1 - Math.cos(curr.angle) * halfW;
-        const t2 = geometricTrim;
-        const lx = cx + Math.cos(next.angle) * t2 - Math.sin(next.angle) * halfW;
-        const ly = cy + Math.sin(next.angle) * t2 + Math.cos(next.angle) * halfW;
-        const r = transform(rx, ry);
-        const l = transform(lx, ly);
-        ctx.beginPath();
-        ctx.moveTo(r.x, r.y);
-        ctx.lineTo(l.x, l.y);
-        ctx.stroke();
-      } else {
-        const center = transform(cx, cy);
-        const r = junctionR * scale;
-        ctx.beginPath();
-        ctx.arc(center.x, center.y, r, startAngle, endAngle);
-        ctx.stroke();
-      }
+
+      const center = transform(cx, cy);
+      const r = halfW * scale;
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, r, arcStart, arcEnd);
+      ctx.stroke();
     }
   }
 
@@ -150,10 +151,14 @@ export function drawWalls(ctx, maze, layoutResult) {
     ctx.stroke();
   };
 
-  line(startPos.x - halfW, bh + halfThick, startPos.x - halfW, startPos.y + geometricTrim - halfThick);
-  line(startPos.x + halfW, bh + halfThick, startPos.x + halfW, startPos.y + geometricTrim - halfThick);
-  line(finishPos.x - halfW, 0 - halfThick, finishPos.x - halfW, finishPos.y - geometricTrim + halfThick);
-  line(finishPos.x + halfW, 0 - halfThick, finishPos.x + halfW, finishPos.y - geometricTrim + halfThick);
+  const startTrims = allNodeTrims.get(maze.startId);
+  const startVT = startTrims ? startTrims.get(-1) : { leftTrim: 0, rightTrim: 0 };
+  const finishTrims = allNodeTrims.get(maze.finishId);
+  const finishVT = finishTrims ? finishTrims.get(-2) : { leftTrim: 0, rightTrim: 0 };
+  line(startPos.x - halfW, bh + halfThick, startPos.x - halfW, startPos.y + startVT.leftTrim - halfThick);
+  line(startPos.x + halfW, bh + halfThick, startPos.x + halfW, startPos.y + startVT.rightTrim - halfThick);
+  line(finishPos.x - halfW, 0 - halfThick, finishPos.x - halfW, finishPos.y - finishVT.rightTrim + halfThick);
+  line(finishPos.x + halfW, 0 - halfThick, finishPos.x + halfW, finishPos.y - finishVT.leftTrim + halfThick);
   const gapHalf = halfW;
   line(0, bh, startPos.x - gapHalf, bh);
   line(startPos.x + gapHalf, bh, bw, bh);

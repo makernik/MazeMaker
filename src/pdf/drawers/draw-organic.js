@@ -4,6 +4,7 @@
  */
 
 import { rgb } from 'pdf-lib';
+import { computeNodeTrims } from './organic-geometry.js';
 
 function drawArrow(page, x1, y1, x2, y2, headSize) {
   page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 2, color: rgb(0, 0, 0) });
@@ -48,9 +49,6 @@ export function drawWalls(page, maze, layoutResult) {
   const maxCorridorW = avgDist * 0.35;
   const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
   const halfW = corridorWidth / 2;
-  const junctionR = halfW * 1.05;
-  const halfOpenAngle = Math.asin(Math.min(halfW / junctionR, 1));
-  const geometricTrim = Math.sqrt(junctionR * junctionR - halfW * halfW);
   const drawnEdges = new Set();
 
   const nodePassages = new Map();
@@ -76,6 +74,14 @@ export function drawWalls(page, maze, layoutResult) {
     finishPassages.sort((a, b) => a.angle - b.angle);
   }
 
+  const allNodeTrims = new Map();
+  for (const node of graph.nodes) {
+    const passages = nodePassages.get(node.id);
+    if (passages && passages.length > 0) {
+      allNodeTrims.set(node.id, computeNodeTrims(passages, halfW));
+    }
+  }
+
   for (const node of graph.nodes) {
     for (const nid of node.neighbors) {
       const key = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
@@ -90,22 +96,25 @@ export function drawWalls(page, maze, layoutResult) {
       const uy = dy / dist;
       const px = -uy;
       const py = ux;
-      const trimA = Math.min(geometricTrim, dist * 0.45);
-      const trimB = Math.min(geometricTrim, dist * 0.45);
-      const ax = node.x + ux * trimA;
-      const ay = node.y + uy * trimA;
-      const bx = other.x - ux * trimB;
-      const by = other.y - uy * trimB;
+      const trimsA = allNodeTrims.get(node.id);
+      const trimsB = allNodeTrims.get(nid);
+      const aTrim = trimsA ? trimsA.get(nid) : null;
+      const bTrim = trimsB ? trimsB.get(node.id) : null;
+      const cap = dist * 0.45;
+      const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
+      const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
+      const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
+      const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
       page.drawLine({
-        start: transform(ax + px * halfW, ay + py * halfW),
-        end: transform(bx + px * halfW, by + py * halfW),
+        start: transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW),
+        end: transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW),
         thickness: wallThickness,
         color: rgb(0, 0, 0),
         lineCap: 1,
       });
       page.drawLine({
-        start: transform(ax - px * halfW, ay - py * halfW),
-        end: transform(bx - px * halfW, by - py * halfW),
+        start: transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW),
+        end: transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW),
         thickness: wallThickness,
         color: rgb(0, 0, 0),
         lineCap: 1,
@@ -122,38 +131,29 @@ export function drawWalls(page, maze, layoutResult) {
     for (let i = 0; i < n; i++) {
       const curr = passages[i];
       const next = passages[(i + 1) % n];
-      const startAngle = curr.angle + halfOpenAngle;
-      let endAngle = next.angle - halfOpenAngle;
-      if (i === n - 1) endAngle += 2 * Math.PI;
-      const span = endAngle - startAngle;
+      let gap = next.angle - curr.angle;
+      if (i === n - 1) gap += 2 * Math.PI;
+      if (gap < 0) gap += 2 * Math.PI;
+      if (gap <= Math.PI) continue;
+
+      const arcStart = curr.angle + Math.PI / 2;
+      let arcEnd = next.angle - Math.PI / 2;
+      if (i === n - 1) arcEnd += 2 * Math.PI;
+      const span = arcEnd - arcStart;
       if (span < 0.02) continue;
-      if (span < 0) {
-        const t1 = geometricTrim;
-        const rx = cx + Math.cos(curr.angle) * t1 + Math.sin(curr.angle) * halfW;
-        const ry = cy + Math.sin(curr.angle) * t1 - Math.cos(curr.angle) * halfW;
-        const t2 = geometricTrim;
-        const lx = cx + Math.cos(next.angle) * t2 - Math.sin(next.angle) * halfW;
-        const ly = cy + Math.sin(next.angle) * t2 + Math.cos(next.angle) * halfW;
-        page.drawLine({
-          start: transform(rx, ry),
-          end: transform(lx, ly),
-          thickness: wallThickness,
-          color: rgb(0, 0, 0),
-          lineCap: 1,
-        });
-      } else if (Math.abs(span - Math.PI) < 0.01) {
-        const midAngle = (startAngle + endAngle) / 2;
-        const p1 = transform(cx + junctionR * Math.cos(startAngle), cy + junctionR * Math.sin(startAngle));
-        const pm = transform(cx + junctionR * Math.cos(midAngle), cy + junctionR * Math.sin(midAngle));
-        const p2 = transform(cx + junctionR * Math.cos(endAngle), cy + junctionR * Math.sin(endAngle));
-        const r = junctionR * scale;
+
+      const r = halfW * scale;
+      if (Math.abs(span - Math.PI) < 0.01) {
+        const midAngle = (arcStart + arcEnd) / 2;
+        const p1 = transform(cx + halfW * Math.cos(arcStart), cy + halfW * Math.sin(arcStart));
+        const pm = transform(cx + halfW * Math.cos(midAngle), cy + halfW * Math.sin(midAngle));
+        const p2 = transform(cx + halfW * Math.cos(arcEnd), cy + halfW * Math.sin(arcEnd));
         const arcOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
         page.drawSvgPath(`M ${p1.x} ${-p1.y} A ${r} ${r} 0 0 0 ${pm.x} ${-pm.y}`, arcOpts);
         page.drawSvgPath(`M ${pm.x} ${-pm.y} A ${r} ${r} 0 0 0 ${p2.x} ${-p2.y}`, arcOpts);
       } else {
-        const p1 = transform(cx + junctionR * Math.cos(startAngle), cy + junctionR * Math.sin(startAngle));
-        const p2 = transform(cx + junctionR * Math.cos(endAngle), cy + junctionR * Math.sin(endAngle));
-        const r = junctionR * scale;
+        const p1 = transform(cx + halfW * Math.cos(arcStart), cy + halfW * Math.sin(arcStart));
+        const p2 = transform(cx + halfW * Math.cos(arcEnd), cy + halfW * Math.sin(arcEnd));
         const largeArc = span > Math.PI ? 1 : 0;
         page.drawSvgPath(`M ${p1.x} ${-p1.y} A ${r} ${r} 0 ${largeArc} 0 ${p2.x} ${-p2.y}`, {
           borderColor: rgb(0, 0, 0),
@@ -170,10 +170,14 @@ export function drawWalls(page, maze, layoutResult) {
   const finishPos = maze.nodePositions.get(maze.finishId);
   const lineOpts = { thickness: wallThickness, color: rgb(0, 0, 0), lineCap: 1 };
   const halfThick = lineThickness / 2;
-  page.drawLine({ start: transform(startPos.x - halfW, bh + halfThick), end: transform(startPos.x - halfW, startPos.y + geometricTrim - halfThick), ...lineOpts });
-  page.drawLine({ start: transform(startPos.x + halfW, bh + halfThick), end: transform(startPos.x + halfW, startPos.y + geometricTrim - halfThick), ...lineOpts });
-  page.drawLine({ start: transform(finishPos.x - halfW, 0 - halfThick), end: transform(finishPos.x - halfW, finishPos.y - geometricTrim + halfThick), ...lineOpts });
-  page.drawLine({ start: transform(finishPos.x + halfW, 0 - halfThick), end: transform(finishPos.x + halfW, finishPos.y - geometricTrim + halfThick), ...lineOpts });
+  const startTrims = allNodeTrims.get(maze.startId);
+  const startVT = startTrims ? startTrims.get(-1) : { leftTrim: 0, rightTrim: 0 };
+  const finishTrims = allNodeTrims.get(maze.finishId);
+  const finishVT = finishTrims ? finishTrims.get(-2) : { leftTrim: 0, rightTrim: 0 };
+  page.drawLine({ start: transform(startPos.x - halfW, bh + halfThick), end: transform(startPos.x - halfW, startPos.y + startVT.leftTrim - halfThick), ...lineOpts });
+  page.drawLine({ start: transform(startPos.x + halfW, bh + halfThick), end: transform(startPos.x + halfW, startPos.y + startVT.rightTrim - halfThick), ...lineOpts });
+  page.drawLine({ start: transform(finishPos.x - halfW, 0 - halfThick), end: transform(finishPos.x - halfW, finishPos.y - finishVT.rightTrim + halfThick), ...lineOpts });
+  page.drawLine({ start: transform(finishPos.x + halfW, 0 - halfThick), end: transform(finishPos.x + halfW, finishPos.y - finishVT.leftTrim + halfThick), ...lineOpts });
   const gapHalf = halfW;
   page.drawLine({ start: transform(0, bh), end: transform(startPos.x - gapHalf, bh), ...lineOpts });
   page.drawLine({ start: transform(startPos.x + gapHalf, bh), end: transform(bw, bh), ...lineOpts });
