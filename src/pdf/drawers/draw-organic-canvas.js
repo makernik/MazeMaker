@@ -31,7 +31,7 @@ export function drawWalls(ctx, maze, layoutResult) {
   const maxCorridorW = avgDist * 0.35;
   const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
   const halfW = corridorWidth / 2;
-  const junctionR = halfW * 1.05;
+  const junctionR = halfW * 1.25;
   const halfOpenAngle = Math.asin(Math.min(halfW / junctionR, 1));
   const geometricTrim = Math.sqrt(junctionR * junctionR - halfW * halfW);
   const drawnEdges = new Set();
