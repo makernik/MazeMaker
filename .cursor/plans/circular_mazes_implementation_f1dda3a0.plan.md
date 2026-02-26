@@ -21,10 +21,10 @@ isProject: false
 - Polar maze data model: cells indexed by (ring, wedge). Rings are concentric (0 = center, outer = max ring). Wedges are radial segments (0 to numWedges-1). Each cell has up to 4 "walls": inward, outward, clockwise, counter-clockwise.
 - Generation: Prim's algorithm on the polar graph (same seeded RNG contract as grid/organic). Entrance at center (ring 0), exit at outer ring (wedge 0 for fixed mode).
 - Solver: BFS via a new **polar adapter** in [src/maze/solver-adapters.js](src/maze/solver-adapters.js), implementing the existing contract (`getStart`, `getFinish`, `getNeighbors`, `key`, `getTotalCells?`). No changes to `solver-algorithms.js` or the BFS implementation.
-- PDF rendering: new **polar drawer** (`draw-polar.js`) and **polar canvas drawer** (`draw-polar-canvas.js`) registered in [src/pdf/drawers/index.js](src/pdf/drawers/index.js). Draw circumferential arcs and radial line segments using pdf-lib vector paths; fit circle in printable area; Start/Finish labels at center and outer edge.
+- PDF rendering: new **polar drawer** (`draw-polar.js`) — a single backend-agnostic drawer like grid/jagged/curvy. It implements `drawWalls(backend, maze, layoutResult)`, `drawLabels(backend, ...)`, `drawSolutionOverlay(backend, ...)` using the shared [DrawBackend](src/pdf/drawers/draw-backend.js) (caller passes `createPdfBackend(page, fonts)` or `createCanvasBackend(ctx)`). Draw circumferential arcs and radial line segments via backend path APIs; fit circle in printable area; Start/Finish labels at center and outer edge. Registered under key `'polar'` in [src/pdf/drawers/index.js](src/pdf/drawers/index.js). No separate canvas-only file.
 - Layout: new `'polar'` branch in [src/pdf/layout.js](src/pdf/layout.js) `getLayoutForMaze()`, returning `centerX`, `centerY`, `maxRadius`, `lineThickness`, and `layoutType: 'polar'`.
-- Canvas preview: polar drawer follows the same pattern as grid/organic canvas drawers — same `layoutResult`, draws via `CanvasRenderingContext2D`.
-- UI: Topology selector — "Rectangular" (default) / "Circular" — in [src/index.html](src/index.html). When "Circular" is selected, the Maze Style control (Classic/Organic/Square) is hidden or disabled (polar is a single visual style). Form value passed through [src/main.js](src/main.js) into generator, solver adapter dispatch, and renderer.
+- Canvas preview: same polar drawer with `createCanvasBackend(ctx)`; [src/main.js](src/main.js) uses `getDrawer('polar')` when topology is circular and passes the canvas backend.
+- UI: Topology selector — "Rectangular" (default) / "Circular" — in [src/index.html](src/index.html). When "Circular" is selected, the Maze Style control (Classic / Jagged / Curvy / Square Corners) is hidden or disabled (polar is a single visual style). Form value passed through [src/main.js](src/main.js) into generator, solver adapter dispatch, and renderer.
 - Constants: Extend `DIFFICULTY_PRESETS` in [src/utils/constants.js](src/utils/constants.js) with polar-specific fields (`polarRings`, `polarBaseWedges`) per age range.
 - Determinism: Same seed + age range + topology → same maze. No new persistence or identifiers.
 - Docs: New decision in [docs/DECISIONS.md](docs/DECISIONS.md) for polar topology. Update [docs/DEFERRED_IDEAS.md](docs/DEFERRED_IDEAS.md) to mark polar mazes as implemented.
@@ -63,10 +63,11 @@ flowchart LR
   subgraph layout [Layout]
     LayoutFn["getLayoutForMaze in layout.js"]
   end
-  subgraph drawers [Drawer Registry]
-    DrawGrid[draw-grid.js + canvas]
-    DrawOrganic[draw-organic.js + canvas]
-    DrawPolar[draw-polar.js + canvas NEW]
+  subgraph drawers [Drawer Registry — backend-agnostic]
+    DrawGrid[draw-grid.js]
+    DrawJagged[draw-organic.js]
+    DrawCurvy[draw-curvy.js]
+    DrawPolar[draw-polar.js NEW]
   end
   Form --> GenGrid
   Form --> GenOrganic
@@ -79,7 +80,8 @@ flowchart LR
   AdapterPolar --> BFS
   BFS --> LayoutFn
   LayoutFn --> DrawGrid
-  LayoutFn --> DrawOrganic
+  LayoutFn --> DrawJagged
+  LayoutFn --> DrawCurvy
   LayoutFn --> DrawPolar
 ```
 
@@ -89,18 +91,17 @@ flowchart LR
 
 - `src/maze/polarGrid.js` — `PolarCell`, `PolarGrid` classes. Rings x wedges; directions `INWARD`, `OUTWARD`, `CW`, `CCW`; `getCell(ring, wedge)`, `getNeighbors(ring, wedge)`, `removeWallBetween(cell1, cell2)`, `openEntrance()` (center), `openExit(wedge)` (outer ring). Ring 0 is a single center cell; wedge count may increase in outer rings.
 - `src/maze/polarGenerator.js` — Prim's on `PolarGrid` (wall list = polar wall entries); exports `generatePolarMaze(config)` and `generatePolarMazes(config)` with same config shape as grid generator (`{ ageRange, seed, quantity, baseSeed }`). Returns maze object with `layout: 'polar'`.
-- `src/pdf/drawers/draw-polar.js` — PDF drawer: `drawWalls(page, maze, layoutResult)`, `drawLabels(page, maze, layoutResult, options)`, `drawSolutionOverlay(page, maze, layoutResult, solution)`. Uses pdf-lib path APIs for arcs and radial lines.
-- `src/pdf/drawers/draw-polar-canvas.js` — Canvas drawer (same interface as `draw-grid-canvas.js`): `drawWalls(ctx, maze, layoutResult)`, `drawLabels(ctx, maze, layoutResult, options)`. Uses `CanvasRenderingContext2D` arc/line APIs.
+- `src/pdf/drawers/draw-polar.js` — Single backend-agnostic drawer (same contract as [draw-grid.js](src/pdf/drawers/draw-grid.js), [draw-organic.js](src/pdf/drawers/draw-organic.js), [draw-curvy.js](src/pdf/drawers/draw-curvy.js)): `drawWalls(backend, maze, layoutResult)`, `drawLabels(backend, maze, layoutResult, options)`, `drawSolutionOverlay(backend, maze, solution.path, layoutResult)`. Uses backend path APIs (`line`, `arc`, `moveTo`, `lineTo`, `stroke`, etc.) for circumferential arcs and radial segments. No separate canvas file.
 
 **Files to modify:**
 
 - [src/maze/solver-adapters.js](src/maze/solver-adapters.js) — Add `polarAdapter(maze)` implementing `{ getStart, getFinish, getNeighbors, key, getTotalCells }`. Register in `getAdapterForMaze()` with `layout === 'polar'` branch. No changes to `solver-algorithms.js` or BFS.
 - [src/pdf/layout.js](src/pdf/layout.js) — Add `'polar'` branch in `getLayoutForMaze()`. Returns `{ layoutType: 'polar', centerX, centerY, maxRadius, lineThickness, rings, baseWedges }`. Computes `maxRadius` from `min(printableW, printableH) / 2` minus label clearance.
-- [src/pdf/drawers/index.js](src/pdf/drawers/index.js) — Import and register `draw-polar.js` and `draw-polar-canvas.js` in `drawers` and `canvasDrawers` maps under key `'polar'`.
-- [src/pdf/renderer.js](src/pdf/renderer.js) — No structural change needed; the drawer registry dispatch already selects by `layoutType`. Ensure polar maze objects pass through cleanly (topology in config, layout type from `getLayoutForMaze`).
+- [src/pdf/drawers/index.js](src/pdf/drawers/index.js) — Import and register `draw-polar.js` in the single `drawers` map under key `'polar'`. No separate canvas drawer map (unified backend: callers use `getDrawer('polar')` and pass `createPdfBackend` or `createCanvasBackend`).
+- [src/pdf/renderer.js](src/pdf/renderer.js) — Extend drawer key logic: when `maze.layout === 'polar'` use `drawerKey = 'polar'`; otherwise keep current logic (`'organic'` → `style === 'curvy' ? 'curvy' : 'jagged'`, else `'grid'`). Continue using `createPdfBackend(page, { font, boldFont })` and calling `drawer.drawWalls(backend, ...)`, `drawer.drawLabels(backend, ...)`, `drawer.drawSolutionOverlay(backend, ...)`.
 - [src/utils/constants.js](src/utils/constants.js) — Extend each `DIFFICULTY_PRESETS` entry with `polarRings` and `polarBaseWedges`. Example: age 3 gets 3 rings / 4 wedges; age 18+ gets 14 rings / 8 wedges. Line thickness reuses existing per-age values.
-- [src/index.html](src/index.html) — Add "Maze Topology" fieldset with radio "Rectangular" (default) / "Circular". When "Circular" is selected, Maze Style toggles (Classic/Organic/Square) are hidden or disabled.
-- [src/main.js](src/main.js) — Read topology from form; call `generatePolarMazes` when topology is `'circular'`, else existing generator. Solver dispatch is automatic via `getAdapterForMaze()` (branches on `maze.layout`). Pass topology context to renderer. Update live preview to handle polar mazes.
+- [src/index.html](src/index.html) — Add "Maze Topology" fieldset with radio "Rectangular" (default) / "Circular". When "Circular" is selected, Maze Style toggles (Classic / Jagged / Curvy / Square Corners) are hidden or disabled.
+- [src/main.js](src/main.js) — Read topology from form; call `generatePolarMazes` when topology is `'circular'`, else existing generator. Solver dispatch is automatic via `getAdapterForMaze()` (branches on `maze.layout`). Pass topology context to renderer. For live preview: when topology is circular, use `getDrawer('polar')` and `createCanvasBackend(ctx)` (same pattern as grid/organic: one drawer, backend chosen by caller).
 - [docs/DECISIONS.md](docs/DECISIONS.md) — New decision (D-014 or next): circular (polar) topology supported in v1; start at center, finish at outer ring.
 - [docs/DEFERRED_IDEAS.md](docs/DEFERRED_IDEAS.md) — Update "Polar / Circular Mazes" entry to note it is implemented in v1.
 
@@ -112,8 +113,8 @@ flowchart LR
   - `getNeighbors(state)` → array of `{ ring, wedge }` reachable from state (no wall between)
   - `key(state)` → `"ring,wedge"` string
   - `getTotalCells()` → total cell count across all rings
-- **Generator output** (maze object): `{ layout: 'polar', polarGrid, seed, ageRange, preset, start, finish }`. The `polarGrid` is the `PolarGrid` instance. `layout: 'polar'` triggers the correct adapter in `getAdapterForMaze()` and the correct drawer in `getDrawer()`/`getCanvasDrawer()`.
-- **Layout result** (from `getLayoutForMaze`): `{ layoutType: 'polar', centerX, centerY, maxRadius, lineThickness }`. Drawers use this to compute arc positions and radii per ring.
+- **Generator output** (maze object): `{ layout: 'polar', polarGrid, seed, ageRange, preset, start, finish }`. The `polarGrid` is the `PolarGrid` instance. `layout: 'polar'` triggers the correct adapter in `getAdapterForMaze()` and the correct drawer via `getDrawer('polar')` (single registry; caller supplies PdfBackend or CanvasBackend).
+- **Layout result** (from `getLayoutForMaze`): `{ layoutType: 'polar', centerX, centerY, maxRadius, lineThickness }`. Drawer uses this to compute arc positions and radii per ring.
 
 ---
 
@@ -130,8 +131,7 @@ flowchart LR
   - Existing grid and organic solver tests must still pass unchanged.
 - **C2** — Polar rendering (PDF + canvas)
   - Add `'polar'` branch in [src/pdf/layout.js](src/pdf/layout.js) `getLayoutForMaze()`.
-  - Implement `src/pdf/drawers/draw-polar.js` (PDF) and `src/pdf/drawers/draw-polar-canvas.js` (canvas preview).
-  - Register both in [src/pdf/drawers/index.js](src/pdf/drawers/index.js).
+  - Implement `src/pdf/drawers/draw-polar.js` as a single backend-agnostic drawer: `drawWalls(backend, maze, layoutResult)`, `drawLabels(backend, ...)`, `drawSolutionOverlay(backend, ...)` using [DrawBackend](src/pdf/drawers/draw-backend.js) (line, arc, path ops). Register in [src/pdf/drawers/index.js](src/pdf/drawers/index.js) under `'polar'`. Extend [src/pdf/renderer.js](src/pdf/renderer.js) and [src/main.js](src/main.js) drawer-key logic so `maze.layout === 'polar'` → `getDrawer('polar')` with PdfBackend or CanvasBackend as appropriate.
   - Test: generate a polar maze programmatically, render to PDF, verify PDF has content (byte length, page count). Manual visual check of output.
 - **C3** — UI integration and docs
   - Add "Maze Topology" fieldset in [src/index.html](src/index.html) with "Rectangular" (default) / "Circular" radios.
@@ -175,10 +175,10 @@ npm run build
 
 ## Notes / Risks
 
-- **pdf-lib arc drawing:** pdf-lib does not have a native `arc()` API. Options: (a) use `page.drawSvgPath()` with SVG arc commands (`A`), or (b) approximate arcs with short line segments (still vector, not raster). Option (a) is cleaner if pdf-lib supports the SVG arc command; verify early in C2. The canvas drawer can use native `ctx.arc()`.
+- **pdf-lib arc drawing:** pdf-lib does not have a native `arc()` API. The [DrawBackend](src/pdf/drawers/draw-backend.js) already exposes `arc(cx, cy, r, startAngle, endAngle)`; PdfBackend implements it via SVG path `A` commands (or equivalent), CanvasBackend via `ctx.arc()`. The polar drawer should use `backend.arc()` and `backend.line()` only; verify PdfBackend's arc implementation is sufficient for polar rings (or extend it in draw-backend.js if needed).
 - **Center cell (ring 0):** One logical cell (full circle); wedge count only applies from ring 1 outward. `PolarGrid` should define ring 0 as having 1 cell. Opening the entrance means removing the wall between ring 0 and ring 1 at the start wedge.
 - **Wedge subdivision in outer rings:** To keep cell proportions printable, outer rings may have 2x the wedge count of inner rings. The `PolarGrid` must handle variable wedge counts per ring and map neighbor relationships across ring boundaries where wedge counts differ (one cell inward maps to two cells outward, etc.).
 - **Edge case:** Presets must use at least 3 rings (center + 2) for a meaningful maze. Age 3 preset should be small but not degenerate.
 - **Interaction with other v1 features:** This plan does not implement random start/finish or A4 page detection. However, the polar layout in `layout.js` should accept configurable `pageWidth`/`pageHeight` (as grid/organic already do) so A4 support is a pass-through when that feature lands.
-- **Existing patterns:** The solver adapter pattern (D-010) and drawer registry (`drawers/index.js`) were designed for exactly this kind of extension. No changes to existing adapters or drawers are needed; only additions.
+- **Existing patterns:** The solver adapter pattern (D-010) and drawer registry (`drawers/index.js`) were designed for exactly this kind of extension. Drawers are backend-agnostic (see [unify_draw_backends_a722e612.plan.md](.cursor/plans/unify_draw_backends_a722e612.plan.md)): one drawer per style/layout, first argument is a `DrawBackend`; no separate PDF vs canvas drawer files. No changes to existing adapters or drawers are needed; only additions.
 
