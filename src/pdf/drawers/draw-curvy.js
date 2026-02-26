@@ -1,16 +1,20 @@
 /**
- * Curvy maze drawer (PDF): Catmull-Rom corridor walls + Bezier junction curves.
+ * Curvy maze drawer (PDF): quadratic-Bezier corridor walls with per-edge
+ * midpoint bulge, plus cubic-Bezier junction curves.
  * Same generation and layout as jagged; only the rendering differs.
  * Labels and solution overlay are identical to jagged — re-exported directly.
  */
 
 import { rgb } from 'pdf-lib';
-import { computeNodeTrims, prepareGraphData, catmullRomToBezier } from './organic-geometry.js';
+import { computeNodeTrims, prepareGraphData } from './organic-geometry.js';
 
 export { drawLabels, drawSolutionOverlay } from './draw-organic.js';
 
+const BULGE_FACTOR = 0.22;
+
 /**
- * Draw corridor walls as Catmull-Rom curves and junction gaps as Bezier arcs.
+ * Draw corridor walls as quadratic Bezier curves (offset midpoint) and
+ * junction gaps as cubic Bezier arcs.
  */
 function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
   const { transform, wallThickness, halfW, scale } = params;
@@ -44,31 +48,36 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
 
       const svgOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
 
-      // Left wall — Catmull-Rom through trim endpoints
+      const bulge = dist * BULGE_FACTOR;
+      const variation = Math.sin(node.id * 0.7 + nid * 0.3);
+      const offX = px * bulge * variation;
+      const offY = py * bulge * variation;
+
+      // Left wall — quadratic Bezier via offset midpoint
       const lS = { x: node.x + ux * ltA + px * halfW, y: node.y + uy * ltA + py * halfW };
       const lE = { x: other.x - ux * rtB + px * halfW, y: other.y - uy * rtB + py * halfW };
-      const lP0 = { x: node.x + px * halfW, y: node.y + py * halfW };
-      const lP3 = { x: other.x + px * halfW, y: other.y + py * halfW };
-      const lb = catmullRomToBezier(lP0.x, lP0.y, lS.x, lS.y, lE.x, lE.y, lP3.x, lP3.y);
+      const lQ = { x: (lS.x + lE.x) / 2 + offX, y: (lS.y + lE.y) / 2 + offY };
+      const lCP1 = { x: lS.x + 2 * (lQ.x - lS.x) / 3, y: lS.y + 2 * (lQ.y - lS.y) / 3 };
+      const lCP2 = { x: lE.x + 2 * (lQ.x - lE.x) / 3, y: lE.y + 2 * (lQ.y - lE.y) / 3 };
       const lSt = transform(lS.x, lS.y);
       const lEt = transform(lE.x, lE.y);
-      const lC1 = transform(lb.cp1x, lb.cp1y);
-      const lC2 = transform(lb.cp2x, lb.cp2y);
+      const lC1 = transform(lCP1.x, lCP1.y);
+      const lC2 = transform(lCP2.x, lCP2.y);
       page.drawSvgPath(
         `M ${lSt.x} ${-lSt.y} C ${lC1.x} ${-lC1.y} ${lC2.x} ${-lC2.y} ${lEt.x} ${-lEt.y}`,
         svgOpts,
       );
 
-      // Right wall
+      // Right wall — same offset so corridor snakes without changing width
       const rS = { x: node.x + ux * rtA - px * halfW, y: node.y + uy * rtA - py * halfW };
       const rE = { x: other.x - ux * ltB - px * halfW, y: other.y - uy * ltB - py * halfW };
-      const rP0 = { x: node.x - px * halfW, y: node.y - py * halfW };
-      const rP3 = { x: other.x - px * halfW, y: other.y - py * halfW };
-      const rb = catmullRomToBezier(rP0.x, rP0.y, rS.x, rS.y, rE.x, rE.y, rP3.x, rP3.y);
+      const rQ = { x: (rS.x + rE.x) / 2 + offX, y: (rS.y + rE.y) / 2 + offY };
+      const rCP1 = { x: rS.x + 2 * (rQ.x - rS.x) / 3, y: rS.y + 2 * (rQ.y - rS.y) / 3 };
+      const rCP2 = { x: rE.x + 2 * (rQ.x - rE.x) / 3, y: rE.y + 2 * (rQ.y - rE.y) / 3 };
       const rSt = transform(rS.x, rS.y);
       const rEt = transform(rE.x, rE.y);
-      const rC1 = transform(rb.cp1x, rb.cp1y);
-      const rC2 = transform(rb.cp2x, rb.cp2y);
+      const rC1 = transform(rCP1.x, rCP1.y);
+      const rC2 = transform(rCP2.x, rCP2.y);
       page.drawSvgPath(
         `M ${rSt.x} ${-rSt.y} C ${rC1.x} ${-rC1.y} ${rC2.x} ${-rC2.y} ${rEt.x} ${-rEt.y}`,
         svgOpts,
