@@ -104,6 +104,13 @@ body {
     border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
+
+  .debug-panel {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
   
   .preview-area {
     min-height: 200px;
@@ -407,15 +414,16 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 /* ============================================
-   Debug Panel (hidden by default)
+   Debug Panel — separate column to the right of controls
    ============================================ */
 .debug-panel {
-  margin-top: 1.5rem;
-  padding: 1rem;
+  width: 220px;
+  min-width: 180px;
+  padding: 1.25rem 1rem;
   background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-right: 1px solid var(--color-border);
   font-size: 0.8125rem;
+  overflow-y: auto;
 }
 
 .debug-panel[hidden] {
@@ -446,6 +454,18 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin: 0.25rem 0 0 1.5rem;
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+
+.debug-panel__option input[type="text"] {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  font-family: var(--font-body);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: var(--color-surface);
 }
 
 .debug-panel__list {

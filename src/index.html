@@ -128,54 +128,54 @@
 
           <!-- Status -->
           <p id="status" class="status" aria-live="polite"></p>
-
-          <!-- Debug panel (hidden unless debug mode) -->
-          <section id="debug-panel" class="debug-panel" aria-label="Debug info" hidden>
-            <h2 class="debug-panel__title">Debug</h2>
-            <div class="debug-panel__option">
-              <label>
-                <input type="checkbox" id="debug-one-of-each" name="debug-one-of-each" />
-                <span>1 of each level</span>
-              </label>
-              <p class="debug-panel__option-hint">Generate one maze per difficulty level (uses selected style).</p>
-            </div>
-            <div class="debug-panel__option">
-              <label>
-                <input type="checkbox" id="debug-one-of-each-algo" name="debug-one-of-each-algo" />
-                <span>1 of each algorithm</span>
-              </label>
-              <p class="debug-panel__option-hint">Generate one maze per algorithm (DFS, Prim's, Kruskal's) at selected level.</p>
-            </div>
-            <div class="debug-panel__option">
-              <label>
-                <input type="checkbox" id="debug-show-solution" name="debug-show-solution" checked />
-                <span>Show solution</span>
-              </label>
-              <p class="debug-panel__option-hint">Draw solver path on PDF (prove capabilities). Uncheck to test difficulty without solution.</p>
-            </div>
-            <div class="debug-panel__option">
-              <label for="debug-preview-seed">Preview seed</label>
-              <input type="text" id="debug-preview-seed" inputmode="numeric" placeholder="e.g. 12345" title="Seed for preview; edit to preview a specific maze (e.g. from PDF footer)" />
-              <p class="debug-panel__option-hint">Populated with current preview seed. Change to preview that maze (e.g. paste seed from PDF footer).</p>
-            </div>
-            <dl class="debug-panel__list">
-              <dt>Last PDF seed</dt>
-              <dd id="debug-seed" class="debug-panel__value">—</dd>
-              <dt>Grid</dt>
-              <dd id="debug-grid" class="debug-panel__value">—</dd>
-              <dt>Cell size</dt>
-              <dd id="debug-cell-size" class="debug-panel__value">—</dd>
-              <dt>Line thickness</dt>
-              <dd id="debug-line-thickness" class="debug-panel__value">—</dd>
-            </dl>
-            <p class="debug-panel__hint">Footer shows difficulty and age range when debug is on.</p>
-          </section>
         </form>
 
         <footer class="panel-footer">
           <p>makernik.com</p>
         </footer>
       </aside>
+
+      <!-- Debug panel (hidden unless debug mode; sits between controls and preview) -->
+      <section id="debug-panel" class="debug-panel" aria-label="Debug info" hidden>
+        <h2 class="debug-panel__title">Debug</h2>
+        <div class="debug-panel__option">
+          <label>
+            <input type="checkbox" id="debug-one-of-each" name="debug-one-of-each" />
+            <span>1 of each level</span>
+          </label>
+          <p class="debug-panel__option-hint">Generate one maze per difficulty level (uses selected style).</p>
+        </div>
+        <div class="debug-panel__option">
+          <label>
+            <input type="checkbox" id="debug-one-of-each-algo" name="debug-one-of-each-algo" />
+            <span>1 of each algorithm</span>
+          </label>
+          <p class="debug-panel__option-hint">Generate one maze per algorithm (DFS, Prim's, Kruskal's) at selected level.</p>
+        </div>
+        <div class="debug-panel__option">
+          <label>
+            <input type="checkbox" id="debug-show-solution" name="debug-show-solution" checked />
+            <span>Show solution</span>
+          </label>
+          <p class="debug-panel__option-hint">Draw solver path on PDF (prove capabilities). Uncheck to test difficulty without solution.</p>
+        </div>
+        <div class="debug-panel__option">
+          <label for="debug-preview-seed">Preview seed</label>
+          <input type="text" id="debug-preview-seed" inputmode="numeric" placeholder="e.g. 12345" title="Seed for preview; edit to preview a specific maze (e.g. from PDF footer)" />
+          <p class="debug-panel__option-hint">Populated with current preview seed. Change to preview that maze (e.g. paste seed from PDF footer).</p>
+        </div>
+        <dl class="debug-panel__list">
+          <dt>Last PDF seed</dt>
+          <dd id="debug-seed" class="debug-panel__value">—</dd>
+          <dt>Grid</dt>
+          <dd id="debug-grid" class="debug-panel__value">—</dd>
+          <dt>Cell size</dt>
+          <dd id="debug-cell-size" class="debug-panel__value">—</dd>
+          <dt>Line thickness</dt>
+          <dd id="debug-line-thickness" class="debug-panel__value">—</dd>
+        </dl>
+        <p class="debug-panel__hint">Footer shows difficulty and age range when debug is on.</p>
+      </section>
 
       <!-- Preview Area (Right) -->
       <main class="preview-area">
