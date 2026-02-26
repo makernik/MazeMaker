@@ -36,7 +36,7 @@ function getThemesBase() {
  * 
  * @param {object} config - Rendering configuration
  * @param {object[]} config.mazes - Array of maze objects from generator
- * @param {string} config.style - 'square', 'classic', or 'organic'
+ * @param {string} config.style - 'square', 'classic', 'jagged', or 'curvy'
  * @param {string} config.ageRange - Age range for label style
  * @param {string} [config.theme] - 'none', 'shapes', or 'animals' (corner decorations only)
  * @param {boolean} [config.debugMode] - If true, footer shows difficulty/age; solution drawn when showSolution is true
@@ -65,7 +65,10 @@ export async function renderMazesToPdf(config) {
     const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     const layoutResult = getLayoutForMaze(maze, { mazeWidth, mazeHeight, style });
 
-    const drawer = getDrawer(layoutResult.layoutType);
+    const drawerKey = maze.layout === 'organic'
+      ? (style === 'curvy' ? 'curvy' : 'jagged')
+      : 'grid';
+    const drawer = getDrawer(drawerKey);
     const organicStats = drawer.drawWalls(page, maze, layoutResult);
     drawer.drawLabels(page, maze, layoutResult, { useArrows, font, boldFont });
     if (debugMode && showSolution) {
@@ -85,7 +88,7 @@ export async function renderMazesToPdf(config) {
       ageRange: maze.ageRange,
       algorithm: maze.algorithm ?? maze.preset.algorithm,
       seed: maze.seed,
-      style: maze.layout === 'organic' ? 'organic' : style,
+      style: maze.layout === 'organic' ? style : style,
       nodeCount: maze.layout === 'organic' ? maze.graph.nodes.length : undefined,
       connectedCount: maze.layout === 'organic' ? maze.connectedCount : undefined,
       corridorWidth: organicStats?.corridorWidth,

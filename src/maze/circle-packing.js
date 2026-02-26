@@ -286,6 +286,77 @@ function findComponents(circles, neighbors) {
   return components;
 }
 
+// ---------------------------------------------------------------------------
+// Void fill (pass 2 — decorative filler circles in gaps)
+// ---------------------------------------------------------------------------
+
+/**
+ * Place small circles in void regions between existing circles.
+ * Filler circles do NOT overlap existing ones. Deterministic given seed.
+ *
+ * @param {Array<{ id: number, x: number, y: number, r: number }>} existingCircles
+ * @param {number} width
+ * @param {number} height
+ * @param {number} seed
+ * @returns {{ circles: Array<{ id: number, x: number, y: number, r: number }> }}
+ */
+export function fillVoids(existingCircles, width, height, seed) {
+  const rng = createRng(seed);
+
+  let totalR = 0;
+  let maxExistingR = 0;
+  for (const c of existingCircles) {
+    totalR += c.r;
+    if (c.r > maxExistingR) maxExistingR = c.r;
+  }
+  const avgR = existingCircles.length > 0 ? totalR / existingCircles.length : 10;
+  const fillerR = Math.max(3, avgR * 0.4);
+
+  const checkDist = maxExistingR + fillerR + 2;
+  const cellSize = Math.max(1, checkDist * 2);
+  const grid = new SpatialGrid(width, height, cellSize);
+  grid.build(existingCircles);
+
+  const step = fillerR * 2.2;
+  const fillerCircles = [];
+  let nextId = 0;
+  for (const c of existingCircles) {
+    if (c.id >= nextId) nextId = c.id + 1;
+  }
+  nextId += 10000;
+
+  for (let gy = fillerR + 1; gy < height - fillerR - 1; gy += step) {
+    for (let gx = fillerR + 1; gx < width - fillerR - 1; gx += step) {
+      const jx = gx + rng.randomFloat(-fillerR * 0.2, fillerR * 0.2);
+      const jy = gy + rng.randomFloat(-fillerR * 0.2, fillerR * 0.2);
+      const fx = Math.max(fillerR, Math.min(width - fillerR - 1, jx));
+      const fy = Math.max(fillerR, Math.min(height - fillerR - 1, jy));
+
+      const nearby = grid.getNearby(fx, fy);
+      let overlaps = false;
+      for (let k = 0; k < nearby.length; k++) {
+        const c = existingCircles[nearby[k]];
+        const dx = fx - c.x;
+        const dy = fy - c.y;
+        if (dx * dx + dy * dy < (c.r + fillerR + 1) * (c.r + fillerR + 1)) {
+          overlaps = true;
+          break;
+        }
+      }
+
+      if (!overlaps) {
+        fillerCircles.push({ id: nextId++, x: fx, y: fy, r: fillerR });
+      }
+    }
+  }
+
+  return { circles: fillerCircles };
+}
+
+// ---------------------------------------------------------------------------
+// Relaxation
+// ---------------------------------------------------------------------------
+
 /**
  * Brief relaxation pass (repulsion only) using spatial grid.
  */

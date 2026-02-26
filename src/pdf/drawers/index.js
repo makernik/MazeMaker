@@ -1,41 +1,42 @@
 /**
- * Drawer registry by layout type. Each drawer implements drawWalls, drawLabels, drawSolutionOverlay.
+ * Drawer registry by style. Each drawer implements drawWalls, drawLabels, drawSolutionOverlay.
  * Canvas drawers (for preview) use same layoutResult; no pdf-lib.
  */
 
 import * as gridDrawer from './draw-grid.js';
-import * as organicDrawer from './draw-organic.js';
+import * as jaggedDrawer from './draw-organic.js';
 import * as gridCanvasDrawer from './draw-grid-canvas.js';
-import * as organicCanvasDrawer from './draw-organic-canvas.js';
+import * as jaggedCanvasDrawer from './draw-organic-canvas.js';
 
 const drawers = {
   grid: gridDrawer,
-  organic: organicDrawer,
+  jagged: jaggedDrawer,
 };
 
 const canvasDrawers = {
   grid: gridCanvasDrawer,
-  organic: organicCanvasDrawer,
+  jagged: jaggedCanvasDrawer,
 };
 
 /**
- * Get drawer for layout type. Default 'grid' for unknown or missing layout.
+ * Get drawer for style. Grid styles ('classic', 'square') map to 'grid'.
+ * Organic styles ('jagged', 'curvy') map to their own drawers.
  *
- * @param {string} [layoutType] - 'grid' | 'organic'
+ * @param {string} [style] - 'grid' | 'jagged' | 'curvy' | 'classic' | 'square'
  * @returns {object} Drawer with drawWalls, drawLabels, drawSolutionOverlay
  */
-export function getDrawer(layoutType) {
-  return drawers[layoutType] ?? drawers.grid;
+export function getDrawer(style) {
+  return drawers[style] ?? drawers.grid;
 }
 
 /**
- * Get canvas drawer for layout type (preview). Same layoutResult as PDF.
+ * Get canvas drawer for style (preview). Same layoutResult as PDF.
  *
- * @param {string} [layoutType] - 'grid' | 'organic'
+ * @param {string} [style] - 'grid' | 'jagged' | 'curvy' | 'classic' | 'square'
  * @returns {object} { drawWalls(ctx, maze, layoutResult), drawLabels(ctx, maze, layoutResult, options?) }
  */
-export function getCanvasDrawer(layoutType) {
-  return canvasDrawers[layoutType] ?? canvasDrawers.grid;
+export function getCanvasDrawer(style) {
+  return canvasDrawers[style] ?? canvasDrawers.grid;
 }
 
 export { drawers };

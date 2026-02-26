@@ -25,9 +25,15 @@ const debugGridEl = document.getElementById('debug-grid');
 const debugCellSizeEl = document.getElementById('debug-cell-size');
 const debugLineThicknessEl = document.getElementById('debug-line-thickness');
 const debugOneOfEachCheckbox = document.getElementById('debug-one-of-each');
+const debugOneOfEachAlgoCheckbox = document.getElementById('debug-one-of-each-algo');
 const debugShowSolutionCheckbox = document.getElementById('debug-show-solution');
 const debugPreviewSeedInput = document.getElementById('debug-preview-seed');
 const samplePreviewCanvas = document.getElementById('sample-preview-canvas');
+
+/** Styles that use organic (circle-packing) topology. */
+function isOrganicStyle(style) {
+  return style === 'jagged' || style === 'curvy';
+}
 
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
 let debugMode = false;
@@ -108,7 +114,8 @@ function updateDebugPanel(mazes, baseSeed) {
     debugSeedEl.textContent += ` (base: ${baseSeed}, +0…${mazes.length - 1})`;
   }
   if (maze.layout === 'organic') {
-    debugGridEl.textContent = `organic, ${maze.graph.nodes.length} cells`;
+    const currentStyle = getFormValues().mazeStyle || 'jagged';
+    debugGridEl.textContent = `${currentStyle}, ${maze.graph.nodes.length} cells`;
   } else {
     debugGridEl.textContent = `${maze.cols} × ${maze.rows}`;
   }
@@ -161,8 +168,7 @@ function updatePreviewCanvas() {
   if (debugMode && debugPreviewSeedInput) {
     debugPreviewSeedInput.value = String(seed);
   }
-  const isOrganic = values.mazeStyle === 'organic';
-  const layoutType = isOrganic ? 'organic' : 'grid';
+  const isOrganic = isOrganicStyle(values.mazeStyle);
   const style = values.mazeStyle;
   const ageRange = values.ageRange;
 
@@ -198,7 +204,8 @@ function updatePreviewCanvas() {
   ctx.save();
   ctx.setTransform(1, 0, 0, -1, 0, h);
 
-  const canvasDrawer = getCanvasDrawer(layoutResult.layoutType);
+  const canvasDrawerKey = isOrganic ? style : 'grid';
+  const canvasDrawer = getCanvasDrawer(canvasDrawerKey);
   const useArrows = ageRange === '3' || ageRange === '4-5' || ageRange === '6-8';
   canvasDrawer.drawWalls(ctx, maze, layoutResult);
   canvasDrawer.drawLabels(ctx, maze, layoutResult, { useArrows, canvasHeight: h });
@@ -292,19 +299,40 @@ async function generateAndDownload(event) {
     let result;
     let styleForPdf = values.mazeStyle;
     let filename;
-    const oneOfEach = debugMode && debugOneOfEachCheckbox && debugOneOfEachCheckbox.checked;
+    const oneOfEachLevel = debugMode && debugOneOfEachCheckbox && debugOneOfEachCheckbox.checked;
+    const oneOfEachAlgo = debugMode && debugOneOfEachAlgoCheckbox && debugOneOfEachAlgoCheckbox.checked;
 
-    if (oneOfEach) {
+    if (oneOfEachAlgo) {
+      const mazes = [];
+      for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+        if (isOrganicStyle(values.mazeStyle)) {
+          mazes.push(generateOrganicMaze({
+            ageRange: values.ageRange,
+            seed: baseSeed + a,
+            algorithm: ALGORITHM_IDS[a],
+          }));
+        } else {
+          mazes.push(generateMaze({
+            ageRange: values.ageRange,
+            seed: baseSeed + a,
+            algorithm: ALGORITHM_IDS[a],
+          }));
+        }
+      }
+      styleForPdf = values.mazeStyle;
+      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
+      filename = `mazes-each-algo-${values.mazeStyle}-${values.ageRange}.pdf`;
+    } else if (oneOfEachLevel) {
       const ageRangeKeys = Object.keys(DIFFICULTY_PRESETS);
       const mazes = [];
-      if (values.mazeStyle === 'organic') {
+      if (isOrganicStyle(values.mazeStyle)) {
         for (let l = 0; l < ageRangeKeys.length; l++) {
           mazes.push(generateOrganicMaze({
             ageRange: ageRangeKeys[l],
             seed: baseSeed + l,
           }));
         }
-        styleForPdf = 'organic';
+        styleForPdf = values.mazeStyle;
       } else {
         for (let a = 0; a < ALGORITHM_IDS.length; a++) {
           for (let l = 0; l < ageRangeKeys.length; l++) {
@@ -320,8 +348,8 @@ async function generateAndDownload(event) {
         styleForPdf = values.mazeStyle;
       }
       result = { mazes, baseSeed, ageRange: null, quantity: mazes.length };
-      filename = `mazes-one-of-each-${values.mazeStyle}.pdf`;
-    } else if (values.mazeStyle === 'organic') {
+      filename = `mazes-each-level-${values.mazeStyle}.pdf`;
+    } else if (isOrganicStyle(values.mazeStyle)) {
       const mazes = [];
       for (let i = 0; i < values.quantity; i++) {
         mazes.push(generateOrganicMaze({
@@ -330,9 +358,8 @@ async function generateAndDownload(event) {
         }));
       }
       result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
-      styleForPdf = 'organic';
-      filename = `mazes-organic-${values.ageRange}-${mazes.length}pk.pdf`;
-      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:branch',message:'branch taken',data:{branch:'organic'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      styleForPdf = values.mazeStyle;
+      filename = `mazes-${values.mazeStyle}-${values.ageRange}-${mazes.length}pk.pdf`;
     } else {
       const preset = getDifficultyPreset(values.ageRange);
       result = generateMazes({
@@ -373,7 +400,7 @@ async function generateAndDownload(event) {
     const pdfBytes = await renderMazesToPdf({
       mazes: result.mazes,
       style: styleForPdf,
-      ageRange: oneOfEach ? undefined : values.ageRange,
+      ageRange: (oneOfEachLevel || oneOfEachAlgo) ? undefined : values.ageRange,
       theme: values.theme,
       debugMode: isDebugMode(),
       showSolution: debugMode && debugShowSolutionCheckbox ? debugShowSolutionCheckbox.checked : false,

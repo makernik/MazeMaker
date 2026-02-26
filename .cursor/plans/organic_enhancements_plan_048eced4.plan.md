@@ -4,16 +4,16 @@ overview: Split Organic into Jagged/Curvy, add two-pass dense fill with decorati
 todos:
   - id: deferred-ideas
     content: "Update DEFERRED_IDEAS.md: add Jagged/Curvy split, two-pass dense fill, 2.5D bridges (deferred separately)"
-    status: pending
+    status: completed
   - id: dense-fill
     content: "C0: Two-pass dense fill — pass 1 unchanged maze generation, pass 2 decorative disconnected corridors in void regions"
-    status: pending
+    status: completed
   - id: rename-jagged
     content: "C1: Rename Organic to Jagged throughout code, UI, tests, and docs"
-    status: pending
+    status: completed
   - id: debug-algo-picker
     content: "C2: Debug mode — '1 of each algorithm' option + relabel existing to '1 of each level'; all 3 algos for jagged/curvy"
-    status: pending
+    status: in_progress
   - id: curvy-drawer
     content: "C3: Curvy drawer — Catmull-Rom through miter points, per-edge then explore continuous outline (PDF + canvas)"
     status: pending
@@ -57,6 +57,7 @@ Standard pipeline: `packCircles` at current density -> `buildOrganicGraph` -> DF
 
 **Pass 2 — Decorative fill (visual complexity only):**
 After the maze is carved and validated:
+
 - Detect void regions in the packing (areas where no circle exists)
 - Insert filler circles into voids (smaller radii, deterministic placement from same seeded RNG)
 - Build a separate disconnected graph for filler circles (neighbors among themselves only — **no edges to pass-1 maze nodes**)
@@ -64,6 +65,7 @@ After the maze is carved and validated:
 - These decorative corridors look like real passages but are completely disconnected from the solvable maze — they lead nowhere and increase visual difficulty for the person solving
 
 **Key properties:**
+
 - Maze remains a perfect tree (filler is disconnected — solver never sees it)
 - Difficulty is controlled by pass 1 node count; visual density is controlled by pass 2
 - Deterministic: same seed -> same filler placement and decorative carving
@@ -106,21 +108,25 @@ Same generation pipeline as Jagged (same circle packing, same graph, same algori
 **Curve type: Catmull-Rom splines** (not Bezier). Catmull-Rom passes *through* defined points rather than toward control points, producing more natural flowing curves. Converted to cubic Bezier segments for SVG path output (`drawSvgPath` with `C` commands in pdf-lib).
 
 **Shared geometry with Jagged — miter points as guide points:**
+
 - Jagged's miter-point computation (distance from circle center, angle-dependent positioning) produces the guide points that both styles use
 - Jagged draws straight wall segments between these miter points
 - Curvy runs a Catmull-Rom spline through the same miter points, producing flowing curves
 - The distance/angle logic is shared; only the final rendering step differs
 
 **Guide point positioning (initial target — to be tuned):**
+
 - Inner angles (tight junctions, acute angle between adjacent corridors): guide point ~1.5-2R from circle center. No junction arc — the spline handles continuity by swinging wide.
 - Outer angles (wide junctions, obtuse angle): guide point ~1-1.5R from circle center. Less swing needed.
 - These distances may be reused directly from jagged's miter-point work if that geometry proves correct.
 
 **Rendering strategy — incremental:**
+
 1. Start with **per-edge Catmull-Rom** — each corridor edge gets its own spline segment through its guide points, joined with smooth tangent-matching transitions at nodes
 2. If visual quality warrants it, upgrade to **continuous outline** — trace the full wall boundary as one flowing spline path per connected wall contour (bigger renderer rewrite, more flowing result)
 
 **Junction handling:**
+
 - Per-edge mode: junctions are implicit — tangent continuity between adjacent edge splines at shared miter points provides smooth transitions
 - Continuous-outline mode: no separate junction logic needed — the outline path flows continuously
 
@@ -144,6 +150,8 @@ flowchart LR
   MiterGeom --> DrawJagged
   MiterGeom --> DrawCurvy
 ```
+
+
 
 ### Dispatch
 
@@ -177,16 +185,19 @@ flowchart LR
 ### Changes
 
 **Make all 3 algorithms available for jagged/curvy:**
+
 - `generateOrganicMaze` accepts an `algorithm` parameter (default: age-mapped, same as grid)
 - DFS, Prim's, and Kruskal's all operate on the organic graph (they only need `getNeighbors`, `removeWall` — already available on `OrganicGraph`)
 
 **New debug generation mode — "1 of each algorithm":**
+
 - User selects an age level
 - Generates 3 mazes at that level: one with DFS, one with Prim's, one with Kruskal's
 - Uses the currently selected style (jagged or curvy; also works with classic/square for grid)
 - PDF labels each page with the algorithm used
 
 **Relabel existing debug option:**
+
 - Current "1 of each" becomes **"1 of each level"** (user selects the style, generates one maze per age level)
 
 ### Files affected
@@ -267,6 +278,8 @@ flowchart TD
   C2 --> C4
   C3 --> C4
 ```
+
+
 
 C0 (dense fill) and C2 (debug algo picker) can proceed in parallel. C1 (rename) depends on the miter-point work landing. C3 (curvy) depends on C1 (shared miter geometry). C4 (UI) is the final integration checkpoint.
 

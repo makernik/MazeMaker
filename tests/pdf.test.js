@@ -97,9 +97,9 @@ describe('PDF Renderer', () => {
     expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
   });
 
-  it('renders organic maze', async () => {
+  it('renders organic maze with jagged style', async () => {
     const maze = generateOrganicMaze({ ageRange: '4-5', seed: 88880 });
-    const pdfBytes = await renderSingleMaze(maze, 'square');
+    const pdfBytes = await renderSingleMaze(maze, 'jagged');
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
     expect(pdfBytes.length).toBeGreaterThan(1000);
     const header = String.fromCharCode(...pdfBytes.slice(0, 5));
@@ -109,8 +109,8 @@ describe('PDF Renderer', () => {
   it('produces deterministic PDF for same organic maze', async () => {
     const maze1 = generateOrganicMaze({ ageRange: '4-5', seed: 88881 });
     const maze2 = generateOrganicMaze({ ageRange: '4-5', seed: 88881 });
-    const pdf1 = await renderSingleMaze(maze1, 'square');
-    const pdf2 = await renderSingleMaze(maze2, 'square');
+    const pdf1 = await renderSingleMaze(maze1, 'jagged');
+    const pdf2 = await renderSingleMaze(maze2, 'jagged');
     expect(pdf1.length).toBe(pdf2.length);
     expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
   });

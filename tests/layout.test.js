@@ -40,7 +40,7 @@ describe('getLayoutForMaze', () => {
       margin,
       mazeWidth: pageWidth,
       mazeHeight: pageHeight,
-      style: 'organic',
+      style: 'jagged',
     });
     expect(layout.layoutType).toBe('organic');
     const { boundsWidth, boundsHeight, transform } = layout;

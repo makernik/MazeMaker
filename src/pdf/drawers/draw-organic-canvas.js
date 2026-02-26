@@ -6,35 +6,9 @@
 import { computeNodeTrims } from './organic-geometry.js';
 
 /**
- * @param {CanvasRenderingContext2D} ctx
- * @param {object} maze - Organic maze with graph, nodePositions, startId, finishId, boundsWidth, boundsHeight
- * @param {object} layoutResult - { transform, lineThickness, scale }
+ * Compute passage directions and miter trims for all nodes in a graph.
  */
-export function drawWalls(ctx, maze, layoutResult) {
-  const { transform, lineThickness, scale } = layoutResult;
-  const { graph } = maze;
-  const wallThickness = lineThickness * scale;
-
-  let totalDist = 0;
-  let edgeCount = 0;
-  for (const node of graph.nodes) {
-    for (const nid of node.neighbors) {
-      if (nid > node.id) {
-        const other = graph.getNode(nid);
-        if (!other) continue;
-        const dx = other.x - node.x;
-        const dy = other.y - node.y;
-        totalDist += Math.sqrt(dx * dx + dy * dy);
-        edgeCount++;
-      }
-    }
-  }
-  const avgDist = edgeCount > 0 ? totalDist / edgeCount : 30;
-  const maxCorridorW = avgDist * 0.35;
-  const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
-  const halfW = corridorWidth / 2;
-  const drawnEdges = new Set();
-
+function prepareGraphData(graph, halfW) {
   const nodePassages = new Map();
   for (const node of graph.nodes) {
     const passages = [];
@@ -47,17 +21,6 @@ export function drawWalls(ctx, maze, layoutResult) {
     passages.sort((a, b) => a.angle - b.angle);
     nodePassages.set(node.id, passages);
   }
-  const startPassages = nodePassages.get(maze.startId);
-  if (startPassages) {
-    startPassages.push({ nid: -1, angle: Math.PI / 2 });
-    startPassages.sort((a, b) => a.angle - b.angle);
-  }
-  const finishPassages = nodePassages.get(maze.finishId);
-  if (finishPassages) {
-    finishPassages.push({ nid: -2, angle: -Math.PI / 2 });
-    finishPassages.sort((a, b) => a.angle - b.angle);
-  }
-
   const allNodeTrims = new Map();
   for (const node of graph.nodes) {
     const passages = nodePassages.get(node.id);
@@ -65,6 +28,15 @@ export function drawWalls(ctx, maze, layoutResult) {
       allNodeTrims.set(node.id, computeNodeTrims(passages, halfW));
     }
   }
+  return { nodePassages, allNodeTrims };
+}
+
+/**
+ * Draw corridor walls and junction arcs for a graph (main or filler).
+ */
+function drawGraphCorridors(ctx, graph, nodePassages, allNodeTrims, params) {
+  const { transform, wallThickness, halfW, scale } = params;
+  const drawnEdges = new Set();
 
   ctx.strokeStyle = '#000';
   ctx.lineCap = 'round';
@@ -135,12 +107,72 @@ export function drawWalls(ctx, maze, layoutResult) {
       ctx.stroke();
     }
   }
+}
+
+/**
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} maze - Organic maze with graph, nodePositions, startId, finishId, boundsWidth, boundsHeight
+ * @param {object} layoutResult - { transform, lineThickness, scale }
+ */
+export function drawWalls(ctx, maze, layoutResult) {
+  const { transform, lineThickness, scale } = layoutResult;
+  const { graph } = maze;
+  const wallThickness = lineThickness * scale;
+
+  let totalDist = 0;
+  let edgeCount = 0;
+  for (const node of graph.nodes) {
+    for (const nid of node.neighbors) {
+      if (nid > node.id) {
+        const other = graph.getNode(nid);
+        if (!other) continue;
+        const dx = other.x - node.x;
+        const dy = other.y - node.y;
+        totalDist += Math.sqrt(dx * dx + dy * dy);
+        edgeCount++;
+      }
+    }
+  }
+  const avgDist = edgeCount > 0 ? totalDist / edgeCount : 30;
+  const maxCorridorW = avgDist * 0.35;
+  const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
+  const halfW = corridorWidth / 2;
+
+  const { nodePassages, allNodeTrims } = prepareGraphData(graph, halfW);
+  const startPassages = nodePassages.get(maze.startId);
+  if (startPassages) {
+    startPassages.push({ nid: -1, angle: Math.PI / 2 });
+    startPassages.sort((a, b) => a.angle - b.angle);
+  }
+  const finishPassages = nodePassages.get(maze.finishId);
+  if (finishPassages) {
+    finishPassages.push({ nid: -2, angle: -Math.PI / 2 });
+    finishPassages.sort((a, b) => a.angle - b.angle);
+  }
+  if (startPassages && startPassages.length > 0) {
+    allNodeTrims.set(maze.startId, computeNodeTrims(startPassages, halfW));
+  }
+  if (finishPassages && finishPassages.length > 0) {
+    allNodeTrims.set(maze.finishId, computeNodeTrims(finishPassages, halfW));
+  }
+
+  const drawParams = { transform, wallThickness, halfW, scale };
+  drawGraphCorridors(ctx, graph, nodePassages, allNodeTrims, drawParams);
+
+  if (maze.fillerGraph) {
+    const fillerData = prepareGraphData(maze.fillerGraph, halfW);
+    drawGraphCorridors(ctx, maze.fillerGraph, fillerData.nodePassages, fillerData.allNodeTrims, drawParams);
+  }
 
   const bw = maze.boundsWidth;
   const bh = maze.boundsHeight;
   const startPos = maze.nodePositions.get(maze.startId);
   const finishPos = maze.nodePositions.get(maze.finishId);
   const halfThick = lineThickness / 2;
+
+  ctx.strokeStyle = '#000';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = wallThickness;
 
   const line = (x1, y1, x2, y2) => {
     const a = transform(x1, y1);

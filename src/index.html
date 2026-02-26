@@ -68,8 +68,8 @@
                 <span>Classic</span>
               </label>
               <label class="toggle">
-                <input type="radio" name="maze-style" value="organic" />
-                <span>Organic</span>
+                <input type="radio" name="maze-style" value="jagged" />
+                <span>Jagged</span>
               </label>
               <label class="toggle">
                 <input type="radio" name="maze-style" value="square" />
@@ -131,9 +131,16 @@
             <div class="debug-panel__option">
               <label>
                 <input type="checkbox" id="debug-one-of-each" name="debug-one-of-each" />
-                <span>1 of each</span>
+                <span>1 of each level</span>
               </label>
-              <p class="debug-panel__option-hint">Generate one maze per difficulty level.</p>
+              <p class="debug-panel__option-hint">Generate one maze per difficulty level (uses selected style).</p>
+            </div>
+            <div class="debug-panel__option">
+              <label>
+                <input type="checkbox" id="debug-one-of-each-algo" name="debug-one-of-each-algo" />
+                <span>1 of each algorithm</span>
+              </label>
+              <p class="debug-panel__option-hint">Generate one maze per algorithm (DFS, Prim's, Kruskal's) at selected level.</p>
             </div>
             <div class="debug-panel__option">
               <label>
