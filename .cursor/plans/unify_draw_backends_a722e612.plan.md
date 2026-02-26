@@ -1,9 +1,9 @@
 ---
 name: Unify Draw Backends
-overview: Introduce a thin rendering-backend abstraction that normalizes the pdf-lib and Canvas2D APIs, then merge each pair of PDF/canvas drawers (grid, jagged, curvy) into a single backend-agnostic implementation.
+overview: Introduce a thin rendering-backend abstraction that normalizes the pdf-lib and Canvas2D APIs, then merge each pair of PDF/canvas drawers (grid, jagged, curvy) into a single backend-agnostic implementation. Also unify drawSolutionOverlay through the backend and enable it on the canvas preview in debug mode.
 todos:
   - id: c0-backend
-    content: "C0: Create draw-backend.js with createPdfBackend and createCanvasBackend factory functions"
+    content: "C0: Create draw-backend.js with createPdfBackend and createCanvasBackend factory functions (minimal interface: stroke primitives, line, path ops, arc, Bezier, text)"
     status: pending
   - id: c1-grid
     content: "C1: Merge draw-grid.js and draw-grid-canvas.js into single backend-agnostic drawer; update callers; delete canvas file"
@@ -16,6 +16,9 @@ todos:
     status: pending
   - id: c4-cleanup
     content: "C4: Clean up registry (unify getDrawer/getCanvasDrawer), final validation across all styles, add DECISIONS.md entry"
+    status: pending
+  - id: c5-solution-overlay
+    content: "C5: Add setDash/setOpacity/save/restore to backend; unify drawSolutionOverlay through backend; wire Show Solution checkbox to canvas preview in debug mode"
     status: pending
 isProject: false
 ---
@@ -143,16 +146,42 @@ Merge `draw-curvy.js` and `draw-curvy-canvas.js` into a single `draw-curvy.js` t
 
 Remove `getCanvasDrawer` from `index.js` (or alias to `getDrawer`). Update `main.js` to use `getDrawer`. Final pass: verify all 4 styles work for both PDF and canvas. Update `docs/DECISIONS.md` with a decision entry.
 
+### C5: Unify drawSolutionOverlay + canvas preview toggle
+
+Extend the backend interface with `setDash(pattern)`, `setOpacity(value)`, `save()`, and `restore()`. These are needed by `drawSolutionOverlay` (dashed lines at 0.7 opacity) and were intentionally deferred from C0 to keep the initial interface minimal.
+
+- **PdfBackend:** `setDash` stores dashArray for next `stroke()`; `setOpacity` stores opacity; `save`/`restore` push/pop a state stack of stroke style, dash, opacity.
+- **CanvasBackend:** `setDash` calls `ctx.setLineDash(pattern)`; `setOpacity` sets `ctx.globalAlpha`; `save`/`restore` call `ctx.save()`/`ctx.restore()`.
+
+Merge `drawSolutionOverlay` from `draw-grid.js` and `draw-organic.js` so they use backend methods instead of raw pdf-lib calls. This makes solution overlay work on both PDF and canvas with the same code.
+
+In [src/main.js](src/main.js) `updatePreviewCanvas()`: when debug mode is on and the "Show solution" checkbox is checked, solve the maze and call `drawer.drawSolutionOverlay(backend, maze, solution.path, layoutResult)` on the canvas. The existing `debug-show-solution` checkbox (`src/index.html` line 151) and `change` listener already exist; just wire `updatePreviewCanvas` to read the checkbox and draw when checked.
+
+Validate: toggle "Show solution" in debug mode and confirm the dashed path appears on the canvas preview for all 4 styles.
+
 ## Validation
 
 - **Visual:** Generate PDFs for all 4 styles (Classic, Square, Jagged, Curvy) at multiple age ranges. Compare against pre-refactor PDFs (same seed should produce identical output).
 - **Canvas preview:** Verify live preview renders correctly for all 4 styles.
+- **Solution overlay on canvas:** In debug mode, check "Show solution" and verify the dashed solution path appears on the canvas preview for all 4 styles.
 - **Determinism:** Same seed + style produces identical PDF bytes before and after refactor.
 - **No new dependencies:** Pure refactor; no new npm packages.
+
+## Extensibility Notes
+
+This backend design accommodates known future features without interface changes:
+
+- **Polar/circular mazes:** Just one `draw-polar.js` file (not two). Polar drawing uses `backend.arc()` for circumferential walls and `backend.line()` for radial walls -- both already in the interface. The [circular mazes plan](circular_mazes_implementation_f1dda3a0.plan.md) references `draw-polar-canvas.js` which will no longer be needed.
+- **Corridor-following filler:** No drawer changes -- `drawGraphCorridors()` already handles filler graphs through the backend.
+- **New generation algorithms:** Algorithms don't touch the drawing layer.
+- **New rendering targets (e.g., SVG export):** Just add a third backend implementation; drawer code stays unchanged.
+- **2.5D visual bridges:** May need `setFill()`/`fill()` for shadow effects (not in current interface). Can be added to the backend when bridges are implemented.
+- `**arc()` semantic:** The backend uses center-based arcs `arc(cx, cy, r, startAngle, endAngle)` matching the Canvas API. PdfBackend converts internally to SVG endpoint-based `A` commands.
 
 ## Risks and Mitigations
 
 - **SVG path accumulation for PDF arcs**: The jagged PDF drawer currently uses `page.drawSvgPath` with SVG `A` (arc) commands. The PdfBackend `arc()` method must reproduce this exactly. Mitigation: port the existing SVG arc string construction into the backend.
 - **Curvy quadratic-to-cubic**: The PDF curvy drawer manually converts quadratic to cubic Bezier. Moving this into `PdfBackend.quadraticCurveTo()` is cleaner but must produce identical control points. Mitigation: extract the existing conversion math.
 - **Canvas label y-flip**: Canvas labels flip to screen coords via `ctx.setTransform(1,0,0,1,0,0)`. The backend needs a `withScreenTransform` or similar mechanism. Mitigation: the canvas backend can expose this, and the label code checks for it.
+- **Solution overlay parity**: The PDF organic solution overlay uses SVG `Q` (quadratic Bezier) for smooth paths. The canvas version will use `ctx.quadraticCurveTo`. Both should produce visually equivalent results but won't be pixel-identical due to rendering engine differences.
 

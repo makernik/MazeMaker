@@ -11,6 +11,7 @@ import {
   prepareGraphData,
   catmullRomToBezier,
   extractThreads,
+  enhanceDeadEndThreads,
   phantomFactor,
 } from './organic-geometry.js';
 
@@ -135,11 +136,15 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
   const { transform, wallThickness, halfW, startId, finishId } = params;
   const svgOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
 
+  const posMap = new Map();
+  for (const node of graph.nodes) posMap.set(node.id, { x: node.x, y: node.y });
+
   const forceEndpoints = new Set();
   if (startId != null) forceEndpoints.add(startId);
   if (finishId != null) forceEndpoints.add(finishId);
 
-  const threads = extractThreads(nodePassages, graph, forceEndpoints);
+  const rawThreads = extractThreads(nodePassages, graph, forceEndpoints);
+  const threads = enhanceDeadEndThreads(rawThreads, nodePassages, posMap, halfW);
   const splineInteriors = new Set();
 
   for (const thread of threads) {
@@ -148,8 +153,8 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
 
     const centers = [];
     for (const id of thread) {
-      const nd = graph.getNode(id);
-      centers.push({ x: nd.x, y: nd.y });
+      const pos = posMap.get(id);
+      centers.push({ x: pos.x, y: pos.y });
     }
 
     // Tangent & perpendicular at each center
@@ -182,7 +187,9 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
 
       if (i === 0) {
         const trimsA = allNodeTrims.get(thread[0]);
-        const aTrim = trimsA ? trimsA.get(thread[1]) : null;
+        let nbrIdx = 1;
+        while (nbrIdx < n && thread[nbrIdx] < 0) nbrIdx++;
+        const aTrim = trimsA ? trimsA.get(thread[nbrIdx]) : null;
         const d01 = Math.sqrt((centers[1].x - c.x) ** 2 + (centers[1].y - c.y) ** 2) || 1;
         const cap = d01 * 0.45;
         const lt = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
@@ -191,7 +198,9 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
         rightPts.push({ x: c.x + t.x * rt - p.x * halfW, y: c.y + t.y * rt - p.y * halfW });
       } else if (i === n - 1) {
         const trimsB = allNodeTrims.get(thread[n - 1]);
-        const bTrim = trimsB ? trimsB.get(thread[n - 2]) : null;
+        let nbrIdx = n - 2;
+        while (nbrIdx >= 0 && thread[nbrIdx] < 0) nbrIdx--;
+        const bTrim = trimsB ? trimsB.get(thread[nbrIdx]) : null;
         const dLast = Math.sqrt((c.x - centers[n - 2].x) ** 2 + (c.y - centers[n - 2].y) ** 2) || 1;
         const cap = dLast * 0.45;
         const lt = Math.min(bTrim ? bTrim.leftTrim : 0, cap);

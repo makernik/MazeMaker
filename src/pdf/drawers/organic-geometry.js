@@ -173,6 +173,55 @@ export function extractThreads(nodePassages, graph, forceEndpoints = new Set()) 
 }
 
 /**
+ * Insert a virtual wobbled midpoint into 2-node dead-end threads so the
+ * Catmull-Rom spline has a real interior control point to curve through.
+ *
+ * @param {Array<number[]>} threads
+ * @param {Map<number, Array<{nid: number, angle: number}>>} nodePassages
+ * @param {Map<number, {x: number, y: number}>} posMap - mutable; virtual entries added
+ * @param {number} halfW
+ * @returns {Array<number[]>} enhanced threads (same references for unchanged ones)
+ */
+export function enhanceDeadEndThreads(threads, nodePassages, posMap, halfW) {
+  const minLength = halfW * 4;
+  const enhanced = [];
+
+  for (const thread of threads) {
+    if (thread.length !== 2) { enhanced.push(thread); continue; }
+
+    const p0 = nodePassages.get(thread[0]);
+    const p1 = nodePassages.get(thread[1]);
+    const realDeg0 = p0 ? p0.filter(p => p.nid >= 0).length : 0;
+    const realDeg1 = p1 ? p1.filter(p => p.nid >= 0).length : 0;
+    if (realDeg0 !== 1 && realDeg1 !== 1) { enhanced.push(thread); continue; }
+
+    const pos0 = posMap.get(thread[0]);
+    const pos1 = posMap.get(thread[1]);
+    if (!pos0 || !pos1) { enhanced.push(thread); continue; }
+
+    const dx = pos1.x - pos0.x;
+    const dy = pos1.y - pos0.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < minLength) { enhanced.push(thread); continue; }
+
+    const perpX = -dy / dist;
+    const perpY = dx / dist;
+    const offset = dist * 0.1;
+    const variation = Math.sin(thread[0] * 0.7 + thread[1] * 0.3);
+
+    const virtualId = -(Math.abs(thread[0]) * 100003 + Math.abs(thread[1]));
+    posMap.set(virtualId, {
+      x: (pos0.x + pos1.x) / 2 + perpX * offset * variation,
+      y: (pos0.y + pos1.y) / 2 + perpY * offset * variation,
+    });
+
+    enhanced.push([thread[0], virtualId, thread[1]]);
+  }
+
+  return enhanced;
+}
+
+/**
  * Compute passage directions and per-wall miter trims for every node in a
  * graph.  Shared by jagged and curvy drawers.
  *
