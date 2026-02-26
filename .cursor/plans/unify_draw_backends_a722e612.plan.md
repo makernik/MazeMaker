@@ -4,22 +4,22 @@ overview: Introduce a thin rendering-backend abstraction that normalizes the pdf
 todos:
   - id: c0-backend
     content: "C0: Create draw-backend.js with createPdfBackend and createCanvasBackend factory functions (minimal interface: stroke primitives, line, path ops, arc, Bezier, text)"
-    status: pending
+    status: completed
   - id: c1-grid
     content: "C1: Merge draw-grid.js and draw-grid-canvas.js into single backend-agnostic drawer; update callers; delete canvas file"
-    status: pending
+    status: completed
   - id: c2-jagged
     content: "C2: Merge draw-organic.js and draw-organic-canvas.js into single backend-agnostic drawer; update callers; delete canvas file"
-    status: pending
+    status: completed
   - id: c3-curvy
     content: "C3: Merge draw-curvy.js and draw-curvy-canvas.js into single backend-agnostic drawer; update callers; delete canvas file"
-    status: pending
+    status: completed
   - id: c4-cleanup
     content: "C4: Clean up registry (unify getDrawer/getCanvasDrawer), final validation across all styles, add DECISIONS.md entry"
-    status: pending
+    status: completed
   - id: c5-solution-overlay
     content: "C5: Add setDash/setOpacity/save/restore to backend; unify drawSolutionOverlay through backend; wire Show Solution checkbox to canvas preview in debug mode"
-    status: pending
+    status: completed
 isProject: false
 ---
 

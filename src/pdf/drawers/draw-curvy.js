@@ -1,11 +1,11 @@
 /**
- * Curvy maze drawer (PDF): continuous Catmull-Rom spline walls along
+ * Curvy maze drawer (unified): continuous Catmull-Rom spline walls along
  * chains of pass-through nodes, plus cubic-Bezier junction arcs.
  * Same generation and layout as jagged; only the rendering differs.
  * Labels and solution overlay are identical to jagged — re-exported directly.
+ * All rendering goes through a DrawBackend (pdf or canvas).
  */
 
-import { rgb } from 'pdf-lib';
 import {
   computeNodeTrims,
   prepareGraphData,
@@ -43,12 +43,13 @@ function addPhantoms(pts, halfW) {
   return [phantom0, ...pts, phantomN];
 }
 
-function drawSplinePath(page, fullPts, transform, svgOpts) {
+function drawSplinePath(backend, fullPts, transform) {
   const segCount = fullPts.length - 3;
   if (segCount < 1) return;
 
   const s = transform(fullPts[1].x, fullPts[1].y);
-  let path = `M ${s.x} ${-s.y}`;
+  backend.beginPath();
+  backend.moveTo(s.x, s.y);
 
   for (let i = 0; i < segCount; i++) {
     const p0 = fullPts[i];
@@ -59,17 +60,17 @@ function drawSplinePath(page, fullPts, transform, svgOpts) {
     const c1 = transform(b.cp1x, b.cp1y);
     const c2 = transform(b.cp2x, b.cp2y);
     const e = transform(p2.x, p2.y);
-    path += ` C ${c1.x} ${-c1.y} ${c2.x} ${-c2.y} ${e.x} ${-e.y}`;
+    backend.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
   }
 
-  page.drawSvgPath(path, svgOpts);
+  backend.stroke();
 }
 
 // ---------------------------------------------------------------------------
 // Straight-line fallback (per-edge, same as jagged)
 // ---------------------------------------------------------------------------
 
-function drawThreadStraight(page, thread, graph, allNodeTrims, halfW, transform, svgOpts) {
+function drawThreadStraight(backend, thread, graph, allNodeTrims, halfW, transform) {
   for (let i = 0; i < thread.length - 1; i++) {
     const node = graph.getNode(thread[i]);
     const other = graph.getNode(thread[i + 1]);
@@ -93,11 +94,11 @@ function drawThreadStraight(page, thread, graph, allNodeTrims, halfW, transform,
 
     const lS = transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW);
     const lE = transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW);
-    page.drawSvgPath(`M ${lS.x} ${-lS.y} L ${lE.x} ${-lE.y}`, svgOpts);
+    backend.line(lS.x, lS.y, lE.x, lE.y);
 
     const rS = transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW);
     const rE = transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW);
-    page.drawSvgPath(`M ${rS.x} ${-rS.y} L ${rE.x} ${-rE.y}`, svgOpts);
+    backend.line(rS.x, rS.y, rE.x, rE.y);
   }
 }
 
@@ -105,7 +106,7 @@ function drawThreadStraight(page, thread, graph, allNodeTrims, halfW, transform,
 // Junction arcs (cubic Bezier approximation of circular arcs)
 // ---------------------------------------------------------------------------
 
-function drawJunctionBezier(page, cx, cy, halfW, aStart, aEnd, transform, svgOpts) {
+function drawJunctionBezier(backend, cx, cy, halfW, aStart, aEnd, transform) {
   const span = aEnd - aStart;
   const k = (4 / 3) * Math.tan(span / 4);
   const p1 = { x: cx + halfW * Math.cos(aStart), y: cy + halfW * Math.sin(aStart) };
@@ -122,19 +123,20 @@ function drawJunctionBezier(page, cx, cy, halfW, aStart, aEnd, transform, svgOpt
   const p2T = transform(p2.x, p2.y);
   const c1T = transform(cp1.x, cp1.y);
   const c2T = transform(cp2.x, cp2.y);
-  page.drawSvgPath(
-    `M ${p1T.x} ${-p1T.y} C ${c1T.x} ${-c1T.y} ${c2T.x} ${-c2T.y} ${p2T.x} ${-p2T.y}`,
-    svgOpts,
-  );
+  backend.beginPath();
+  backend.moveTo(p1T.x, p1T.y);
+  backend.bezierCurveTo(c1T.x, c1T.y, c2T.x, c2T.y, p2T.x, p2T.y);
+  backend.stroke();
 }
 
 // ---------------------------------------------------------------------------
 // Main corridor + junction drawing
 // ---------------------------------------------------------------------------
 
-function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
+function drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, params) {
   const { transform, wallThickness, halfW, startId, finishId } = params;
-  const svgOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
+
+  backend.setStroke('#000', wallThickness, 'round');
 
   const posMap = new Map();
   for (const node of graph.nodes) posMap.set(node.id, { x: node.x, y: node.y });
@@ -157,7 +159,6 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
       centers.push({ x: pos.x, y: pos.y });
     }
 
-    // Tangent & perpendicular at each center
     const tangents = [];
     const perps = [];
     for (let i = 0; i < n; i++) {
@@ -177,7 +178,6 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
       perps.push({ x: -ty / len, y: tx / len });
     }
 
-    // Wall offset points (trim at endpoints, plain offset at interiors)
     const leftPts = [];
     const rightPts = [];
     for (let i = 0; i < n; i++) {
@@ -213,7 +213,6 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
       }
     }
 
-    // Width-preservation check (squared distance vs threshold)
     let ok = true;
     for (let i = 0; i < n; i++) {
       const dx = rightPts[i].x - leftPts[i].x;
@@ -222,7 +221,7 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
     }
 
     if (!ok) {
-      drawThreadStraight(page, thread, graph, allNodeTrims, halfW, transform, svgOpts);
+      drawThreadStraight(backend, thread, graph, allNodeTrims, halfW, transform);
       continue;
     }
 
@@ -230,11 +229,10 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
 
     const fullLeft = addPhantoms(leftPts, halfW);
     const fullRight = addPhantoms(rightPts, halfW);
-    drawSplinePath(page, fullLeft, transform, svgOpts);
-    drawSplinePath(page, fullRight, transform, svgOpts);
+    drawSplinePath(backend, fullLeft, transform);
+    drawSplinePath(backend, fullRight, transform);
   }
 
-  // Junction arcs — skip interior nodes of successfully splined threads
   for (const node of graph.nodes) {
     if (splineInteriors.has(node.id)) continue;
     const passages = nodePassages.get(node.id);
@@ -258,10 +256,10 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
 
       if (span > Math.PI * 0.95) {
         const mid = (arcStart + arcEnd) / 2;
-        drawJunctionBezier(page, cx, cy, halfW, arcStart, mid, transform, svgOpts);
-        drawJunctionBezier(page, cx, cy, halfW, mid, arcEnd, transform, svgOpts);
+        drawJunctionBezier(backend, cx, cy, halfW, arcStart, mid, transform);
+        drawJunctionBezier(backend, cx, cy, halfW, mid, arcEnd, transform);
       } else {
-        drawJunctionBezier(page, cx, cy, halfW, arcStart, arcEnd, transform, svgOpts);
+        drawJunctionBezier(backend, cx, cy, halfW, arcStart, arcEnd, transform);
       }
     }
   }
@@ -274,12 +272,12 @@ function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
 /**
  * Draw curvy organic maze. Returns stats for footer.
  *
- * @param {import('pdf-lib').PDFPage} page
+ * @param {object} backend - DrawBackend (pdf or canvas)
  * @param {object} maze
  * @param {object} layoutResult
  * @returns {{ corridorWidth: number, avgDist: number }|undefined}
  */
-export function drawWalls(page, maze, layoutResult) {
+export function drawWalls(backend, maze, layoutResult) {
   const { transform, lineThickness, scale } = layoutResult;
   const { graph } = maze;
   const wallThickness = lineThickness * scale;
@@ -325,36 +323,37 @@ export function drawWalls(page, maze, layoutResult) {
     transform, wallThickness, halfW, scale,
     startId: maze.startId, finishId: maze.finishId,
   };
-  drawGraphCorridors(page, graph, nodePassages, allNodeTrims, drawParams);
+  drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, drawParams);
 
-  // Filler corridors disabled while spline rendering matures
-  // if (maze.fillerGraph) {
-  //   const fillerData = prepareGraphData(maze.fillerGraph, halfW);
-  //   drawGraphCorridors(page, maze.fillerGraph, fillerData.nodePassages, fillerData.allNodeTrims, drawParams);
-  // }
+  backend.setStroke('#000', wallThickness, 'round');
 
-  // Boundary walls (straight lines — same as jagged)
   const bw = maze.boundsWidth;
   const bh = maze.boundsHeight;
   const startPos = maze.nodePositions.get(maze.startId);
   const finishPos = maze.nodePositions.get(maze.finishId);
-  const lineOpts = { thickness: wallThickness, color: rgb(0, 0, 0), lineCap: 1 };
   const halfThick = lineThickness / 2;
+
+  const line = (x1, y1, x2, y2) => {
+    const a = transform(x1, y1);
+    const b = transform(x2, y2);
+    backend.line(a.x, a.y, b.x, b.y);
+  };
+
   const startTrims = allNodeTrims.get(maze.startId);
   const startVT = startTrims ? startTrims.get(-1) : { leftTrim: 0, rightTrim: 0 };
   const finishTrims = allNodeTrims.get(maze.finishId);
   const finishVT = finishTrims ? finishTrims.get(-2) : { leftTrim: 0, rightTrim: 0 };
-  page.drawLine({ start: transform(startPos.x - halfW, bh + halfThick), end: transform(startPos.x - halfW, startPos.y + startVT.leftTrim - halfThick), ...lineOpts });
-  page.drawLine({ start: transform(startPos.x + halfW, bh + halfThick), end: transform(startPos.x + halfW, startPos.y + startVT.rightTrim - halfThick), ...lineOpts });
-  page.drawLine({ start: transform(finishPos.x - halfW, 0 - halfThick), end: transform(finishPos.x - halfW, finishPos.y - finishVT.rightTrim + halfThick), ...lineOpts });
-  page.drawLine({ start: transform(finishPos.x + halfW, 0 - halfThick), end: transform(finishPos.x + halfW, finishPos.y - finishVT.leftTrim + halfThick), ...lineOpts });
+  line(startPos.x - halfW, bh + halfThick, startPos.x - halfW, startPos.y + startVT.leftTrim - halfThick);
+  line(startPos.x + halfW, bh + halfThick, startPos.x + halfW, startPos.y + startVT.rightTrim - halfThick);
+  line(finishPos.x - halfW, 0 - halfThick, finishPos.x - halfW, finishPos.y - finishVT.rightTrim + halfThick);
+  line(finishPos.x + halfW, 0 - halfThick, finishPos.x + halfW, finishPos.y - finishVT.leftTrim + halfThick);
   const gapHalf = halfW;
-  page.drawLine({ start: transform(0, bh), end: transform(startPos.x - gapHalf, bh), ...lineOpts });
-  page.drawLine({ start: transform(startPos.x + gapHalf, bh), end: transform(bw, bh), ...lineOpts });
-  page.drawLine({ start: transform(0, 0), end: transform(finishPos.x - gapHalf, 0), ...lineOpts });
-  page.drawLine({ start: transform(finishPos.x + gapHalf, 0), end: transform(bw, 0), ...lineOpts });
-  page.drawLine({ start: transform(0, 0), end: transform(0, bh), ...lineOpts });
-  page.drawLine({ start: transform(bw, 0), end: transform(bw, bh), ...lineOpts });
+  line(0, bh, startPos.x - gapHalf, bh);
+  line(startPos.x + gapHalf, bh, bw, bh);
+  line(0, 0, finishPos.x - gapHalf, 0);
+  line(finishPos.x + gapHalf, 0, bw, 0);
+  line(0, 0, 0, bh);
+  line(bw, 0, bw, bh);
 
   return { corridorWidth, avgDist };
 }

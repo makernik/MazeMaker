@@ -4,6 +4,20 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-015 — Unified draw backends: one drawer per style (2026-02-25)
+
+**Context:** Every drawing style (grid, jagged, curvy) had two near-identical implementations: one calling pdf-lib (`page.drawLine`, `page.drawSvgPath`) and one calling `CanvasRenderingContext2D` (`ctx.moveTo`, `ctx.lineTo`, `ctx.stroke`). Geometry and algorithms were 90-100% duplicated; only the final draw calls differed.
+
+**Decision:** Introduce a `DrawBackend` interface (`src/pdf/drawers/draw-backend.js`) with two implementations: `createPdfBackend(page, fonts)` wraps a pdf-lib PDFPage and `createCanvasBackend(ctx)` wraps a Canvas2D context. Each drawer (`draw-grid.js`, `draw-organic.js`, `draw-curvy.js`) is written once against the backend contract. Callers (renderer.js for PDF, main.js for canvas preview) create the appropriate backend and pass it. Deleted files: `draw-grid-canvas.js`, `draw-organic-canvas.js`, `draw-curvy-canvas.js`. The registry (`drawers/index.js`) has a single `getDrawer(style)` function; `getCanvasDrawer` is removed.
+
+**Backend interface:** `setStroke`, `line`, `beginPath`, `moveTo`, `lineTo`, `arc`, `bezierCurveTo`, `quadraticCurveTo`, `stroke`, `drawText`, `measureText`, `withScreenTransform`, `save`, `restore`, `setDash`, `setOpacity`.
+
+**Labels:** Unified via a `yDir` multiplier (+1 for PDF y-up, -1 for canvas screen y-down) and `withScreenTransform` (canvas: save/identity/restore; PDF: no-op). Font handling is backend-internal: PdfBackend receives embedded PDFFont objects at creation; CanvasBackend constructs CSS font strings.
+
+**Trade-off:** PdfBackend accumulates SVG path strings internally and emits via `page.drawSvgPath()` on `stroke()`. This matches the existing pdf-lib usage pattern. For `line()`, it calls `page.drawLine()` directly for efficiency and correct line-cap behavior. Arc commands in SVG paths handle the ~π semicircle split internally.
+
+---
+
 ## D-012 — Live canvas preview; shared transform with PDF (2026-02-07)
 
 **Context:** Preview should show a representative maze without maintaining static PNGs for every level×style. Same visual result as PDF for the same maze and layout.

@@ -19,6 +19,7 @@ import {
   getLayoutForMaze,
 } from './layout.js';
 import { getDrawer } from './drawers/index.js';
+import { createPdfBackend } from './drawers/draw-backend.js';
 import { shapeImageFiles } from '../themes/shapes.js';
 import { animalImageFiles } from '../themes/animals.js';
 
@@ -69,12 +70,13 @@ export async function renderMazesToPdf(config) {
       ? (style === 'curvy' ? 'curvy' : 'jagged')
       : 'grid';
     const drawer = getDrawer(drawerKey);
-    const organicStats = drawer.drawWalls(page, maze, layoutResult);
-    drawer.drawLabels(page, maze, layoutResult, { useArrows, font, boldFont });
+    const backend = createPdfBackend(page, { font, boldFont });
+    const organicStats = drawer.drawWalls(backend, maze, layoutResult);
+    drawer.drawLabels(backend, maze, layoutResult, { useArrows });
     if (debugMode && showSolution) {
       const solution = solveMaze(maze);
       if (solution && solution.path.length > 1) {
-        drawer.drawSolutionOverlay(page, maze, solution.path, layoutResult);
+        drawer.drawSolutionOverlay(backend, maze, solution.path, layoutResult);
       }
     }
 

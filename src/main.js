@@ -6,10 +6,11 @@
 
 import { generateMaze, generateMazes } from './maze/generator.js';
 import { generateOrganicMaze } from './maze/organic-generator.js';
-import { validateMaze } from './maze/solver.js';
+import { validateMaze, solveMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
 import { getLayoutForMaze } from './pdf/layout.js';
-import { getCanvasDrawer } from './pdf/drawers/index.js';
+import { getDrawer } from './pdf/drawers/index.js';
+import { createCanvasBackend } from './pdf/drawers/draw-backend.js';
 import { getDifficultyPreset, DIFFICULTY_PRESETS, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
 
@@ -204,11 +205,19 @@ function updatePreviewCanvas() {
   ctx.save();
   ctx.setTransform(1, 0, 0, -1, 0, h);
 
-  const canvasDrawerKey = isOrganic ? style : 'grid';
-  const canvasDrawer = getCanvasDrawer(canvasDrawerKey);
+  const drawerKey = isOrganic ? style : 'grid';
+  const drawer = getDrawer(drawerKey);
+  const backend = createCanvasBackend(ctx);
   const useArrows = ageRange === '3' || ageRange === '4-5' || ageRange === '6-8';
-  canvasDrawer.drawWalls(ctx, maze, layoutResult);
-  canvasDrawer.drawLabels(ctx, maze, layoutResult, { useArrows, canvasHeight: h });
+  drawer.drawWalls(backend, maze, layoutResult);
+  drawer.drawLabels(backend, maze, layoutResult, { useArrows, canvasHeight: h });
+
+  if (debugMode && debugShowSolutionCheckbox && debugShowSolutionCheckbox.checked) {
+    const solution = solveMaze(maze);
+    if (solution && solution.path.length > 1) {
+      drawer.drawSolutionOverlay(backend, maze, solution.path, layoutResult);
+    }
+  }
 
   if (debugMode) {
     drawPreviewDebugOverlay(ctx, maze, layoutResult, h);
@@ -275,6 +284,10 @@ form.addEventListener('change', (e) => {
     updatePreviewCanvas();
   }
 });
+
+if (debugShowSolutionCheckbox) {
+  debugShowSolutionCheckbox.addEventListener('change', () => updatePreviewCanvas());
+}
 
 /**
  * Generate mazes and create PDF
