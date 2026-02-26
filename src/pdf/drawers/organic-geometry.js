@@ -79,3 +79,49 @@ export function computeNodeTrims(passages, halfW) {
 
   return trims;
 }
+
+/**
+ * Convert a uniform Catmull-Rom segment (P0→P1→P2→P3) to cubic Bezier
+ * control points for the P1→P2 sub-curve.
+ *
+ * @returns {{ cp1x: number, cp1y: number, cp2x: number, cp2y: number }}
+ */
+export function catmullRomToBezier(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
+  return {
+    cp1x: p1x + (p2x - p0x) / 6,
+    cp1y: p1y + (p2y - p0y) / 6,
+    cp2x: p2x - (p3x - p1x) / 6,
+    cp2y: p2y - (p3y - p1y) / 6,
+  };
+}
+
+/**
+ * Compute passage directions and per-wall miter trims for every node in a
+ * graph.  Shared by jagged and curvy drawers.
+ *
+ * @param {{ nodes: Array, hasWall: Function, getNode: Function }} graph
+ * @param {number} halfW
+ * @returns {{ nodePassages: Map, allNodeTrims: Map }}
+ */
+export function prepareGraphData(graph, halfW) {
+  const nodePassages = new Map();
+  for (const node of graph.nodes) {
+    const passages = [];
+    for (const nid of node.neighbors) {
+      if (graph.hasWall(node.id, nid)) continue;
+      const other = graph.getNode(nid);
+      if (!other) continue;
+      passages.push({ nid, angle: Math.atan2(other.y - node.y, other.x - node.x) });
+    }
+    passages.sort((a, b) => a.angle - b.angle);
+    nodePassages.set(node.id, passages);
+  }
+  const allNodeTrims = new Map();
+  for (const node of graph.nodes) {
+    const passages = nodePassages.get(node.id);
+    if (passages && passages.length > 0) {
+      allNodeTrims.set(node.id, computeNodeTrims(passages, halfW));
+    }
+  }
+  return { nodePassages, allNodeTrims };
+}

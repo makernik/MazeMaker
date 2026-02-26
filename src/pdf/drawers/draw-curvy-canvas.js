@@ -1,12 +1,15 @@
 /**
- * Organic maze canvas drawer: same layout contract as draw-organic.js (transform, scale, lineThickness).
- * Draws to CanvasRenderingContext2D. Caller must set ctx transform for y-up (e.g. setTransform(1,0,0,-1,0,canvas.height)).
+ * Curvy maze canvas drawer: Catmull-Rom corridor walls + Bezier junction curves.
+ * Same layout contract as draw-organic-canvas.js (transform, scale, lineThickness).
+ * Draws to CanvasRenderingContext2D with y-up transform set by caller.
  */
 
-import { computeNodeTrims, prepareGraphData } from './organic-geometry.js';
+import { computeNodeTrims, prepareGraphData, catmullRomToBezier } from './organic-geometry.js';
+
+export { drawLabels } from './draw-organic-canvas.js';
 
 /**
- * Draw corridor walls and junction arcs for a graph (main or filler).
+ * Draw corridor walls as Catmull-Rom curves and junction gaps as Bezier arcs.
  */
 function drawGraphCorridors(ctx, graph, nodePassages, allNodeTrims, params) {
   const { transform, wallThickness, halfW, scale } = params;
@@ -23,6 +26,7 @@ function drawGraphCorridors(ctx, graph, nodePassages, allNodeTrims, params) {
       drawnEdges.add(key);
       const other = graph.getNode(nid);
       if (!other) continue;
+
       const dx = other.x - node.x;
       const dy = other.y - node.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -30,6 +34,7 @@ function drawGraphCorridors(ctx, graph, nodePassages, allNodeTrims, params) {
       const uy = dy / dist;
       const px = -uy;
       const py = ux;
+
       const trimsA = allNodeTrims.get(node.id);
       const trimsB = allNodeTrims.get(nid);
       const aTrim = trimsA ? trimsA.get(nid) : null;
@@ -39,21 +44,40 @@ function drawGraphCorridors(ctx, graph, nodePassages, allNodeTrims, params) {
       const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
       const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
       const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
-      const s1 = transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW);
-      const e1 = transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW);
+
+      // Left wall — Catmull-Rom
+      const lS = { x: node.x + ux * ltA + px * halfW, y: node.y + uy * ltA + py * halfW };
+      const lE = { x: other.x - ux * rtB + px * halfW, y: other.y - uy * rtB + py * halfW };
+      const lP0 = { x: node.x + px * halfW, y: node.y + py * halfW };
+      const lP3 = { x: other.x + px * halfW, y: other.y + py * halfW };
+      const lb = catmullRomToBezier(lP0.x, lP0.y, lS.x, lS.y, lE.x, lE.y, lP3.x, lP3.y);
+      const lSt = transform(lS.x, lS.y);
+      const lEt = transform(lE.x, lE.y);
+      const lC1 = transform(lb.cp1x, lb.cp1y);
+      const lC2 = transform(lb.cp2x, lb.cp2y);
       ctx.beginPath();
-      ctx.moveTo(s1.x, s1.y);
-      ctx.lineTo(e1.x, e1.y);
+      ctx.moveTo(lSt.x, lSt.y);
+      ctx.bezierCurveTo(lC1.x, lC1.y, lC2.x, lC2.y, lEt.x, lEt.y);
       ctx.stroke();
-      const s2 = transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW);
-      const e2 = transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW);
+
+      // Right wall
+      const rS = { x: node.x + ux * rtA - px * halfW, y: node.y + uy * rtA - py * halfW };
+      const rE = { x: other.x - ux * ltB - px * halfW, y: other.y - uy * ltB - py * halfW };
+      const rP0 = { x: node.x - px * halfW, y: node.y - py * halfW };
+      const rP3 = { x: other.x - px * halfW, y: other.y - py * halfW };
+      const rb = catmullRomToBezier(rP0.x, rP0.y, rS.x, rS.y, rE.x, rE.y, rP3.x, rP3.y);
+      const rSt = transform(rS.x, rS.y);
+      const rEt = transform(rE.x, rE.y);
+      const rC1 = transform(rb.cp1x, rb.cp1y);
+      const rC2 = transform(rb.cp2x, rb.cp2y);
       ctx.beginPath();
-      ctx.moveTo(s2.x, s2.y);
-      ctx.lineTo(e2.x, e2.y);
+      ctx.moveTo(rSt.x, rSt.y);
+      ctx.bezierCurveTo(rC1.x, rC1.y, rC2.x, rC2.y, rEt.x, rEt.y);
       ctx.stroke();
     }
   }
 
+  // Junction curves (Bezier approximation of circular arcs)
   for (const node of graph.nodes) {
     const passages = nodePassages.get(node.id);
     if (!passages || passages.length === 0) continue;
@@ -74,19 +98,45 @@ function drawGraphCorridors(ctx, graph, nodePassages, allNodeTrims, params) {
       const span = arcEnd - arcStart;
       if (span < 0.02) continue;
 
-      const center = transform(cx, cy);
-      const r = halfW * scale;
-      ctx.beginPath();
-      ctx.arc(center.x, center.y, r, arcStart, arcEnd);
-      ctx.stroke();
+      if (span > Math.PI * 0.95) {
+        const midAngle = (arcStart + arcEnd) / 2;
+        drawJunctionBezier(ctx, cx, cy, halfW, arcStart, midAngle, transform);
+        drawJunctionBezier(ctx, cx, cy, halfW, midAngle, arcEnd, transform);
+      } else {
+        drawJunctionBezier(ctx, cx, cy, halfW, arcStart, arcEnd, transform);
+      }
     }
   }
 }
 
+/** Cubic Bezier approximation of a circular arc on the halfW circle (canvas). */
+function drawJunctionBezier(ctx, cx, cy, halfW, aStart, aEnd, transform) {
+  const span = aEnd - aStart;
+  const k = (4 / 3) * Math.tan(span / 4);
+  const p1 = { x: cx + halfW * Math.cos(aStart), y: cy + halfW * Math.sin(aStart) };
+  const p2 = { x: cx + halfW * Math.cos(aEnd), y: cy + halfW * Math.sin(aEnd) };
+  const cp1 = {
+    x: p1.x + k * halfW * (-Math.sin(aStart)),
+    y: p1.y + k * halfW * Math.cos(aStart),
+  };
+  const cp2 = {
+    x: p2.x - k * halfW * (-Math.sin(aEnd)),
+    y: p2.y - k * halfW * Math.cos(aEnd),
+  };
+  const p1T = transform(p1.x, p1.y);
+  const p2T = transform(p2.x, p2.y);
+  const c1T = transform(cp1.x, cp1.y);
+  const c2T = transform(cp2.x, cp2.y);
+  ctx.beginPath();
+  ctx.moveTo(p1T.x, p1T.y);
+  ctx.bezierCurveTo(c1T.x, c1T.y, c2T.x, c2T.y, p2T.x, p2T.y);
+  ctx.stroke();
+}
+
 /**
  * @param {CanvasRenderingContext2D} ctx
- * @param {object} maze - Organic maze with graph, nodePositions, startId, finishId, boundsWidth, boundsHeight
- * @param {object} layoutResult - { transform, lineThickness, scale }
+ * @param {object} maze
+ * @param {object} layoutResult
  */
 export function drawWalls(ctx, maze, layoutResult) {
   const { transform, lineThickness, scale } = layoutResult;
@@ -138,6 +188,7 @@ export function drawWalls(ctx, maze, layoutResult) {
     drawGraphCorridors(ctx, maze.fillerGraph, fillerData.nodePassages, fillerData.allNodeTrims, drawParams);
   }
 
+  // Boundary walls (straight lines — same as jagged)
   const bw = maze.boundsWidth;
   const bh = maze.boundsHeight;
   const startPos = maze.nodePositions.get(maze.startId);
@@ -172,69 +223,4 @@ export function drawWalls(ctx, maze, layoutResult) {
   line(finishPos.x + gapHalf, 0, bw, 0);
   line(0, 0, 0, bh);
   line(bw, 0, bw, bh);
-}
-
-function drawArrow(ctx, x1, y1, x2, y2, headSize) {
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  const angle = Math.atan2(y2 - y1, x2 - x1);
-  const headAngle = Math.PI / 6;
-  const head1X = x2 - headSize * Math.cos(angle - headAngle);
-  const head1Y = y2 - headSize * Math.sin(angle - headAngle);
-  const head2X = x2 - headSize * Math.cos(angle + headAngle);
-  const head2Y = y2 - headSize * Math.sin(angle + headAngle);
-  ctx.beginPath();
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(head1X, head1Y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(head2X, head2Y);
-  ctx.stroke();
-}
-
-/**
- * @param {CanvasRenderingContext2D} ctx - Caller has set y-up transform; we draw labels in screen space so text is right-side up.
- * @param {object} maze - Organic maze
- * @param {object} layoutResult - { transform, boundsWidth, boundsHeight }
- * @param {object} options - { useArrows, canvasHeight } (canvasHeight required for correct label position)
- */
-export function drawLabels(ctx, maze, layoutResult, options = {}) {
-  const { transform, boundsWidth, boundsHeight } = layoutResult;
-  const boundaryTopLayout = transform(0, boundsHeight).y;
-  const boundaryBottomLayout = transform(0, 0).y;
-  const useArrows = options.useArrows ?? false;
-  const canvasHeight = options.canvasHeight ?? 0;
-  const startPos = maze.nodePositions.get(maze.startId);
-  const finishPos = maze.nodePositions.get(maze.finishId);
-  if (!startPos || !finishPos) return;
-  const startX = transform(startPos.x, startPos.y).x;
-  const finishX = transform(finishPos.x, finishPos.y).x;
-  const toScreenY = (layoutY) => canvasHeight - layoutY;
-  const boundaryTop = toScreenY(boundaryTopLayout);
-  const boundaryBottom = toScreenY(boundaryBottomLayout);
-  const gap = 4;
-  const fontSize = 10;
-
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.font = `bold ${fontSize}px Inter, sans-serif`;
-  ctx.fillStyle = '#000';
-  ctx.textBaseline = 'alphabetic';
-
-  if (useArrows) {
-    drawArrow(ctx, startX, boundaryTop - gap - 15, startX, boundaryTop - gap, 8);
-    drawArrow(ctx, finishX, boundaryBottom + gap, finishX, boundaryBottom + gap + 15, 8);
-  } else {
-    const startText = 'Start';
-    const startTextWidth = ctx.measureText(startText).width;
-    ctx.fillText(startText, startX - startTextWidth / 2, boundaryTop - gap);
-    const finishText = 'Finish';
-    const finishTextWidth = ctx.measureText(finishText).width;
-    ctx.fillText(finishText, finishX - finishTextWidth / 2, boundaryBottom + gap + fontSize);
-  }
-  ctx.restore();
 }

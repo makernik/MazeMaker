@@ -28,9 +28,9 @@ Open http://localhost:5173 in your browser. Use the controls, click **Generate P
 
 ## How It Works
 
-1. You set age range, maze style (classic / organic / square), and quantity (1–10). (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
+1. You set age range, maze style (Classic / Jagged / Curvy / Square Corners), and quantity (1–10). (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
 2. The right panel shows a **live preview**: one maze is generated from the current level and style and drawn on a canvas (same layout as the PDF). Same controls always show the same preview maze (deterministic seed per level+style).
-3. Click **Generate Printable PDF**. The app generates that many perfect mazes (Prim's for grid, DFS for organic; seeded for determinism).
+3. Click **Generate Printable PDF**. The app generates that many perfect mazes (Prim's for grid, DFS/Prim's/Kruskal's for organic; seeded for determinism).
 4. Each maze is validated with a BFS solver. A single PDF is built (one maze per page, US Letter) and downloaded.
 
 ## Debug Mode
@@ -38,7 +38,7 @@ Open http://localhost:5173 in your browser. Use the controls, click **Generate P
 Hidden mode for tuning and technical review. **Not** for end users.
 
 - **Toggle:** `Ctrl+Shift+D` or open the app with `?debug=1` in the URL.
-- **Shows:** Seed (read-only), grid dimensions, cell size, line thickness. **Preview seed** — editable; change it to see a different maze in the preview (e.g. paste a seed from a PDF footer). Debug overlay on the preview canvas (node IDs, neighbor counts, start/finish markers for organic). Solver path is drawn on the PDF when debug is on.
+- **Shows:** Seed (read-only), grid dimensions, cell size, line thickness. **Preview seed** — editable; change it to see a different maze in the preview (e.g. paste a seed from a PDF footer). Debug overlay on the preview canvas (node IDs, neighbor counts, start/finish markers for organic). Solver path is drawn on the PDF when debug is on. **"1 of each level"** generates one maze per difficulty level with the selected style. **"1 of each algorithm"** generates one maze per algorithm (DFS, Prim's, Kruskal's) at the selected level.
 - Quantity defaults to 1 when you enable debug but you can change it with the slider.
 
 **Version:** Release version is in `package.json` (`version`). v0 scope is complete; see `docs/V0_REVIEW.md` for release readiness.
@@ -55,7 +55,7 @@ Hidden mode for tuning and technical review. **Not** for end users.
 
 - **Frontend:** Vanilla JS, Vite
 - **PDF:** pdf-lib (vector output); preview uses canvas drawers (same layout math as PDF)
-- **Maze:** Prim's (grid), DFS (organic); seeded PRNG (Mulberry32)
+- **Maze:** Prim's (grid), DFS/Prim's/Kruskal's (organic); seeded PRNG (Mulberry32)
 - **Tests:** Vitest (unit), Playwright (E2E)
 
 ## Project Structure

@@ -5,17 +5,21 @@
 
 import * as gridDrawer from './draw-grid.js';
 import * as jaggedDrawer from './draw-organic.js';
+import * as curvyDrawer from './draw-curvy.js';
 import * as gridCanvasDrawer from './draw-grid-canvas.js';
 import * as jaggedCanvasDrawer from './draw-organic-canvas.js';
+import * as curvyCanvasDrawer from './draw-curvy-canvas.js';
 
 const drawers = {
   grid: gridDrawer,
   jagged: jaggedDrawer,
+  curvy: curvyDrawer,
 };
 
 const canvasDrawers = {
   grid: gridCanvasDrawer,
   jagged: jaggedCanvasDrawer,
+  curvy: curvyCanvasDrawer,
 };
 
 /**

@@ -114,7 +114,25 @@ describe('PDF Renderer', () => {
     expect(pdf1.length).toBe(pdf2.length);
     expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
   });
-  
+
+  it('renders organic maze with curvy style', async () => {
+    const maze = generateOrganicMaze({ ageRange: '4-5', seed: 88882 });
+    const pdfBytes = await renderSingleMaze(maze, 'curvy');
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.length).toBeGreaterThan(1000);
+    const header = String.fromCharCode(...pdfBytes.slice(0, 5));
+    expect(header).toBe('%PDF-');
+  });
+
+  it('produces deterministic PDF for same curvy maze', async () => {
+    const maze1 = generateOrganicMaze({ ageRange: '4-5', seed: 88883 });
+    const maze2 = generateOrganicMaze({ ageRange: '4-5', seed: 88883 });
+    const pdf1 = await renderSingleMaze(maze1, 'curvy');
+    const pdf2 = await renderSingleMaze(maze2, 'curvy');
+    expect(pdf1.length).toBe(pdf2.length);
+    expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
+  });
+
   it('generates different PDFs for different mazes', async () => {
     const maze1 = generateMaze({ ageRange: '4-5', seed: 77777 });
     const maze2 = generateMaze({ ageRange: '4-5', seed: 88888 });

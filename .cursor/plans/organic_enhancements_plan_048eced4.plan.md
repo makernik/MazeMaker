@@ -13,19 +13,19 @@ todos:
     status: completed
   - id: debug-algo-picker
     content: "C2: Debug mode — '1 of each algorithm' option + relabel existing to '1 of each level'; all 3 algos for jagged/curvy"
-    status: in_progress
+    status: completed
   - id: curvy-drawer
     content: "C3: Curvy drawer — Catmull-Rom through miter points, per-edge then explore continuous outline (PDF + canvas)"
-    status: pending
+    status: completed
   - id: ui-four-styles
     content: "C4: Update UI to 4-option style selector (Classic, Jagged, Curvy, Square Corners) and wire dispatch"
-    status: pending
+    status: completed
 isProject: false
 ---
 
 # Organic Enhancements: Jagged/Curvy Split, Dense Fill, Catmull-Rom Curves
 
-**Status:** draft (deferred — not yet committed to v1)  
+**Status:** done  
 **Spec:** to be added to `DEFERRED_IDEAS.md`  
 **Related:** D-008 (organic topology), D-004 (style naming)  
 **Scope:** Organic maze sub-styles only. Grid styles (Classic, Square) and Polar topology are unaffected.  

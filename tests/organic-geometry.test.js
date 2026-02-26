@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { miterTrim, miterRadius, computeNodeTrims } from '../src/pdf/drawers/organic-geometry.js';
+import { miterTrim, miterRadius, computeNodeTrims, catmullRomToBezier } from '../src/pdf/drawers/organic-geometry.js';
 
 const PI = Math.PI;
 const HALF_W = 10;
@@ -131,5 +131,37 @@ describe('computeNodeTrims', () => {
     expect(result.has(-1)).toBe(true);
     expect(result.has(5)).toBe(true);
     expect(result.has(8)).toBe(true);
+  });
+});
+
+describe('catmullRomToBezier', () => {
+  it('returns collinear control points for collinear input', () => {
+    const r = catmullRomToBezier(0, 0, 10, 0, 20, 0, 30, 0);
+    expect(r.cp1x).toBeCloseTo(10 + 20 / 6, 5);
+    expect(r.cp1y).toBeCloseTo(0, 5);
+    expect(r.cp2x).toBeCloseTo(20 - 20 / 6, 5);
+    expect(r.cp2y).toBeCloseTo(0, 5);
+  });
+
+  it('produces symmetric control points for symmetric input', () => {
+    const r = catmullRomToBezier(0, 0, 10, 10, 20, 10, 30, 0);
+    expect(r.cp1x).toBeCloseTo(10 + 20 / 6, 5);
+    expect(r.cp1y).toBeCloseTo(10 + 10 / 6, 5);
+    expect(r.cp2x).toBeCloseTo(20 - 20 / 6, 5);
+    expect(r.cp2y).toBeCloseTo(10 + 10 / 6, 5);
+  });
+
+  it('cp1 lies between P1 and P2 for a forward-moving curve', () => {
+    const r = catmullRomToBezier(0, 0, 5, 5, 15, 5, 20, 0);
+    expect(r.cp1x).toBeGreaterThan(5);
+    expect(r.cp1x).toBeLessThan(15);
+  });
+
+  it('all values are finite', () => {
+    const r = catmullRomToBezier(100, 200, 110, 210, 120, 200, 130, 190);
+    expect(Number.isFinite(r.cp1x)).toBe(true);
+    expect(Number.isFinite(r.cp1y)).toBe(true);
+    expect(Number.isFinite(r.cp2x)).toBe(true);
+    expect(Number.isFinite(r.cp2y)).toBe(true);
   });
 });
