@@ -96,6 +96,83 @@ export function catmullRomToBezier(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
 }
 
 /**
+ * Adaptive phantom extension factor for Catmull-Rom endpoint tangents.
+ * Short segments get less extension to avoid overshoot; long segments
+ * get slightly more to maintain flow.
+ *
+ * @param {number} segmentLength
+ * @param {number} halfW - corridor half-width (geometric reference scale)
+ * @returns {number} factor in [0.2, 0.7]
+ */
+export function phantomFactor(segmentLength, halfW) {
+  if (segmentLength < halfW * 3) return 0.2;
+  if (segmentLength > halfW * 8) return 0.7;
+  return 0.5;
+}
+
+/**
+ * Decompose a carved maze graph into maximal chains ("threads") of
+ * degree-2 pass-through nodes, bookended by junctions or dead ends.
+ *
+ * @param {Map<number, Array<{nid: number, angle: number}>>} nodePassages
+ * @param {{ nodes: Array, getNode: Function }} graph
+ * @param {Set<number>} [forceEndpoints] - IDs always treated as chain endpoints
+ * @returns {Array<number[]>} array of node-ID chains
+ */
+export function extractThreads(nodePassages, graph, forceEndpoints = new Set()) {
+  const realDegree = new Map();
+  for (const node of graph.nodes) {
+    const passages = nodePassages.get(node.id);
+    if (!passages) { realDegree.set(node.id, 0); continue; }
+    let count = 0;
+    for (const p of passages) { if (p.nid >= 0) count++; }
+    realDegree.set(node.id, count);
+  }
+
+  const isEndpoint = (id) => forceEndpoints.has(id) || realDegree.get(id) !== 2;
+
+  const visited = new Set();
+  const threads = [];
+
+  for (const node of graph.nodes) {
+    if (!isEndpoint(node.id)) continue;
+    const passages = nodePassages.get(node.id);
+    if (!passages) continue;
+
+    for (const { nid } of passages) {
+      if (nid < 0) continue;
+      const key = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
+      if (visited.has(key)) continue;
+
+      const thread = [node.id];
+      let curr = nid;
+      let prev = node.id;
+
+      while (true) {
+        const ek = prev < curr ? `${prev}-${curr}` : `${curr}-${prev}`;
+        visited.add(ek);
+        thread.push(curr);
+        if (isEndpoint(curr)) break;
+
+        const cp = nodePassages.get(curr);
+        if (!cp) break;
+        let next = -1;
+        for (const p of cp) {
+          if (p.nid >= 0 && p.nid !== prev) { next = p.nid; break; }
+        }
+        if (next < 0) break;
+        prev = curr;
+        curr = next;
+      }
+
+      threads.push(thread);
+    }
+  }
+
+  return threads;
+}
+
+/**
  * Compute passage directions and per-wall miter trims for every node in a
  * graph.  Shared by jagged and curvy drawers.
  *

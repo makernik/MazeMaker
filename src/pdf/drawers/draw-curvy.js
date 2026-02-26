@@ -1,126 +1,109 @@
 /**
- * Curvy maze drawer (PDF): quadratic-Bezier corridor walls with per-edge
- * midpoint bulge, plus cubic-Bezier junction curves.
+ * Curvy maze drawer (PDF): continuous Catmull-Rom spline walls along
+ * chains of pass-through nodes, plus cubic-Bezier junction arcs.
  * Same generation and layout as jagged; only the rendering differs.
  * Labels and solution overlay are identical to jagged — re-exported directly.
  */
 
 import { rgb } from 'pdf-lib';
-import { computeNodeTrims, prepareGraphData } from './organic-geometry.js';
+import {
+  computeNodeTrims,
+  prepareGraphData,
+  catmullRomToBezier,
+  extractThreads,
+  phantomFactor,
+} from './organic-geometry.js';
 
 export { drawLabels, drawSolutionOverlay } from './draw-organic.js';
 
-const BULGE_FACTOR = 0.22;
+// ---------------------------------------------------------------------------
+// Spline helpers
+// ---------------------------------------------------------------------------
 
-/**
- * Draw corridor walls as quadratic Bezier curves (offset midpoint) and
- * junction gaps as cubic Bezier arcs.
- */
-function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
-  const { transform, wallThickness, halfW, scale } = params;
-  const drawnEdges = new Set();
+function addPhantoms(pts, halfW) {
+  const first = pts[0];
+  const second = pts[1];
+  const segLen0 = Math.sqrt((second.x - first.x) ** 2 + (second.y - first.y) ** 2) || 1;
+  const f0 = phantomFactor(segLen0, halfW);
+  const phantom0 = {
+    x: first.x - (second.x - first.x) * f0,
+    y: first.y - (second.y - first.y) * f0,
+  };
 
-  for (const node of graph.nodes) {
-    for (const nid of node.neighbors) {
-      const key = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
-      if (drawnEdges.has(key) || graph.hasWall(node.id, nid)) continue;
-      drawnEdges.add(key);
-      const other = graph.getNode(nid);
-      if (!other) continue;
+  const last = pts[pts.length - 1];
+  const prev = pts[pts.length - 2];
+  const segLenN = Math.sqrt((last.x - prev.x) ** 2 + (last.y - prev.y) ** 2) || 1;
+  const fN = phantomFactor(segLenN, halfW);
+  const phantomN = {
+    x: last.x + (last.x - prev.x) * fN,
+    y: last.y + (last.y - prev.y) * fN,
+  };
 
-      const dx = other.x - node.x;
-      const dy = other.y - node.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const ux = dx / dist;
-      const uy = dy / dist;
-      const px = -uy;
-      const py = ux;
+  return [phantom0, ...pts, phantomN];
+}
 
-      const trimsA = allNodeTrims.get(node.id);
-      const trimsB = allNodeTrims.get(nid);
-      const aTrim = trimsA ? trimsA.get(nid) : null;
-      const bTrim = trimsB ? trimsB.get(node.id) : null;
-      const cap = dist * 0.45;
-      const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
-      const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
-      const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
-      const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
+function drawSplinePath(page, fullPts, transform, svgOpts) {
+  const segCount = fullPts.length - 3;
+  if (segCount < 1) return;
 
-      const svgOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
+  const s = transform(fullPts[1].x, fullPts[1].y);
+  let path = `M ${s.x} ${-s.y}`;
 
-      const bulge = dist * BULGE_FACTOR;
-      const variation = Math.sin(node.id * 0.7 + nid * 0.3);
-      const offX = px * bulge * variation;
-      const offY = py * bulge * variation;
-
-      // Left wall — quadratic Bezier via offset midpoint
-      const lS = { x: node.x + ux * ltA + px * halfW, y: node.y + uy * ltA + py * halfW };
-      const lE = { x: other.x - ux * rtB + px * halfW, y: other.y - uy * rtB + py * halfW };
-      const lQ = { x: (lS.x + lE.x) / 2 + offX, y: (lS.y + lE.y) / 2 + offY };
-      const lCP1 = { x: lS.x + 2 * (lQ.x - lS.x) / 3, y: lS.y + 2 * (lQ.y - lS.y) / 3 };
-      const lCP2 = { x: lE.x + 2 * (lQ.x - lE.x) / 3, y: lE.y + 2 * (lQ.y - lE.y) / 3 };
-      const lSt = transform(lS.x, lS.y);
-      const lEt = transform(lE.x, lE.y);
-      const lC1 = transform(lCP1.x, lCP1.y);
-      const lC2 = transform(lCP2.x, lCP2.y);
-      page.drawSvgPath(
-        `M ${lSt.x} ${-lSt.y} C ${lC1.x} ${-lC1.y} ${lC2.x} ${-lC2.y} ${lEt.x} ${-lEt.y}`,
-        svgOpts,
-      );
-
-      // Right wall — same offset so corridor snakes without changing width
-      const rS = { x: node.x + ux * rtA - px * halfW, y: node.y + uy * rtA - py * halfW };
-      const rE = { x: other.x - ux * ltB - px * halfW, y: other.y - uy * ltB - py * halfW };
-      const rQ = { x: (rS.x + rE.x) / 2 + offX, y: (rS.y + rE.y) / 2 + offY };
-      const rCP1 = { x: rS.x + 2 * (rQ.x - rS.x) / 3, y: rS.y + 2 * (rQ.y - rS.y) / 3 };
-      const rCP2 = { x: rE.x + 2 * (rQ.x - rE.x) / 3, y: rE.y + 2 * (rQ.y - rE.y) / 3 };
-      const rSt = transform(rS.x, rS.y);
-      const rEt = transform(rE.x, rE.y);
-      const rC1 = transform(rCP1.x, rCP1.y);
-      const rC2 = transform(rCP2.x, rCP2.y);
-      page.drawSvgPath(
-        `M ${rSt.x} ${-rSt.y} C ${rC1.x} ${-rC1.y} ${rC2.x} ${-rC2.y} ${rEt.x} ${-rEt.y}`,
-        svgOpts,
-      );
-    }
+  for (let i = 0; i < segCount; i++) {
+    const p0 = fullPts[i];
+    const p1 = fullPts[i + 1];
+    const p2 = fullPts[i + 2];
+    const p3 = fullPts[i + 3];
+    const b = catmullRomToBezier(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
+    const c1 = transform(b.cp1x, b.cp1y);
+    const c2 = transform(b.cp2x, b.cp2y);
+    const e = transform(p2.x, p2.y);
+    path += ` C ${c1.x} ${-c1.y} ${c2.x} ${-c2.y} ${e.x} ${-e.y}`;
   }
 
-  // Junction curves (Bezier approximation of circular arcs)
-  for (const node of graph.nodes) {
-    const passages = nodePassages.get(node.id);
-    if (!passages || passages.length === 0) continue;
-    const cx = node.x;
-    const cy = node.y;
-    const n = passages.length;
-    for (let i = 0; i < n; i++) {
-      const curr = passages[i];
-      const next = passages[(i + 1) % n];
-      let gap = next.angle - curr.angle;
-      if (i === n - 1) gap += 2 * Math.PI;
-      if (gap < 0) gap += 2 * Math.PI;
-      if (gap <= Math.PI) continue;
+  page.drawSvgPath(path, svgOpts);
+}
 
-      const arcStart = curr.angle + Math.PI / 2;
-      let arcEnd = next.angle - Math.PI / 2;
-      if (i === n - 1) arcEnd += 2 * Math.PI;
-      const span = arcEnd - arcStart;
-      if (span < 0.02) continue;
+// ---------------------------------------------------------------------------
+// Straight-line fallback (per-edge, same as jagged)
+// ---------------------------------------------------------------------------
 
-      const svgOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
+function drawThreadStraight(page, thread, graph, allNodeTrims, halfW, transform, svgOpts) {
+  for (let i = 0; i < thread.length - 1; i++) {
+    const node = graph.getNode(thread[i]);
+    const other = graph.getNode(thread[i + 1]);
+    const dx = other.x - node.x;
+    const dy = other.y - node.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    const px = -uy;
+    const py = ux;
 
-      if (span > Math.PI * 0.95) {
-        // Split at midpoint for large spans (dead-end cap)
-        const midAngle = (arcStart + arcEnd) / 2;
-        drawJunctionBezier(page, cx, cy, halfW, arcStart, midAngle, transform, svgOpts);
-        drawJunctionBezier(page, cx, cy, halfW, midAngle, arcEnd, transform, svgOpts);
-      } else {
-        drawJunctionBezier(page, cx, cy, halfW, arcStart, arcEnd, transform, svgOpts);
-      }
-    }
+    const trimsA = allNodeTrims.get(thread[i]);
+    const trimsB = allNodeTrims.get(thread[i + 1]);
+    const aTrim = trimsA ? trimsA.get(thread[i + 1]) : null;
+    const bTrim = trimsB ? trimsB.get(thread[i]) : null;
+    const cap = dist * 0.45;
+    const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
+    const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
+    const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
+    const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
+
+    const lS = transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW);
+    const lE = transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW);
+    page.drawSvgPath(`M ${lS.x} ${-lS.y} L ${lE.x} ${-lE.y}`, svgOpts);
+
+    const rS = transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW);
+    const rE = transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW);
+    page.drawSvgPath(`M ${rS.x} ${-rS.y} L ${rE.x} ${-rE.y}`, svgOpts);
   }
 }
 
-/** Cubic Bezier approximation of a circular arc segment on the halfW circle. */
+// ---------------------------------------------------------------------------
+// Junction arcs (cubic Bezier approximation of circular arcs)
+// ---------------------------------------------------------------------------
+
 function drawJunctionBezier(page, cx, cy, halfW, aStart, aEnd, transform, svgOpts) {
   const span = aEnd - aStart;
   const k = (4 / 3) * Math.tan(span / 4);
@@ -143,6 +126,141 @@ function drawJunctionBezier(page, cx, cy, halfW, aStart, aEnd, transform, svgOpt
     svgOpts,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Main corridor + junction drawing
+// ---------------------------------------------------------------------------
+
+function drawGraphCorridors(page, graph, nodePassages, allNodeTrims, params) {
+  const { transform, wallThickness, halfW, startId, finishId } = params;
+  const svgOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
+
+  const forceEndpoints = new Set();
+  if (startId != null) forceEndpoints.add(startId);
+  if (finishId != null) forceEndpoints.add(finishId);
+
+  const threads = extractThreads(nodePassages, graph, forceEndpoints);
+  const splineInteriors = new Set();
+
+  for (const thread of threads) {
+    const n = thread.length;
+    if (n < 2) continue;
+
+    const centers = [];
+    for (const id of thread) {
+      const nd = graph.getNode(id);
+      centers.push({ x: nd.x, y: nd.y });
+    }
+
+    // Tangent & perpendicular at each center
+    const tangents = [];
+    const perps = [];
+    for (let i = 0; i < n; i++) {
+      let tx, ty;
+      if (i === 0) {
+        tx = centers[1].x - centers[0].x;
+        ty = centers[1].y - centers[0].y;
+      } else if (i === n - 1) {
+        tx = centers[n - 1].x - centers[n - 2].x;
+        ty = centers[n - 1].y - centers[n - 2].y;
+      } else {
+        tx = (centers[i + 1].x - centers[i - 1].x) / 2;
+        ty = (centers[i + 1].y - centers[i - 1].y) / 2;
+      }
+      const len = Math.sqrt(tx * tx + ty * ty) || 1;
+      tangents.push({ x: tx / len, y: ty / len });
+      perps.push({ x: -ty / len, y: tx / len });
+    }
+
+    // Wall offset points (trim at endpoints, plain offset at interiors)
+    const leftPts = [];
+    const rightPts = [];
+    for (let i = 0; i < n; i++) {
+      const c = centers[i];
+      const p = perps[i];
+      const t = tangents[i];
+
+      if (i === 0) {
+        const trimsA = allNodeTrims.get(thread[0]);
+        const aTrim = trimsA ? trimsA.get(thread[1]) : null;
+        const d01 = Math.sqrt((centers[1].x - c.x) ** 2 + (centers[1].y - c.y) ** 2) || 1;
+        const cap = d01 * 0.45;
+        const lt = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
+        const rt = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
+        leftPts.push({ x: c.x + t.x * lt + p.x * halfW, y: c.y + t.y * lt + p.y * halfW });
+        rightPts.push({ x: c.x + t.x * rt - p.x * halfW, y: c.y + t.y * rt - p.y * halfW });
+      } else if (i === n - 1) {
+        const trimsB = allNodeTrims.get(thread[n - 1]);
+        const bTrim = trimsB ? trimsB.get(thread[n - 2]) : null;
+        const dLast = Math.sqrt((c.x - centers[n - 2].x) ** 2 + (c.y - centers[n - 2].y) ** 2) || 1;
+        const cap = dLast * 0.45;
+        const lt = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
+        const rt = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
+        leftPts.push({ x: c.x - t.x * rt + p.x * halfW, y: c.y - t.y * rt + p.y * halfW });
+        rightPts.push({ x: c.x - t.x * lt - p.x * halfW, y: c.y - t.y * lt - p.y * halfW });
+      } else {
+        leftPts.push({ x: c.x + p.x * halfW, y: c.y + p.y * halfW });
+        rightPts.push({ x: c.x - p.x * halfW, y: c.y - p.y * halfW });
+      }
+    }
+
+    // Width-preservation check (squared distance vs threshold)
+    let ok = true;
+    for (let i = 0; i < n; i++) {
+      const dx = rightPts[i].x - leftPts[i].x;
+      const dy = rightPts[i].y - leftPts[i].y;
+      if (dx * dx + dy * dy < halfW * halfW * 0.25) { ok = false; break; }
+    }
+
+    if (!ok) {
+      drawThreadStraight(page, thread, graph, allNodeTrims, halfW, transform, svgOpts);
+      continue;
+    }
+
+    for (let i = 1; i < n - 1; i++) splineInteriors.add(thread[i]);
+
+    const fullLeft = addPhantoms(leftPts, halfW);
+    const fullRight = addPhantoms(rightPts, halfW);
+    drawSplinePath(page, fullLeft, transform, svgOpts);
+    drawSplinePath(page, fullRight, transform, svgOpts);
+  }
+
+  // Junction arcs — skip interior nodes of successfully splined threads
+  for (const node of graph.nodes) {
+    if (splineInteriors.has(node.id)) continue;
+    const passages = nodePassages.get(node.id);
+    if (!passages || passages.length === 0) continue;
+    const cx = node.x;
+    const cy = node.y;
+    const pn = passages.length;
+    for (let i = 0; i < pn; i++) {
+      const curr = passages[i];
+      const next = passages[(i + 1) % pn];
+      let gap = next.angle - curr.angle;
+      if (i === pn - 1) gap += 2 * Math.PI;
+      if (gap < 0) gap += 2 * Math.PI;
+      if (gap <= Math.PI) continue;
+
+      const arcStart = curr.angle + Math.PI / 2;
+      let arcEnd = next.angle - Math.PI / 2;
+      if (i === pn - 1) arcEnd += 2 * Math.PI;
+      const span = arcEnd - arcStart;
+      if (span < 0.02) continue;
+
+      if (span > Math.PI * 0.95) {
+        const mid = (arcStart + arcEnd) / 2;
+        drawJunctionBezier(page, cx, cy, halfW, arcStart, mid, transform, svgOpts);
+        drawJunctionBezier(page, cx, cy, halfW, mid, arcEnd, transform, svgOpts);
+      } else {
+        drawJunctionBezier(page, cx, cy, halfW, arcStart, arcEnd, transform, svgOpts);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
 
 /**
  * Draw curvy organic maze. Returns stats for footer.
@@ -194,13 +312,17 @@ export function drawWalls(page, maze, layoutResult) {
     allNodeTrims.set(maze.finishId, computeNodeTrims(finishPassages, halfW));
   }
 
-  const drawParams = { transform, wallThickness, halfW, scale };
+  const drawParams = {
+    transform, wallThickness, halfW, scale,
+    startId: maze.startId, finishId: maze.finishId,
+  };
   drawGraphCorridors(page, graph, nodePassages, allNodeTrims, drawParams);
 
-  if (maze.fillerGraph) {
-    const fillerData = prepareGraphData(maze.fillerGraph, halfW);
-    drawGraphCorridors(page, maze.fillerGraph, fillerData.nodePassages, fillerData.allNodeTrims, drawParams);
-  }
+  // Filler corridors disabled while spline rendering matures
+  // if (maze.fillerGraph) {
+  //   const fillerData = prepareGraphData(maze.fillerGraph, halfW);
+  //   drawGraphCorridors(page, maze.fillerGraph, fillerData.nodePassages, fillerData.allNodeTrims, drawParams);
+  // }
 
   // Boundary walls (straight lines — same as jagged)
   const bw = maze.boundsWidth;
