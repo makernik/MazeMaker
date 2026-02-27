@@ -36,6 +36,7 @@ export const DIFFICULTY_PRESETS = {
     organicNodeCount: 30,
     polarRings: 3,
     polarBaseWedges: 4,
+    polarWedgeMultiplier: 1,
   },
   '4-5': {
     gridWidth: 7,
@@ -47,6 +48,7 @@ export const DIFFICULTY_PRESETS = {
     organicNodeCount: 80,
     polarRings: 4,
     polarBaseWedges: 4,
+    polarWedgeMultiplier: 1,
   },
   '6-8': {
     gridWidth: 10,
@@ -58,6 +60,7 @@ export const DIFFICULTY_PRESETS = {
     organicNodeCount: 120,
     polarRings: 5,
     polarBaseWedges: 6,
+    polarWedgeMultiplier: 2,
   },
   '9-11': {
     gridWidth: 12,
@@ -69,6 +72,7 @@ export const DIFFICULTY_PRESETS = {
     organicNodeCount: 400,
     polarRings: 8,
     polarBaseWedges: 6,
+    polarWedgeMultiplier: 2,
   },
   '12-14': {
     gridWidth: 14,
@@ -80,6 +84,7 @@ export const DIFFICULTY_PRESETS = {
     organicNodeCount: 800,
     polarRings: 10,
     polarBaseWedges: 8,
+    polarWedgeMultiplier: 2,
   },
   '15-17': {
     gridWidth: 24,
@@ -91,6 +96,7 @@ export const DIFFICULTY_PRESETS = {
     organicNodeCount: 1200,
     polarRings: 12,
     polarBaseWedges: 8,
+    polarWedgeMultiplier: 2,
   },
   '18+': {
     gridWidth: 36,
@@ -102,6 +108,7 @@ export const DIFFICULTY_PRESETS = {
     organicNodeCount: 1900,
     polarRings: 14,
     polarBaseWedges: 8,
+    polarWedgeMultiplier: 2,
   },
 };
 

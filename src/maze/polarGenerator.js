@@ -1,27 +1,21 @@
 /**
  * Polar maze generator: Prim's on PolarGrid.
- * Entrance at center (ring 0), exit at outer ring (wedge 0). Deterministic given seed.
+ * Supports fixed or variable wedges (polarWedgeMultiplier in preset).
+ * Deterministic given seed.
  */
 
 import { PolarGrid, POLAR_DIRECTIONS } from './polarGrid.js';
 import { createRng, generateSeed } from '../utils/rng.js';
 import { getDifficultyPreset } from '../utils/constants.js';
 
-class PolarWallEntry {
-  constructor(cell, direction) {
-    this.cell = cell;
-    this.direction = direction;
-  }
-}
-
 function addPolarWallsToList(grid, cell, walls) {
   const { ring, wedge } = cell;
   for (const dir of Object.values(POLAR_DIRECTIONS)) {
-    const n = grid.getNeighbor(ring, wedge, dir);
-    if (n) {
+    const neighbors = grid.getNeighbor(ring, wedge, dir);
+    for (const n of neighbors) {
       const neighbor = grid.getCell(n.ring, n.wedge);
       if (neighbor && !neighbor.isVisited()) {
-        walls.push(new PolarWallEntry(cell, dir));
+        walls.push({ cell, neighbor });
       }
     }
   }
@@ -35,11 +29,9 @@ function primGeneratePolar(grid, rng) {
 
   while (walls.length > 0) {
     const idx = rng.randomInt(0, walls.length - 1);
-    const { cell, direction } = walls[idx];
-    const n = grid.getNeighbor(cell.ring, cell.wedge, direction);
-    const neighbor = n ? grid.getCell(n.ring, n.wedge) : null;
+    const { cell, neighbor } = walls[idx];
 
-    if (neighbor && !neighbor.isVisited()) {
+    if (!neighbor.isVisited()) {
       grid.removeWallBetween(cell, neighbor);
       neighbor.markVisited();
       addPolarWallsToList(grid, neighbor, walls);
@@ -59,8 +51,9 @@ export function generatePolarMaze(config) {
   const preset = getDifficultyPreset(ageRange);
   const polarRings = preset.polarRings ?? 5;
   const polarBaseWedges = preset.polarBaseWedges ?? 6;
+  const polarWedgeMultiplier = preset.polarWedgeMultiplier ?? 1;
 
-  const grid = new PolarGrid(polarRings, polarBaseWedges);
+  const grid = new PolarGrid(polarRings, polarBaseWedges, polarWedgeMultiplier);
   const rng = createRng(seed);
   primGeneratePolar(grid, rng);
 

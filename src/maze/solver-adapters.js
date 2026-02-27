@@ -107,9 +107,11 @@ export function polarAdapter(maze) {
       const cell = grid.getCell(ring, wedge);
       const out = [];
       for (const dir of Object.values(POLAR_DIRECTIONS)) {
-        if (cell.hasWall(dir)) continue;
-        const n = grid.getNeighbor(ring, wedge, dir);
-        if (n) out.push({ ring: n.ring, wedge: n.wedge });
+        const neighbors = grid.getNeighbor(ring, wedge, dir);
+        for (let i = 0; i < neighbors.length; i++) {
+          if (cell.hasWall(dir, i)) continue;
+          out.push({ ring: neighbors[i].ring, wedge: neighbors[i].wedge });
+        }
       }
       return out;
     },

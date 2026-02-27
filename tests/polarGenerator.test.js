@@ -15,14 +15,14 @@ function countReachableFrom(grid) {
     const { ring, wedge } = stack.pop();
     const cell = grid.getCell(ring, wedge);
     for (const dir of Object.values(POLAR_DIRECTIONS)) {
-      if (!cell.hasWall(dir)) {
-        const n = grid.getNeighbor(ring, wedge, dir);
-        if (n) {
-          const k = key(n.ring, n.wedge);
-          if (!visited.has(k)) {
-            visited.add(k);
-            stack.push(n);
-          }
+      const neighbors = grid.getNeighbor(ring, wedge, dir);
+      for (let i = 0; i < neighbors.length; i++) {
+        if (cell.hasWall(dir, i)) continue;
+        const n = neighbors[i];
+        const k = key(n.ring, n.wedge);
+        if (!visited.has(k)) {
+          visited.add(k);
+          stack.push(n);
         }
       }
     }
@@ -90,5 +90,16 @@ describe('generatePolarMazes', () => {
     expect(mazes[0].seed).toBe(50);
     expect(mazes[1].seed).toBe(51);
     expect(mazes[2].seed).toBe(52);
+  });
+});
+
+describe('variable wedges', () => {
+  it('generates perfect maze with wedge multiplier 2 (6-8 preset)', () => {
+    const maze = generatePolarMaze({ ageRange: '6-8', seed: 300 });
+    const total = maze.polarGrid.getTotalCells();
+    const reached = countReachableFrom(maze.polarGrid);
+    expect(reached).toBe(total);
+    expect(maze.polarGrid.wedgesAtRing(1)).toBe(6);
+    expect(maze.polarGrid.wedgesAtRing(maze.polarGrid.maxRing)).toBeGreaterThanOrEqual(6);
   });
 });

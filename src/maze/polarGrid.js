@@ -1,8 +1,11 @@
 /**
  * Polar (circular) maze grid: concentric rings with radial wedges.
- * Ring 0 = center (one cell). Rings 1..maxRing have the same wedge count (fixed for now).
+ * Ring 0 = center (one cell). Rings 1..maxRing have wedge count per ring (fixed or variable).
  * Directions: INWARD (toward center), OUTWARD (toward edge), CW, CCW.
+ * With variable wedges, one inner cell can connect to two outer cells; OUTWARD is an array of 1 or 2 walls.
  */
+
+const MAX_WEDGES = 64;
 
 export const POLAR_DIRECTIONS = {
   INWARD: 0,
@@ -20,26 +23,34 @@ const OPPOSITE = {
 
 /**
  * Single cell in the polar grid: (ring, wedge).
- * Ring 0 has only wedge 0 (center). Ring r >= 1 has wedges 0..numWedges-1.
+ * Ring 0 has only wedge 0 (center). Ring r >= 1 has wedges 0..wedgesAtRing(r)-1.
+ * walls.OUTWARD is an array (length 1 or 2) for variable wedges.
  */
 export class PolarCell {
-  constructor(ring, wedge) {
+  constructor(ring, wedge, outwardWallCount = 1) {
     this.ring = ring;
     this.wedge = wedge;
     this.walls = {
       [POLAR_DIRECTIONS.INWARD]: true,
-      [POLAR_DIRECTIONS.OUTWARD]: true,
+      [POLAR_DIRECTIONS.OUTWARD]: Array.from({ length: outwardWallCount }, () => true),
       [POLAR_DIRECTIONS.CW]: true,
       [POLAR_DIRECTIONS.CCW]: true,
     };
     this.visited = false;
   }
 
-  removeWall(direction) {
-    this.walls[direction] = false;
+  removeWall(direction, outwardIndex = 0) {
+    if (direction === POLAR_DIRECTIONS.OUTWARD) {
+      this.walls[POLAR_DIRECTIONS.OUTWARD][outwardIndex] = false;
+    } else {
+      this.walls[direction] = false;
+    }
   }
 
-  hasWall(direction) {
+  hasWall(direction, outwardIndex = 0) {
+    if (direction === POLAR_DIRECTIONS.OUTWARD) {
+      return this.walls[POLAR_DIRECTIONS.OUTWARD][outwardIndex];
+    }
     return this.walls[direction];
   }
 
@@ -60,67 +71,133 @@ function topWedgeForWedges(wedges) {
 }
 
 /**
- * Polar grid: rings (including center) and wedges per ring (fixed).
- * Start = outer ring at top (angle π/2). Finish = center room (0, 0).
+ * Polar grid: rings (including center) and wedges per ring (fixed or variable).
+ * wedgeMultiplier > 1: ring r has baseWedges * (wedgeMultiplier ^ (r-1)) wedges, capped at MAX_WEDGES.
+ * Start = outer ring at top. Finish = center room (0, 0).
  */
 export class PolarGrid {
-  constructor(rings, wedges) {
+  constructor(rings, baseWedges, wedgeMultiplier = 1) {
     if (rings < 2) throw new Error('PolarGrid requires at least 2 rings (center + 1 ring)');
-    if (wedges < 2) throw new Error('PolarGrid requires at least 2 wedges');
+    if (baseWedges < 2) throw new Error('PolarGrid requires at least 2 base wedges');
 
     this.rings = rings;
-    this.wedges = wedges;
+    this.baseWedges = baseWedges;
+    this.wedgeMultiplier = Math.max(1, Math.min(wedgeMultiplier, 4));
     this.maxRing = rings - 1;
+
+    /** Wedge count for ring r (r >= 0). Ring 0 = 1; ring r >= 1 = baseWedges * multiplier^(r-1), capped. */
+    this._wedgeCounts = [];
+    for (let r = 0; r < rings; r++) {
+      const count = r === 0 ? 1 : Math.min(baseWedges * Math.pow(this.wedgeMultiplier, r - 1), MAX_WEDGES);
+      this._wedgeCounts[r] = count;
+    }
 
     /** @type {PolarCell[][]} cells[ring][wedge]; ring 0 has only cells[0][0] */
     this.cells = [];
     for (let r = 0; r < rings; r++) {
-      const count = r === 0 ? 1 : wedges;
+      const W = this.wedgesAtRing(r);
+      const outwardCount = r === 0 ? 1 : (r < this.maxRing ? this.outwardNeighborCount(r) : 1);
       this.cells[r] = [];
-      for (let w = 0; w < count; w++) {
-        this.cells[r][w] = new PolarCell(r, w);
+      for (let w = 0; w < W; w++) {
+        this.cells[r][w] = new PolarCell(r, w, outwardCount);
       }
     }
 
-    const topW = topWedgeForWedges(wedges);
+    const outerWedges = this.wedgesAtRing(this.maxRing);
+    const topW = topWedgeForWedges(outerWedges);
     this.start = { ring: this.maxRing, wedge: topW };
     this.finish = { ring: 0, wedge: 0 };
+  }
+
+  /** Wedge count for ring r. */
+  wedgesAtRing(r) {
+    if (r < 0 || r >= this.rings) return 0;
+    return this._wedgeCounts[r];
+  }
+
+  /** Number of outward neighbors from ring r (1 or 2 when outer ring has more wedges). */
+  outwardNeighborCount(r) {
+    if (r >= this.maxRing) return 1;
+    const innerW = this.wedgesAtRing(r);
+    const outerW = this.wedgesAtRing(r + 1);
+    return Math.max(1, Math.floor(outerW / innerW));
+  }
+
+  /** For backward compatibility: wedge count of ring 1 (base). */
+  get wedges() {
+    return this.wedgesAtRing(1);
   }
 
   getCell(ring, wedge) {
     if (ring < 0 || ring >= this.rings) return null;
     if (ring === 0) return wedge === 0 ? this.cells[0][0] : null;
-    if (wedge < 0 || wedge >= this.wedges) return null;
+    const W = this.wedgesAtRing(ring);
+    if (wedge < 0 || wedge >= W) return null;
     return this.cells[ring][wedge];
   }
 
   /**
-   * Neighbor (ring, wedge) in the given direction, or null.
+   * Inner wedge index for cell (ring, wedge): the wedge in the inner ring that (ring, wedge) connects to.
+   */
+  innerWedgeFor(ring, wedge) {
+    if (ring <= 1) return 0;
+    const innerW = this.wedgesAtRing(ring - 1);
+    const myW = this.wedgesAtRing(ring);
+    return Math.floor((wedge * innerW) / myW);
+  }
+
+  /**
+   * Outward neighbor(s). Returns array of { ring, wedge } (length 1 or 2), or empty when at maxRing.
+   */
+  getOutwardNeighbors(ring, wedge) {
+    if (ring === 0) return [{ ring: 1, wedge: 0 }];
+    if (ring >= this.maxRing) return [];
+    const innerW = this.wedgesAtRing(ring);
+    const outerW = this.wedgesAtRing(ring + 1);
+    const ratio = outerW / innerW;
+    const out = [];
+    for (let i = 0; i < ratio; i++) {
+      out.push({ ring: ring + 1, wedge: wedge * ratio + i });
+    }
+    return out;
+  }
+
+  /**
+   * Neighbor(s) in the given direction. Returns array (empty, one, or two elements).
    */
   getNeighbor(ring, wedge, direction) {
     if (ring === 0) {
-      if (direction === POLAR_DIRECTIONS.OUTWARD) return { ring: 1, wedge: 0 };
-      return null;
+      if (direction === POLAR_DIRECTIONS.OUTWARD) return [{ ring: 1, wedge: 0 }];
+      return [];
     }
+    const W = this.wedgesAtRing(ring);
     switch (direction) {
       case POLAR_DIRECTIONS.INWARD:
-        return ring === 1 ? { ring: 0, wedge: 0 } : { ring: ring - 1, wedge };
+        return ring === 1 ? [{ ring: 0, wedge: 0 }] : [{ ring: ring - 1, wedge: this.innerWedgeFor(ring, wedge) }];
       case POLAR_DIRECTIONS.OUTWARD:
-        return ring < this.maxRing ? { ring: ring + 1, wedge } : null;
+        return this.getOutwardNeighbors(ring, wedge);
       case POLAR_DIRECTIONS.CW:
-        return { ring, wedge: (wedge + 1) % this.wedges };
+        return [{ ring, wedge: (wedge + 1) % W }];
       case POLAR_DIRECTIONS.CCW:
-        return { ring, wedge: (wedge - 1 + this.wedges) % this.wedges };
+        return [{ ring, wedge: (wedge - 1 + W) % W }];
       default:
-        return null;
+        return [];
     }
   }
 
   getNeighbors(ring, wedge) {
     const out = [];
+    const cell = this.getCell(ring, wedge);
+    if (!cell) return out;
+
     for (const dir of Object.values(POLAR_DIRECTIONS)) {
-      const n = this.getNeighbor(ring, wedge, dir);
-      if (n) out.push(n);
+      const neighbors = this.getNeighbor(ring, wedge, dir);
+      for (let i = 0; i < neighbors.length; i++) {
+        const n = neighbors[i];
+        if (!n) continue;
+        const hasWall = dir === POLAR_DIRECTIONS.OUTWARD ? cell.hasWall(dir, i) : cell.hasWall(dir);
+        if (!hasWall) out.push(n);
+      }
     }
     return out;
   }
@@ -131,21 +208,41 @@ export class PolarGrid {
     const r2 = cell2.ring;
     const w2 = cell2.wedge;
 
-    let dirFrom1;
-    if (r2 < r1) dirFrom1 = POLAR_DIRECTIONS.INWARD;
-    else if (r2 > r1) dirFrom1 = POLAR_DIRECTIONS.OUTWARD;
-    else if ((w2 - w1 + this.wedges) % this.wedges === 1) dirFrom1 = POLAR_DIRECTIONS.CW;
-    else if ((w1 - w2 + this.wedges) % this.wedges === 1) dirFrom1 = POLAR_DIRECTIONS.CCW;
-    else return;
+    if (r2 < r1) {
+      cell1.removeWall(POLAR_DIRECTIONS.INWARD);
+      cell2.removeWall(POLAR_DIRECTIONS.OUTWARD, this.outwardIndexFromInner(cell2, r1, w1));
+      return;
+    }
+    if (r2 > r1) {
+      const idx = this.outwardIndexFromInner(cell1, r2, w2);
+      cell1.removeWall(POLAR_DIRECTIONS.OUTWARD, idx);
+      cell2.removeWall(POLAR_DIRECTIONS.INWARD);
+      return;
+    }
+    const W = this.wedgesAtRing(r1);
+    if ((w2 - w1 + W) % W === 1) {
+      cell1.removeWall(POLAR_DIRECTIONS.CW);
+      cell2.removeWall(POLAR_DIRECTIONS.CCW);
+    } else if ((w1 - w2 + W) % W === 1) {
+      cell1.removeWall(POLAR_DIRECTIONS.CCW);
+      cell2.removeWall(POLAR_DIRECTIONS.CW);
+    }
+  }
 
-    cell1.removeWall(dirFrom1);
-    cell2.removeWall(OPPOSITE[dirFrom1]);
+  /** Index into inner cell's OUTWARD wall array that connects to (outerRing, outerWedge). */
+  outwardIndexFromInner(innerCell, outerRing, outerWedge) {
+    const innerW = this.wedgesAtRing(outerRing - 1);
+    const outerW = this.wedgesAtRing(outerRing);
+    const ratio = outerW / innerW;
+    const base = innerCell.wedge * ratio;
+    const idx = outerWedge - base;
+    return Math.max(0, Math.min(Math.floor(idx), ratio - 1));
   }
 
   /** Open entrance: outer boundary at start (top of circle) so player can enter. */
   openEntrance() {
     const startCell = this.getCell(this.maxRing, this.start.wedge);
-    if (startCell) startCell.removeWall(POLAR_DIRECTIONS.OUTWARD);
+    if (startCell) startCell.removeWall(POLAR_DIRECTIONS.OUTWARD, 0);
   }
 
   /** Open exit: passage from ring 1 into center room (wedge 0) so player can reach finish. */
@@ -153,13 +250,15 @@ export class PolarGrid {
     const center = this.getCell(0, 0);
     const outer = this.getCell(1, 0);
     if (center && outer) {
-      center.removeWall(POLAR_DIRECTIONS.OUTWARD);
+      center.removeWall(POLAR_DIRECTIONS.OUTWARD, 0);
       outer.removeWall(POLAR_DIRECTIONS.INWARD);
     }
   }
 
   getTotalCells() {
-    return 1 + (this.rings - 1) * this.wedges;
+    let total = 1;
+    for (let r = 1; r < this.rings; r++) total += this.wedgesAtRing(r);
+    return total;
   }
 
   resetVisited() {
