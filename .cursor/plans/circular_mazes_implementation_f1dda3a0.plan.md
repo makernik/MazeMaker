@@ -7,7 +7,7 @@ isProject: false
 
 # Circular Mazes Implementation
 
-**Status:** draft — approved scope per v1 spec  
+**Status:** executing — C0 done  
 **Spec:** [v1_spec.md](.cursor/plans/v1_spec.md) (see "Circular (Polar) Topology" section)  
 **Related:** D-010 (solver/renderer adapter pattern), D-004 (style naming), D-001 (algorithms)  
 **Scope:** Polar/circular topology only. Random start/finish on polar mazes is a separate v1 effort (see v1_spec.md).
@@ -35,6 +35,25 @@ isProject: false
 - Random start/finish positions (separate v1 plan; this plan uses fixed start/finish only).
 - A4 page-size auto-detection (separate v1 feature; polar layout will accept configurable page dimensions from `getLayoutForMaze`).
 - Changing "one maze per page" or "perfect maze only" invariants.
+
+---
+
+## Pre-implementation: architectural suggestions
+
+Consider these before starting implementation; they reduce duplication and keep polar integration in one place.
+
+1. **Single source for drawer key**
+  Drawer key is currently computed in two places: [src/pdf/renderer.js](src/pdf/renderer.js) (`maze.layout === 'organic' ? ... : 'grid'`) and [src/main.js](src/main.js) (`isOrganic ? style : 'grid'`). When adding polar, both would need the same third branch. **Suggestion:** Add `getDrawerKey(maze, style)` in [src/pdf/drawers/index.js](src/pdf/drawers/index.js) (or a small shared util), e.g. `if (maze.layout === 'polar') return 'polar'; if (maze.layout === 'organic') return style === 'curvy' ? 'curvy' : 'jagged'; return 'grid';`. Use it from renderer and main so polar is wired in one place.
+2. **Preview seed and topology**
+  Preview seed is currently `previewSeedFor(ageRange, mazeStyle)`. For Circular topology there is no style. **Suggestion:** Include topology in the seed input so the same polar maze appears for the same age when Circular is selected, e.g. `previewSeedFor(ageRange, topology === 'circular' ? 'polar' : mazeStyle)`. Ensures deterministic preview and avoids reusing a rectangular style key for polar.
+3. **Naming: topology vs layout**
+  Keep a clear mapping: UI "topology" (Rectangular / Circular) → `maze.layout` (`'grid' | 'organic' | 'polar'`). Rectangular uses style (classic/jagged/curvy/square); Circular has a single visual style. Document in code or DECISIONS that `layout` is the topology identifier on the maze object.
+4. **Preset shape**
+  Polar will add `polarRings` and `polarBaseWedges` to `DIFFICULTY_PRESETS`. Reuse `lineThickness` from the same preset (or override if needed). Generator always receives the same preset object; polar generator reads only the polar-specific fields. No new pattern—just keep preset extension consistent.
+5. **Debug overlay and footer**
+  [src/main.js](src/main.js) `drawPreviewDebugOverlay` currently handles only organic. For polar, C2 can ship without a polar-specific overlay (or a minimal one, e.g. ring/wedge labels) and add it in a follow-up. Footer in renderer already branches on `maze.layout === 'organic'` for stats; polar can pass optional stats (e.g. rings, wedges) for debug footer or omit and keep footer minimal.
+6. **v1 spec wording**
+  [v1_spec.md](.cursor/plans/v1_spec.md) still says Maze Style "Organic" for rectangular; the app has split to **Jagged** and **Curvy**. When touching v1 spec for polar, consider updating that line to "Jagged, Curvy" for consistency with the UI.
 
 ---
 
@@ -120,10 +139,10 @@ flowchart LR
 
 ## Checkpoints
 
-- **C0** — Polar grid, generator, and presets
-  - Implement `src/maze/polarGrid.js` (PolarCell, PolarGrid) and `src/maze/polarGenerator.js` (Prim's on polar graph).
-  - Add `polarRings` and `polarBaseWedges` to each entry in `DIFFICULTY_PRESETS` in [src/utils/constants.js](src/utils/constants.js).
-  - Unit tests in `tests/polarGrid.test.js` and `tests/polarGenerator.test.js`: determinism for fixed seed, all cells reachable, entrance/exit open, correct ring/wedge dimensions.
+- **C0** — Polar grid, generator, and presets ✅
+  - Implemented `src/maze/polarGrid.js` (PolarCell, PolarGrid; fixed wedges per ring) and `src/maze/polarGenerator.js` (Prim's on polar graph).
+  - Added `polarRings` and `polarBaseWedges` to each entry in `DIFFICULTY_PRESETS`.
+  - Unit tests in `tests/polarGrid.test.js` and `tests/polarGenerator.test.js`: 15 tests, all passing (determinism, reachability, entrance/exit).
   - No UI, solver, or rendering yet.
 - **C1** — Polar solver adapter
   - Add `polarAdapter(maze)` to [src/maze/solver-adapters.js](src/maze/solver-adapters.js); register in `getAdapterForMaze()` under `layout === 'polar'`.

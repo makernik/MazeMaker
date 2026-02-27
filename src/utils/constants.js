@@ -34,6 +34,8 @@ export const DIFFICULTY_PRESETS = {
     label: 'Intro',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
     organicNodeCount: 30,
+    polarRings: 3,
+    polarBaseWedges: 4,
   },
   '4-5': {
     gridWidth: 7,
@@ -43,6 +45,8 @@ export const DIFFICULTY_PRESETS = {
     label: 'Easy',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
     organicNodeCount: 80,
+    polarRings: 4,
+    polarBaseWedges: 4,
   },
   '6-8': {
     gridWidth: 10,
@@ -52,6 +56,8 @@ export const DIFFICULTY_PRESETS = {
     label: 'Medium',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
     organicNodeCount: 120,
+    polarRings: 5,
+    polarBaseWedges: 6,
   },
   '9-11': {
     gridWidth: 12,
@@ -61,6 +67,8 @@ export const DIFFICULTY_PRESETS = {
     label: 'Hard',
     algorithm: ALGORITHMS.PRIM,
     organicNodeCount: 400,
+    polarRings: 8,
+    polarBaseWedges: 6,
   },
   '12-14': {
     gridWidth: 14,
@@ -70,6 +78,8 @@ export const DIFFICULTY_PRESETS = {
     label: 'Challenging',
     algorithm: ALGORITHMS.PRIM,
     organicNodeCount: 800,
+    polarRings: 10,
+    polarBaseWedges: 8,
   },
   '15-17': {
     gridWidth: 24,
@@ -79,6 +89,8 @@ export const DIFFICULTY_PRESETS = {
     label: 'Difficult',
     algorithm: ALGORITHMS.PRIM,
     organicNodeCount: 1200,
+    polarRings: 12,
+    polarBaseWedges: 8,
   },
   '18+': {
     gridWidth: 36,
@@ -88,6 +100,8 @@ export const DIFFICULTY_PRESETS = {
     label: 'Epic Adventure',
     algorithm: ALGORITHMS.PRIM,
     organicNodeCount: 1900,
+    polarRings: 14,
+    polarBaseWedges: 8,
   },
 };
 
