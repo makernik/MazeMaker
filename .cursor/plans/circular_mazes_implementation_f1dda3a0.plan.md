@@ -144,10 +144,9 @@ flowchart LR
   - Added `polarRings` and `polarBaseWedges` to each entry in `DIFFICULTY_PRESETS`.
   - Unit tests in `tests/polarGrid.test.js` and `tests/polarGenerator.test.js`: 15 tests, all passing (determinism, reachability, entrance/exit).
   - No UI, solver, or rendering yet.
-- **C1** — Polar solver adapter
-  - Add `polarAdapter(maze)` to [src/maze/solver-adapters.js](src/maze/solver-adapters.js); register in `getAdapterForMaze()` under `layout === 'polar'`.
-  - Unit tests in `tests/solver.test.js` (extend existing): solve a polar maze, validate it (single solution, all cells reachable).
-  - Existing grid and organic solver tests must still pass unchanged.
+- **C1** — Polar solver adapter ✅
+  - Added `polarAdapter(maze)` to [src/maze/solver-adapters.js](src/maze/solver-adapters.js); registered in `getAdapterForMaze()` under `layout === 'polar'`.
+  - Unit tests in `tests/solver.test.js`: "Polar maze solver" describe — solve from center to outer edge, validateMaze, isPerfectMaze. Grid and organic tests unchanged.
 - **C2** — Polar rendering (PDF + canvas)
   - Add `'polar'` branch in [src/pdf/layout.js](src/pdf/layout.js) `getLayoutForMaze()`.
   - Implement `src/pdf/drawers/draw-polar.js` as a single backend-agnostic drawer: `drawWalls(backend, maze, layoutResult)`, `drawLabels(backend, ...)`, `drawSolutionOverlay(backend, ...)` using [DrawBackend](src/pdf/drawers/draw-backend.js) (line, arc, path ops). Register in [src/pdf/drawers/index.js](src/pdf/drawers/index.js) under `'polar'`. Extend [src/pdf/renderer.js](src/pdf/renderer.js) and [src/main.js](src/main.js) drawer-key logic so `maze.layout === 'polar'` → `getDrawer('polar')` with PdfBackend or CanvasBackend as appropriate.
@@ -158,6 +157,9 @@ flowchart LR
   - Update [docs/DECISIONS.md](docs/DECISIONS.md) with new polar topology decision.
   - Update [docs/DEFERRED_IDEAS.md](docs/DEFERRED_IDEAS.md) to mark polar mazes as implemented.
   - Full flow: select Circular → see live polar preview → Generate → PDF with one circular maze per page.
+- **C4** — Variable wedges + cleanup (after C3)
+  - **Variable wedges:** Extend `PolarGrid` so outer rings can have 2× (or configurable) wedge count vs inner rings; map neighbor relationships across ring boundaries (one inner cell ↔ two outer cells where wedge counts differ). Update `polarGenerator.js` and presets (e.g. `polarWedgeMultiplier` or per-ring wedge counts). Tests: polarGrid and polarGenerator with variable wedges; solver and drawer still work.
+  - **Cleanup:** Extract `getDrawerKey(maze, style)` in [src/pdf/drawers/index.js](src/pdf/drawers/index.js) and use from renderer and main (single place for drawer selection). Optional: polar debug overlay in preview (ring/wedge labels) or minimal footer stats; document in DECISIONS if added.
 
 ---
 

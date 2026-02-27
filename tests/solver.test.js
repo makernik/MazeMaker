@@ -9,6 +9,7 @@ import { solveMaze, validateMaze, isPerfectMaze, pathToDirections } from '../src
 import { getSolver } from '../src/maze/solver-algorithms.js';
 import { generateMaze } from '../src/maze/generator.js';
 import { generateOrganicMaze } from '../src/maze/organic-generator.js';
+import { generatePolarMaze } from '../src/maze/polarGenerator.js';
 import { MazeGrid, DIRECTIONS } from '../src/maze/grid.js';
 
 describe('Maze Solver', () => {
@@ -98,6 +99,34 @@ describe('Maze Solver', () => {
     expect(result.isPerfect).toBe(true);
     expect(result.reachableCells).toBe(result.totalCells);
     expect(result.totalCells).toBe(maze.graph.nodes.length);
+  });
+});
+
+describe('Polar maze solver', () => {
+  it('solves polar maze from center to outer edge', () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 500 });
+    const solution = solveMaze(maze);
+
+    expect(solution).not.toBeNull();
+    expect(solution.solved).toBe(true);
+    expect(solution.path.length).toBeGreaterThan(0);
+    expect(solution.path[0]).toEqual({ ring: 0, wedge: 0 });
+    const last = solution.path[solution.path.length - 1];
+    expect(last.ring).toBe(maze.polarGrid.maxRing);
+    expect(last.wedge).toBe(0);
+  });
+
+  it('validateMaze returns true for polar maze', () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 501 });
+    expect(validateMaze(maze)).toBe(true);
+  });
+
+  it('isPerfectMaze returns true for polar mazes (all cells reachable)', () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 502 });
+    const result = isPerfectMaze(maze);
+    expect(result.isPerfect).toBe(true);
+    expect(result.reachableCells).toBe(result.totalCells);
+    expect(result.totalCells).toBe(maze.polarGrid.getTotalCells());
   });
 });
 
