@@ -42,6 +42,25 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
   const style = pageOptions.style ?? 'square';
   const lineThickness = maze.preset?.lineThickness ?? 2;
 
+  if (maze.layout === 'polar') {
+    const grid = maze.polarGrid;
+    const labelClearance = 24;
+    const maxRadius = Math.min(mazeWidth, mazeHeight) / 2 - labelClearance;
+    const offsetX = margin + (printableW - mazeWidth) / 2;
+    const offsetY = pageH - margin - mazeHeight;
+    const centerX = offsetX + mazeWidth / 2;
+    const centerY = offsetY + mazeHeight / 2;
+    return {
+      layoutType: 'polar',
+      lineThickness,
+      centerX,
+      centerY,
+      maxRadius,
+      rings: grid.rings,
+      wedges: grid.wedges,
+    };
+  }
+
   if (maze.layout === 'organic') {
     const { boundsWidth, boundsHeight } = maze;
     const scale = Math.min(mazeWidth / boundsWidth, mazeHeight / boundsHeight);

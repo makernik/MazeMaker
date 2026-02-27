@@ -147,10 +147,11 @@ flowchart LR
 - **C1** — Polar solver adapter ✅
   - Added `polarAdapter(maze)` to [src/maze/solver-adapters.js](src/maze/solver-adapters.js); registered in `getAdapterForMaze()` under `layout === 'polar'`.
   - Unit tests in `tests/solver.test.js`: "Polar maze solver" describe — solve from center to outer edge, validateMaze, isPerfectMaze. Grid and organic tests unchanged.
-- **C2** — Polar rendering (PDF + canvas)
-  - Add `'polar'` branch in [src/pdf/layout.js](src/pdf/layout.js) `getLayoutForMaze()`.
-  - Implement `src/pdf/drawers/draw-polar.js` as a single backend-agnostic drawer: `drawWalls(backend, maze, layoutResult)`, `drawLabels(backend, ...)`, `drawSolutionOverlay(backend, ...)` using [DrawBackend](src/pdf/drawers/draw-backend.js) (line, arc, path ops). Register in [src/pdf/drawers/index.js](src/pdf/drawers/index.js) under `'polar'`. Extend [src/pdf/renderer.js](src/pdf/renderer.js) and [src/main.js](src/main.js) drawer-key logic so `maze.layout === 'polar'` → `getDrawer('polar')` with PdfBackend or CanvasBackend as appropriate.
-  - Test: generate a polar maze programmatically, render to PDF, verify PDF has content (byte length, page count). Manual visual check of output.
+- **C2** — Polar rendering (PDF + canvas) ✅
+  - Added `'polar'` branch in [src/pdf/layout.js](src/pdf/layout.js) returning `centerX`, `centerY`, `maxRadius`, `rings`, `wedges`.
+  - Implemented [src/pdf/drawers/draw-polar.js](src/pdf/drawers/draw-polar.js): arcs and radials via backend `line`/`arc`, Start at center and Finish at outer wedge 0, solution overlay from path `{ring, wedge}`.
+  - Registered polar drawer; added `getDrawerKey(maze, style)` in [src/pdf/drawers/index.js](src/pdf/drawers/index.js); renderer and main use it for drawer selection.
+  - Tests: layout.test.js (polar layout), pdf.test.js (polar PDF render + determinism). All 131 tests pass.
 - **C3** — UI integration and docs
   - Add "Maze Topology" fieldset in [src/index.html](src/index.html) with "Rectangular" (default) / "Circular" radios.
   - In [src/main.js](src/main.js): read topology from form, call `generatePolarMazes` when circular, hide/disable Maze Style when circular is selected, update live canvas preview for polar.

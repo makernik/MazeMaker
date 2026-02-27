@@ -7,18 +7,32 @@
 import * as gridDrawer from './draw-grid.js';
 import * as jaggedDrawer from './draw-organic.js';
 import * as curvyDrawer from './draw-curvy.js';
+import * as polarDrawer from './draw-polar.js';
 
 const drawers = {
   grid: gridDrawer,
   jagged: jaggedDrawer,
   curvy: curvyDrawer,
+  polar: polarDrawer,
 };
 
 /**
+ * Get drawer key for a maze and style (for renderer/preview dispatch).
+ * @param {object} maze - Maze with .layout
+ * @param {string} [style] - Form style: 'classic' | 'square' | 'jagged' | 'curvy'
+ * @returns {string} Drawer key: 'polar' | 'curvy' | 'jagged' | 'grid'
+ */
+export function getDrawerKey(maze, style) {
+  if (maze.layout === 'polar') return 'polar';
+  if (maze.layout === 'organic') return style === 'curvy' ? 'curvy' : 'jagged';
+  return 'grid';
+}
+
+/**
  * Get drawer for style. Grid styles ('classic', 'square') map to 'grid'.
- * Organic styles ('jagged', 'curvy') map to their own drawers.
+ * Organic styles ('jagged', 'curvy') and 'polar' map to their own drawers.
  *
- * @param {string} [style] - 'grid' | 'jagged' | 'curvy' | 'classic' | 'square'
+ * @param {string} [style] - 'grid' | 'jagged' | 'curvy' | 'polar' | 'classic' | 'square'
  * @returns {object} Drawer with drawWalls, drawLabels, drawSolutionOverlay
  */
 export function getDrawer(style) {

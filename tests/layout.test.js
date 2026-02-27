@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { getLayoutForMaze } from '../src/pdf/layout.js';
 import { generateMaze } from '../src/maze/generator.js';
 import { generateOrganicMaze } from '../src/maze/organic-generator.js';
+import { generatePolarMaze } from '../src/maze/polarGenerator.js';
 
 describe('getLayoutForMaze', () => {
   it('returns grid layout with default page dimensions', () => {
@@ -76,5 +77,16 @@ describe('getLayoutForMaze', () => {
     expect(layout.offsetX + layout.cellSize * maze.cols).toBeLessThanOrEqual(pageWidth + 1);
     expect(layout.offsetY).toBeGreaterThanOrEqual(0);
     expect(layout.offsetY + layout.cellSize * maze.rows).toBeLessThanOrEqual(pageHeight + 1);
+  });
+
+  it('returns polar layout with centerX, centerY, maxRadius', () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 100 });
+    const layout = getLayoutForMaze(maze);
+    expect(layout.layoutType).toBe('polar');
+    expect(layout.centerX).toBeGreaterThanOrEqual(0);
+    expect(layout.centerY).toBeGreaterThanOrEqual(0);
+    expect(layout.maxRadius).toBeGreaterThan(0);
+    expect(layout.rings).toBe(maze.polarGrid.rings);
+    expect(layout.wedges).toBe(maze.polarGrid.wedges);
   });
 });

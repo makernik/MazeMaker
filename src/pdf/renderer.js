@@ -18,7 +18,7 @@ import {
   FOOTER_HEIGHT,
   getLayoutForMaze,
 } from './layout.js';
-import { getDrawer } from './drawers/index.js';
+import { getDrawer, getDrawerKey } from './drawers/index.js';
 import { createPdfBackend } from './drawers/draw-backend.js';
 import { shapeImageFiles } from '../themes/shapes.js';
 import { animalImageFiles } from '../themes/animals.js';
@@ -66,9 +66,7 @@ export async function renderMazesToPdf(config) {
     const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     const layoutResult = getLayoutForMaze(maze, { mazeWidth, mazeHeight, style });
 
-    const drawerKey = maze.layout === 'organic'
-      ? (style === 'curvy' ? 'curvy' : 'jagged')
-      : 'grid';
+    const drawerKey = getDrawerKey(maze, style);
     const drawer = getDrawer(drawerKey);
     const backend = createPdfBackend(page, { font, boldFont });
     const organicStats = drawer.drawWalls(backend, maze, layoutResult);
