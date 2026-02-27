@@ -18,6 +18,14 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-016 — Circular (polar) maze topology (2026-02-26)
+
+**Context:** Users should be able to generate circular mazes (concentric rings with radial passages) in addition to rectangular (grid and organic) mazes. Polar mazes use a different data structure and a single visual style; they do not use the "Maze Style" (Classic/Jagged/Curvy/Square) options.
+
+**Decision:** Add a **Maze Topology** control: "Rectangular" (default) and "Circular". When **Circular** is selected, the Maze Style fieldset is visually disabled and not applied (polar has one style). Form value `topology` is read in `main.js`; circular topology uses `generatePolarMaze` / `generatePolarMazes` for preview and PDF. Preview seed is deterministic per (ageRange, topology) so circular uses a distinct key (e.g. `'polar'`) from rectangular styles. Solver and renderer already branch on `maze.layout === 'polar'` (adapter and drawer). Debug panel shows polar info (rings × wedges) when the generated maze is polar. Start at center (ring 0), finish at outer ring (wedge 0). Documented as implemented in v1; see DEFERRED_IDEAS for prior "Polar / Circular Mazes" deferral now closed.
+
+---
+
 ## D-012 — Live canvas preview; shared transform with PDF (2026-02-07)
 
 **Context:** Preview should show a representative maze without maintaining static PNGs for every level×style. Same visual result as PDF for the same maze and layout.

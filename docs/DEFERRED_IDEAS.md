@@ -26,7 +26,7 @@ Allow corridors to visually cross over other corridors while the maze remains a 
 **Timing:** Depends on maturity of Curvy style and miter-point geometry. To be scheduled after Curvy is stable and visually validated.
 
 ### Polar / Circular Mazes
-Concentric ring topology with radial passages. Different data structure and rendering approach.
+**Implemented (v1):** Circular topology is available via the "Maze Topology" control (Rectangular / Circular). Polar mazes use concentric rings and radial passages; generation is Prim's on a polar grid; start at center, finish at outer ring. See DECISIONS D-016.
 
 ### Age-Specific Algorithm Selection
 Use Prim's algorithm for younger ages (3-8) and Recursive Backtracker / DFS for older ages (9+). Prim's produces short branching dead-ends (forgiving); DFS produces long winding passages (challenging).

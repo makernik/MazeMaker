@@ -152,6 +152,11 @@ body {
 /* ============================================
    Control Groups
    ============================================ */
+.control-group.topology-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 .control-group {
   border: none;
   padding: 0;

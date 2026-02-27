@@ -7,7 +7,7 @@ isProject: false
 
 # Circular Mazes Implementation
 
-**Status:** executing — C0 done  
+**Status:** executing — C0–C3 done  
 **Spec:** [v1_spec.md](.cursor/plans/v1_spec.md) (see "Circular (Polar) Topology" section)  
 **Related:** D-010 (solver/renderer adapter pattern), D-004 (style naming), D-001 (algorithms)  
 **Scope:** Polar/circular topology only. Random start/finish on polar mazes is a separate v1 effort (see v1_spec.md).
@@ -152,12 +152,12 @@ flowchart LR
   - Implemented [src/pdf/drawers/draw-polar.js](src/pdf/drawers/draw-polar.js): arcs and radials via backend `line`/`arc`, Start at center and Finish at outer wedge 0, solution overlay from path `{ring, wedge}`.
   - Registered polar drawer; added `getDrawerKey(maze, style)` in [src/pdf/drawers/index.js](src/pdf/drawers/index.js); renderer and main use it for drawer selection.
   - Tests: layout.test.js (polar layout), pdf.test.js (polar PDF render + determinism). All 131 tests pass.
-- **C3** — UI integration and docs
-  - Add "Maze Topology" fieldset in [src/index.html](src/index.html) with "Rectangular" (default) / "Circular" radios.
-  - In [src/main.js](src/main.js): read topology from form, call `generatePolarMazes` when circular, hide/disable Maze Style when circular is selected, update live canvas preview for polar.
-  - Update [docs/DECISIONS.md](docs/DECISIONS.md) with new polar topology decision.
-  - Update [docs/DEFERRED_IDEAS.md](docs/DEFERRED_IDEAS.md) to mark polar mazes as implemented.
-  - Full flow: select Circular → see live polar preview → Generate → PDF with one circular maze per page.
+- **C3** — UI integration and docs ✅
+  - Added "Maze Topology" fieldset in [src/index.html](src/index.html) with "Rectangular" (default) / "Circular" radios; Maze Style fieldset gets `id="maze-style-fieldset"` and is disabled (class `topology-disabled`, `aria-hidden`) when Circular is selected via [syncMazeStyleVisibility()](src/main.js).
+  - In [src/main.js](src/main.js): `getFormValues()` includes `topology`; `previewSeedFor(ageRange, mazeStyle, topology)` uses `'polar'` when circular; preview generates polar maze when circular and uses polar drawer; `generateAndDownload` branches on `topology === 'circular'` (normal, oneOfEachLevel, oneOfEachAlgo); `updateDebugPanel` shows "polar, N rings × M wedges" for polar mazes.
+  - [docs/DECISIONS.md](docs/DECISIONS.md): D-016 — Circular (polar) maze topology.
+  - [docs/DEFERRED_IDEAS.md](docs/DEFERRED_IDEAS.md): Polar / Circular Mazes marked as implemented (v1).
+  - Full flow: select Circular → live polar preview → Generate → PDF with circular mazes.
 - **C4** — Variable wedges + cleanup (after C3)
   - **Variable wedges:** Extend `PolarGrid` so outer rings can have 2× (or configurable) wedge count vs inner rings; map neighbor relationships across ring boundaries (one inner cell ↔ two outer cells where wedge counts differ). Update `polarGenerator.js` and presets (e.g. `polarWedgeMultiplier` or per-ring wedge counts). Tests: polarGrid and polarGenerator with variable wedges; solver and drawer still work.
   - **Cleanup:** Extract `getDrawerKey(maze, style)` in [src/pdf/drawers/index.js](src/pdf/drawers/index.js) and use from renderer and main (single place for drawer selection). Optional: polar debug overlay in preview (ring/wedge labels) or minimal footer stats; document in DECISIONS if added.
