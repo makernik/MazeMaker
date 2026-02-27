@@ -18,32 +18,32 @@ function polarToXY(centerX, centerY, angle, radius) {
 /**
  * @param {object} backend - DrawBackend
  * @param {object} maze - Maze with .polarGrid, layout 'polar'
- * @param {object} layoutResult - { centerX, centerY, maxRadius, lineThickness, rings, wedges }
+ * @param {object} layoutResult - { centerX, centerY, maxRadius, roomRadius, lineThickness, rings, wedges }
  * @returns {object|undefined} Optional stats (e.g. for footer); polar drawer returns undefined
  */
 export function drawWalls(backend, maze, layoutResult) {
   const grid = maze.polarGrid;
   const { centerX, centerY, maxRadius, lineThickness, rings, wedges } = layoutResult;
+  const roomRadius = layoutResult.roomRadius ?? maxRadius / grid.maxRing;
   const maxRing = grid.maxRing;
+  const ringWidth = (maxRadius - roomRadius) / maxRing;
   const angleStep = (2 * Math.PI) / wedges;
   backend.setStroke('#000', lineThickness, 'butt');
 
-  // Ring 0 (center): only OUTWARD wall = full circle at ring 1 outer radius (two semicircles for SVG)
+  // Center room: OUTWARD wall of ring 0 = circle at roomRadius (two semicircles for SVG)
   const centerCell = grid.getCell(0, 0);
   if (centerCell.hasWall(POLAR_DIRECTIONS.OUTWARD)) {
-    const r1 = maxRadius / maxRing;
     backend.beginPath();
-    backend.moveTo(centerX + r1, centerY);
-    backend.arc(centerX, centerY, r1, 0, Math.PI);
-    backend.arc(centerX, centerY, r1, Math.PI, 2 * Math.PI);
+    backend.moveTo(centerX + roomRadius, centerY);
+    backend.arc(centerX, centerY, roomRadius, 0, Math.PI);
+    backend.arc(centerX, centerY, roomRadius, Math.PI, 2 * Math.PI);
     backend.stroke();
   }
 
   for (let r = 1; r <= maxRing; r++) {
-    const innerR = (r - 1) * (maxRadius / maxRing);
-    const outerR = r * (maxRadius / maxRing);
-    const wedgeCount = r === 0 ? 1 : wedges;
-    for (let w = 0; w < wedgeCount; w++) {
+    const innerR = roomRadius + (r - 1) * ringWidth;
+    const outerR = roomRadius + r * ringWidth;
+    for (let w = 0; w < wedges; w++) {
       const cell = grid.getCell(r, w);
       if (!cell) continue;
       const a0 = w * angleStep;
@@ -59,8 +59,8 @@ export function drawWalls(backend, maze, layoutResult) {
         if (r === 1) {
           const p0 = polarToXY(centerX, centerY, a0, outerR);
           const p1 = polarToXY(centerX, centerY, a1, outerR);
-          backend.line(centerX, centerY, p0.x, p0.y);
-          backend.line(centerX, centerY, p1.x, p1.y);
+          backend.line(centerX + roomRadius * Math.cos(a0), centerY + roomRadius * Math.sin(a0), p0.x, p0.y);
+          backend.line(centerX + roomRadius * Math.cos(a1), centerY + roomRadius * Math.sin(a1), p1.x, p1.y);
         } else {
           backend.beginPath();
           backend.moveTo(centerX + innerR * Math.cos(a0), centerY + innerR * Math.sin(a0));
@@ -69,12 +69,12 @@ export function drawWalls(backend, maze, layoutResult) {
         }
       }
       if (cell.hasWall(POLAR_DIRECTIONS.CW)) {
-        const pInner = polarToXY(centerX, centerY, a1, r === 1 ? 0 : innerR);
+        const pInner = polarToXY(centerX, centerY, a1, r === 1 ? roomRadius : innerR);
         const pOuter = polarToXY(centerX, centerY, a1, outerR);
         backend.line(pInner.x, pInner.y, pOuter.x, pOuter.y);
       }
       if (cell.hasWall(POLAR_DIRECTIONS.CCW)) {
-        const pInner = polarToXY(centerX, centerY, a0, r === 1 ? 0 : innerR);
+        const pInner = polarToXY(centerX, centerY, a0, r === 1 ? roomRadius : innerR);
         const pOuter = polarToXY(centerX, centerY, a0, outerR);
         backend.line(pInner.x, pInner.y, pOuter.x, pOuter.y);
       }
@@ -84,34 +84,44 @@ export function drawWalls(backend, maze, layoutResult) {
 
 /**
  * @param {object} backend - DrawBackend
- * @param {object} maze - Maze with .polarGrid, .finish
- * @param {object} layoutResult - { centerX, centerY, maxRadius }
+ * @param {object} maze - Maze with .polarGrid, .start, .finish
+ * @param {object} layoutResult - { centerX, centerY, maxRadius, roomRadius }
  * @param {object} options - { useArrows, canvasHeight? }
  */
 export function drawLabels(backend, maze, layoutResult, options = {}) {
   const { centerX, centerY, maxRadius } = layoutResult;
+  const roomRadius = layoutResult.roomRadius ?? maxRadius / maze.polarGrid.maxRing;
   const useArrows = options.useArrows ?? false;
   const canvasHeight = options.canvasHeight;
   const isCanvas = canvasHeight != null;
   const toY = isCanvas ? (y) => canvasHeight - y : (y) => y;
   const yDir = isCanvas ? -1 : 1;
 
-  const startX = centerX;
-  const startY = toY(centerY);
-  const finishX = centerX + maxRadius;
+  // Start at top of circle (angle π/2), finish at center
+  const startPos = polarToXY(centerX, centerY, Math.PI / 2, maxRadius);
+  const startX = startPos.x;
+  const startY = toY(startPos.y);
+  const finishX = centerX;
   const finishY = toY(centerY);
   const fontSize = 10;
 
   const render = () => {
     if (useArrows) {
       backend.setStroke('#000', 2, 'butt');
+      // Start arrow: above the start point, pointing down into maze
       backend.line(startX, startY + yDir * 15, startX, startY);
-      backend.line(finishX - 15, finishY, finishX, finishY);
+      const startHeadSize = 8;
+      backend.line(startX, startY, startX + startHeadSize * 0.5, startY - yDir * startHeadSize);
+      backend.line(startX, startY, startX - startHeadSize * 0.5, startY - yDir * startHeadSize);
+
+      // Finish arrow: at room boundary (passage wedge 0 = right), pointing inward (toward center)
+      const arrowTipX = centerX + roomRadius;
+      const arrowTipY = toY(centerY);
+      const shaftLen = 15;
       const headSize = 8;
-      backend.line(finishX, finishY, finishX - headSize, finishY - headSize * 0.5);
-      backend.line(finishX, finishY, finishX - headSize, finishY + headSize * 0.5);
-      backend.line(startX, startY, startX + headSize * 0.5, startY - yDir * headSize);
-      backend.line(startX, startY, startX - headSize * 0.5, startY - yDir * headSize);
+      backend.line(arrowTipX + shaftLen, arrowTipY, arrowTipX, arrowTipY);
+      backend.line(arrowTipX, arrowTipY, arrowTipX - headSize * Math.cos(0.5), arrowTipY - yDir * headSize * Math.sin(0.5));
+      backend.line(arrowTipX, arrowTipY, arrowTipX - headSize * Math.cos(0.5), arrowTipY + yDir * headSize * Math.sin(0.5));
     } else {
       const startText = 'Start';
       const startW = backend.measureText(startText, { bold: true, fontSize });
@@ -133,17 +143,19 @@ export function drawLabels(backend, maze, layoutResult, options = {}) {
  * @param {object} backend - DrawBackend
  * @param {object} maze - Maze with .polarGrid
  * @param {object[]} path - Array of { ring, wedge }
- * @param {object} layoutResult - { centerX, centerY, maxRadius, rings, wedges }
+ * @param {object} layoutResult - { centerX, centerY, maxRadius, roomRadius, rings, wedges }
  */
 export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   const grid = maze.polarGrid;
   const { centerX, centerY, maxRadius, wedges } = layoutResult;
+  const roomRadius = layoutResult.roomRadius ?? maxRadius / grid.maxRing;
   const maxRing = grid.maxRing;
+  const ringWidth = (maxRadius - roomRadius) / maxRing;
   const angleStep = (2 * Math.PI) / wedges;
 
   function cellToXY(r, w) {
     if (r === 0) return { x: centerX, y: centerY };
-    const radius = (r - 0.5) * (maxRadius / maxRing);
+    const radius = roomRadius + (r - 0.5) * ringWidth;
     const angle = (w + 0.5) * angleStep;
     return polarToXY(centerX, centerY, angle, radius);
   }

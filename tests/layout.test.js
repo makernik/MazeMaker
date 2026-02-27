@@ -79,13 +79,15 @@ describe('getLayoutForMaze', () => {
     expect(layout.offsetY + layout.cellSize * maze.rows).toBeLessThanOrEqual(pageHeight + 1);
   });
 
-  it('returns polar layout with centerX, centerY, maxRadius', () => {
+  it('returns polar layout with centerX, centerY, maxRadius, roomRadius', () => {
     const maze = generatePolarMaze({ ageRange: '4-5', seed: 100 });
     const layout = getLayoutForMaze(maze);
     expect(layout.layoutType).toBe('polar');
     expect(layout.centerX).toBeGreaterThanOrEqual(0);
     expect(layout.centerY).toBeGreaterThanOrEqual(0);
     expect(layout.maxRadius).toBeGreaterThan(0);
+    expect(layout.roomRadius).toBeGreaterThan(0);
+    expect(layout.roomRadius).toBeLessThan(layout.maxRadius);
     expect(layout.rings).toBe(maze.polarGrid.rings);
     expect(layout.wedges).toBe(maze.polarGrid.wedges);
   });

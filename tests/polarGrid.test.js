@@ -28,10 +28,11 @@ describe('PolarGrid', () => {
     expect(grid.getCell(2, 0)).toBeInstanceOf(PolarCell);
   });
 
-  it('start is center (0,0), finish is outer ring wedge 0', () => {
+  it('start is outer ring at top wedge, finish is center (0,0)', () => {
     const grid = new PolarGrid(4, 6);
-    expect(grid.start).toEqual({ ring: 0, wedge: 0 });
-    expect(grid.finish).toEqual({ ring: 3, wedge: 0 });
+    expect(grid.start.ring).toBe(3);
+    expect(grid.start.wedge).toBe(Math.floor(6 / 4));
+    expect(grid.finish).toEqual({ ring: 0, wedge: 0 });
   });
 
   it('getTotalCells returns 1 + (rings-1)*wedges', () => {
@@ -67,16 +68,17 @@ describe('PolarGrid', () => {
     expect(c1.hasWall(POLAR_DIRECTIONS.INWARD)).toBe(false);
   });
 
-  it('openEntrance opens center to (1,0)', () => {
+  it('openEntrance opens outer boundary at start (top wedge)', () => {
     const grid = new PolarGrid(2, 4);
     grid.openEntrance();
-    expect(grid.getCell(0, 0).hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);
-    expect(grid.getCell(1, 0).hasWall(POLAR_DIRECTIONS.INWARD)).toBe(false);
+    const topW = Math.floor(4 / 4);
+    expect(grid.getCell(grid.maxRing, topW).hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);
   });
 
-  it('openExit opens outer ring wedge 0 outward', () => {
+  it('openExit opens passage from ring 1 into center room', () => {
     const grid = new PolarGrid(2, 4);
     grid.openExit();
-    expect(grid.getCell(1, 0).hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);
+    expect(grid.getCell(0, 0).hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);
+    expect(grid.getCell(1, 0).hasWall(POLAR_DIRECTIONS.INWARD)).toBe(false);
   });
 });

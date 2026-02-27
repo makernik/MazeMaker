@@ -39,9 +39,9 @@ describe('generatePolarMaze', () => {
     expect(maze.ageRange).toBe('4-5');
     expect(maze.preset).toBeDefined();
     expect(maze.algorithm).toBe('prim');
-    expect(maze.start).toEqual({ ring: 0, wedge: 0 });
-    expect(maze.finish.ring).toBe(maze.polarGrid.maxRing);
-    expect(maze.finish.wedge).toBe(0);
+    expect(maze.start.ring).toBe(maze.polarGrid.maxRing);
+    expect(maze.start.wedge).toBe(Math.floor(maze.polarGrid.wedges / 4));
+    expect(maze.finish).toEqual({ ring: 0, wedge: 0 });
   });
 
   it('is deterministic for same seed', () => {
@@ -64,7 +64,7 @@ describe('generatePolarMaze', () => {
     expect(sameWalls).toBe(total * 4);
   });
 
-  it('all cells reachable from start (perfect maze)', () => {
+  it('all cells reachable from center (perfect maze)', () => {
     const maze = generatePolarMaze({ ageRange: '4-5', seed: 100 });
     const total = maze.polarGrid.getTotalCells();
     const reached = countReachableFrom(maze.polarGrid);
@@ -73,12 +73,13 @@ describe('generatePolarMaze', () => {
 
   it('entrance and exit are open', () => {
     const maze = generatePolarMaze({ ageRange: '4-5', seed: 200 });
+    const topW = Math.floor(maze.polarGrid.wedges / 4);
+    const startCell = maze.polarGrid.getCell(maze.polarGrid.maxRing, topW);
+    expect(startCell.hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);
     const center = maze.polarGrid.getCell(0, 0);
     const firstRing = maze.polarGrid.getCell(1, 0);
-    expect(center.hasWall(1)).toBe(false);
-    expect(firstRing.hasWall(0)).toBe(false);
-    const outer = maze.polarGrid.getCell(maze.polarGrid.maxRing, 0);
-    expect(outer.hasWall(1)).toBe(false);
+    expect(center.hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);
+    expect(firstRing.hasWall(POLAR_DIRECTIONS.INWARD)).toBe(false);
   });
 });
 

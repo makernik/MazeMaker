@@ -158,9 +158,12 @@ flowchart LR
   - [docs/DECISIONS.md](docs/DECISIONS.md): D-016 — Circular (polar) maze topology.
   - [docs/DEFERRED_IDEAS.md](docs/DEFERRED_IDEAS.md): Polar / Circular Mazes marked as implemented (v1).
   - Full flow: select Circular → live polar preview → Generate → PDF with circular mazes.
-- **C4** — Variable wedges + cleanup (after C3)
-  - **Variable wedges:** Extend `PolarGrid` so outer rings can have 2× (or configurable) wedge count vs inner rings; map neighbor relationships across ring boundaries (one inner cell ↔ two outer cells where wedge counts differ). Update `polarGenerator.js` and presets (e.g. `polarWedgeMultiplier` or per-ring wedge counts). Tests: polarGrid and polarGenerator with variable wedges; solver and drawer still work.
-  - **Cleanup:** Extract `getDrawerKey(maze, style)` in [src/pdf/drawers/index.js](src/pdf/drawers/index.js) and use from renderer and main (single place for drawer selection). Optional: polar debug overlay in preview (ring/wedge labels) or minimal footer stats; document in DECISIONS if added.
+- **C4** — Center room, start/finish relocation, finish arrow (done); variable wedges + cleanup (pending)
+  - **Center room (done):** Layout returns `roomRadius` = 1.5 × ring thickness; [draw-polar.js](src/pdf/drawers/draw-polar.js) draws center room circle at `roomRadius` and maze rings in annulus `roomRadius`..`maxRadius`; solution overlay uses same geometry.
+  - **Start at top, finish at center (done):** [polarGrid.js](src/maze/polarGrid.js) `start` = outer ring at top wedge (`floor(wedges/4)`), `finish` = (0,0); `openEntrance()` opens outer at start; `openExit()` opens passage (1,0)→(0,0). Labels: Start at polar (π/2, maxRadius), Finish at center.
+  - **Finish arrow aligned with entering room (done):** Finish arrow at room boundary (wedge 0), pointing radially inward; implemented in `drawLabels`.
+  - **Variable wedges:** Extend `PolarGrid` so outer rings can have 2× (or configurable) wedge count vs inner rings; map neighbor relationships across ring boundaries. Update `polarGenerator.js` and presets. Tests: polarGrid and polarGenerator with variable wedges; solver and drawer still work.
+  - **Cleanup:** `getDrawerKey` already in place (C2). Optional: polar debug overlay in preview (ring/wedge labels) or minimal footer stats.
 
 ---
 

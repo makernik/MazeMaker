@@ -103,17 +103,17 @@ describe('Maze Solver', () => {
 });
 
 describe('Polar maze solver', () => {
-  it('solves polar maze from center to outer edge', () => {
+  it('solves polar maze from start (top) to finish (center room)', () => {
     const maze = generatePolarMaze({ ageRange: '4-5', seed: 500 });
     const solution = solveMaze(maze);
 
     expect(solution).not.toBeNull();
     expect(solution.solved).toBe(true);
     expect(solution.path.length).toBeGreaterThan(0);
-    expect(solution.path[0]).toEqual({ ring: 0, wedge: 0 });
+    expect(solution.path[0]).toEqual(maze.start);
+    expect(solution.path[0].ring).toBe(maze.polarGrid.maxRing);
     const last = solution.path[solution.path.length - 1];
-    expect(last.ring).toBe(maze.polarGrid.maxRing);
-    expect(last.wedge).toBe(0);
+    expect(last).toEqual({ ring: 0, wedge: 0 });
   });
 
   it('validateMaze returns true for polar maze', () => {

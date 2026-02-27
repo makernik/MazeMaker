@@ -53,8 +53,15 @@ export class PolarCell {
 }
 
 /**
+ * Wedge index at "top" of circle (angle π/2). Angle 0 = right, CCW positive.
+ */
+function topWedgeForWedges(wedges) {
+  return Math.floor(wedges / 4);
+}
+
+/**
  * Polar grid: rings (including center) and wedges per ring (fixed).
- * Start = center (0, 0). Finish = outer ring at wedge 0 (maxRing, 0).
+ * Start = outer ring at top (angle π/2). Finish = center room (0, 0).
  */
 export class PolarGrid {
   constructor(rings, wedges) {
@@ -75,8 +82,9 @@ export class PolarGrid {
       }
     }
 
-    this.start = { ring: 0, wedge: 0 };
-    this.finish = { ring: this.maxRing, wedge: 0 };
+    const topW = topWedgeForWedges(wedges);
+    this.start = { ring: this.maxRing, wedge: topW };
+    this.finish = { ring: 0, wedge: 0 };
   }
 
   getCell(ring, wedge) {
@@ -134,20 +142,20 @@ export class PolarGrid {
     cell2.removeWall(OPPOSITE[dirFrom1]);
   }
 
-  /** Open entrance: wall between center and (1, 0). */
+  /** Open entrance: outer boundary at start (top of circle) so player can enter. */
   openEntrance() {
+    const startCell = this.getCell(this.maxRing, this.start.wedge);
+    if (startCell) startCell.removeWall(POLAR_DIRECTIONS.OUTWARD);
+  }
+
+  /** Open exit: passage from ring 1 into center room (wedge 0) so player can reach finish. */
+  openExit() {
     const center = this.getCell(0, 0);
     const outer = this.getCell(1, 0);
     if (center && outer) {
       center.removeWall(POLAR_DIRECTIONS.OUTWARD);
       outer.removeWall(POLAR_DIRECTIONS.INWARD);
     }
-  }
-
-  /** Open exit at outer ring, wedge 0 (wall toward outside). */
-  openExit() {
-    const exitCell = this.getCell(this.maxRing, 0);
-    if (exitCell) exitCell.removeWall(POLAR_DIRECTIONS.OUTWARD);
   }
 
   getTotalCells() {
