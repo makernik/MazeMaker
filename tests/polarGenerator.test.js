@@ -50,19 +50,28 @@ describe('generatePolarMaze', () => {
     const m2 = generatePolarMaze({ ageRange: '4-5', seed: 999 });
     expect(m1.polarGrid.rings).toBe(m2.polarGrid.rings);
     expect(m1.polarGrid.wedges).toBe(m2.polarGrid.wedges);
-    const total = m1.polarGrid.getTotalCells();
+    const grid = m1.polarGrid;
     let sameWalls = 0;
-    for (let r = 0; r < m1.polarGrid.rings; r++) {
-      const count = r === 0 ? 1 : m1.polarGrid.wedges;
-      for (let w = 0; w < count; w++) {
+    let totalSlots = 0;
+    for (let r = 0; r < grid.rings; r++) {
+      const W = grid.wedgesAtRing(r);
+      const outwardCount = r === 0 ? 1 : grid.outwardNeighborCount(r);
+      for (let w = 0; w < W; w++) {
         const c1 = m1.polarGrid.getCell(r, w);
         const c2 = m2.polarGrid.getCell(r, w);
-        for (const dir of [0, 1, 2, 3]) {
-          if (c1.hasWall(dir) === c2.hasWall(dir)) sameWalls++;
+        if (c1.hasWall(POLAR_DIRECTIONS.INWARD) === c2.hasWall(POLAR_DIRECTIONS.INWARD)) sameWalls++;
+        totalSlots++;
+        for (let i = 0; i < outwardCount; i++) {
+          if (c1.hasWall(POLAR_DIRECTIONS.OUTWARD, i) === c2.hasWall(POLAR_DIRECTIONS.OUTWARD, i)) sameWalls++;
+          totalSlots++;
         }
+        if (c1.hasWall(POLAR_DIRECTIONS.CW) === c2.hasWall(POLAR_DIRECTIONS.CW)) sameWalls++;
+        totalSlots++;
+        if (c1.hasWall(POLAR_DIRECTIONS.CCW) === c2.hasWall(POLAR_DIRECTIONS.CCW)) sameWalls++;
+        totalSlots++;
       }
     }
-    expect(sameWalls).toBe(total * 4);
+    expect(sameWalls).toBe(totalSlots);
   });
 
   it('all cells reachable from center (perfect maze)', () => {
@@ -81,6 +90,35 @@ describe('generatePolarMaze', () => {
     const firstRing = maze.polarGrid.getCell(1, 0);
     expect(center.hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);
     expect(firstRing.hasWall(POLAR_DIRECTIONS.INWARD)).toBe(false);
+  });
+
+  it('is deterministic for same seed with variable wedges (6-8)', () => {
+    const m1 = generatePolarMaze({ ageRange: '6-8', seed: 999 });
+    const m2 = generatePolarMaze({ ageRange: '6-8', seed: 999 });
+    const grid = m1.polarGrid;
+    expect(grid.wedgesAtRing(1)).toBe(6);
+    expect(grid.wedgesAtRing(grid.maxRing)).toBeGreaterThan(6);
+    let sameWalls = 0;
+    let totalSlots = 0;
+    for (let r = 0; r < grid.rings; r++) {
+      const W = grid.wedgesAtRing(r);
+      const outwardCount = r === 0 ? 1 : grid.outwardNeighborCount(r);
+      for (let w = 0; w < W; w++) {
+        const c1 = m1.polarGrid.getCell(r, w);
+        const c2 = m2.polarGrid.getCell(r, w);
+        if (c1.hasWall(POLAR_DIRECTIONS.INWARD) === c2.hasWall(POLAR_DIRECTIONS.INWARD)) sameWalls++;
+        totalSlots++;
+        for (let i = 0; i < outwardCount; i++) {
+          if (c1.hasWall(POLAR_DIRECTIONS.OUTWARD, i) === c2.hasWall(POLAR_DIRECTIONS.OUTWARD, i)) sameWalls++;
+          totalSlots++;
+        }
+        if (c1.hasWall(POLAR_DIRECTIONS.CW) === c2.hasWall(POLAR_DIRECTIONS.CW)) sameWalls++;
+        totalSlots++;
+        if (c1.hasWall(POLAR_DIRECTIONS.CCW) === c2.hasWall(POLAR_DIRECTIONS.CCW)) sameWalls++;
+        totalSlots++;
+      }
+    }
+    expect(sameWalls).toBe(totalSlots);
   });
 });
 
@@ -112,5 +150,34 @@ describe('variable wedges', () => {
     expect(reached).toBe(total);
     expect(maze.polarGrid.wedgesAtRing(1)).toBe(6);
     expect(maze.polarGrid.wedgesAtRing(maze.polarGrid.maxRing)).toBeGreaterThanOrEqual(6);
+  });
+
+  it('recursive-backtracker produces perfect maze with variable wedges', () => {
+    const maze = generatePolarMaze({
+      ageRange: '6-8',
+      seed: 401,
+      algorithm: 'recursive-backtracker',
+    });
+    const total = maze.polarGrid.getTotalCells();
+    const reached = countReachableFrom(maze.polarGrid);
+    expect(reached).toBe(total);
+    expect(maze.algorithm).toBe('recursive-backtracker');
+  });
+
+  it('recursive-backtracker entrance and exit open with variable wedges', () => {
+    const maze = generatePolarMaze({
+      ageRange: '6-8',
+      seed: 402,
+      algorithm: 'recursive-backtracker',
+    });
+    const grid = maze.polarGrid;
+    const outerWedges = grid.wedgesAtRing(grid.maxRing);
+    const topW = Math.floor(outerWedges / 4);
+    const startCell = grid.getCell(grid.maxRing, topW);
+    expect(startCell.hasWall(POLAR_DIRECTIONS.OUTWARD, 0)).toBe(false);
+    const center = grid.getCell(0, 0);
+    const firstRing = grid.getCell(1, 0);
+    expect(center.hasWall(POLAR_DIRECTIONS.OUTWARD, 0)).toBe(false);
+    expect(firstRing.hasWall(POLAR_DIRECTIONS.INWARD)).toBe(false);
   });
 });

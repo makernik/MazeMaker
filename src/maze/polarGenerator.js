@@ -147,13 +147,6 @@ export function generatePolarMaze(config) {
   grid.openEntrance();
   grid.openExit();
 
-  // #region agent log
-  const centerCell = grid.getCell(0, 0);
-  const cell10 = grid.getCell(1, 0);
-  const startCell = grid.getCell(grid.maxRing, grid.start.wedge);
-  fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'polarGenerator.js:after openExit', message: 'Polar connectivity (H1,H5)', data: { seed, start: grid.start, finish: grid.finish, centerHasOutwardWall: centerCell ? centerCell.hasWall(1, 0) : null, cell10HasInwardWall: cell10 ? cell10.hasWall(0) : null, startCellHasOutwardWall: startCell ? startCell.hasWall(1, 0) : null, maxRing: grid.maxRing, ring1Wedges: grid.wedgesAtRing(1) }, timestamp: Date.now(), hypothesisId: 'H1,H5' }) }).catch(() => {});
-  // #endregion
-
   return {
     layout: 'polar',
     polarGrid: grid,
