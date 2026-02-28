@@ -27,7 +27,7 @@ export function drawWalls(backend, maze, layoutResult) {
   const roomRadius = layoutResult.roomRadius ?? maxRadius / grid.maxRing;
   const maxRing = grid.maxRing;
   const ringWidth = (maxRadius - roomRadius) / maxRing;
-  backend.setStroke('#000', lineThickness, 'butt');
+  backend.setStroke('#000', lineThickness, 'round');
 
   // Room border: always draw a circle at roomRadius to delineate the center room from the maze.
   // Leave a gap at the passage (wedge 0 on ring 1) so the path into the room is open.
@@ -125,7 +125,7 @@ export function drawLabels(backend, maze, layoutResult, options = {}) {
 
   const render = () => {
     if (useArrows) {
-      backend.setStroke('#000', 2, 'butt');
+      backend.setStroke('#000', 2, 'round');
       const shaftLen = 15;
       const headSize = 8;
       const headSpread = 0.5;
@@ -216,7 +216,7 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   }
 
   backend.save();
-  backend.setStroke('#666', 1.5, 'butt');
+  backend.setStroke('#666', 1.5, 'round');
   backend.setDash([4, 4]);
   backend.setOpacity(0.7);
 
