@@ -202,6 +202,39 @@ export class PolarGrid {
     return out;
   }
 
+  /**
+   * Neighbors that are adjacent (have a wall) and not yet visited. For recursive-backtracker.
+   * @returns {Array<{ ring: number, wedge: number }>}
+   */
+  getUnvisitedNeighbors(ring, wedge) {
+    const out = [];
+    const cell = this.getCell(ring, wedge);
+    if (!cell) return out;
+
+    for (const dir of Object.values(POLAR_DIRECTIONS)) {
+      const neighbors = this.getNeighbor(ring, wedge, dir);
+      for (let i = 0; i < neighbors.length; i++) {
+        const n = neighbors[i];
+        if (!n) continue;
+        const hasWall = dir === POLAR_DIRECTIONS.OUTWARD ? cell.hasWall(dir, i) : cell.hasWall(dir);
+        if (!hasWall) continue;
+        const neighborCell = this.getCell(n.ring, n.wedge);
+        if (neighborCell && !neighborCell.isVisited()) out.push(n);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Linear index for cell (ring, wedge) for union-find. 0 = center; then ring 1..maxRing in order.
+   */
+  cellToIndex(ring, wedge) {
+    if (ring === 0) return 0;
+    let idx = 1;
+    for (let r = 1; r < ring; r++) idx += this.wedgesAtRing(r);
+    return idx + wedge;
+  }
+
   removeWallBetween(cell1, cell2) {
     const r1 = cell1.ring;
     const w1 = cell1.wedge;

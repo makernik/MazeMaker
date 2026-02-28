@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { generatePolarMaze, generatePolarMazes } from '../src/maze/polarGenerator.js';
 import { POLAR_DIRECTIONS } from '../src/maze/polarGrid.js';
+import { ALGORITHM_IDS } from '../src/utils/constants.js';
 
 /** Count cells reachable from (0,0) by following open walls (no solver adapter yet). */
 function countReachableFrom(grid) {
@@ -32,7 +33,7 @@ function countReachableFrom(grid) {
 
 describe('generatePolarMaze', () => {
   it('returns maze with layout polar and polarGrid', () => {
-    const maze = generatePolarMaze({ ageRange: '4-5', seed: 100 });
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 100, algorithm: 'prim' });
     expect(maze.layout).toBe('polar');
     expect(maze.polarGrid).toBeDefined();
     expect(maze.seed).toBe(100);
@@ -90,6 +91,16 @@ describe('generatePolarMazes', () => {
     expect(mazes[0].seed).toBe(50);
     expect(mazes[1].seed).toBe(51);
     expect(mazes[2].seed).toBe(52);
+  });
+
+  it('supports all algorithms (prim, recursive-backtracker, kruskal)', () => {
+    for (const algo of ALGORITHM_IDS) {
+      const maze = generatePolarMaze({ ageRange: '4-5', seed: 100, algorithm: algo });
+      expect(maze.algorithm).toBe(algo);
+      const total = maze.polarGrid.getTotalCells();
+      const reached = countReachableFrom(maze.polarGrid);
+      expect(reached).toBe(total);
+    }
   });
 });
 

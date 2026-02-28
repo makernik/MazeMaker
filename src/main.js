@@ -367,10 +367,17 @@ async function generateAndDownload(event) {
       result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
       filename = `mazes-each-algo-${values.mazeStyle}-${values.ageRange}.pdf`;
     } else if (oneOfEachAlgo && isCircular) {
-      const mazes = generatePolarMazes({ ageRange: values.ageRange, quantity: 1, baseSeed });
+      const mazes = [];
+      for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+        mazes.push(generatePolarMaze({
+          ageRange: values.ageRange,
+          seed: baseSeed + a,
+          algorithm: ALGORITHM_IDS[a],
+        }));
+      }
       result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
       styleForPdf = 'classic';
-      filename = `mazes-polar-${values.ageRange}.pdf`;
+      filename = `mazes-polar-each-algo-${values.ageRange}.pdf`;
     } else if (oneOfEachLevel) {
       const ageRangeKeys = Object.keys(DIFFICULTY_PRESETS);
       const mazes = [];
@@ -404,10 +411,13 @@ async function generateAndDownload(event) {
       result = { mazes, baseSeed, ageRange: null, quantity: mazes.length };
       filename = isCircular ? 'mazes-each-level-polar.pdf' : `mazes-each-level-${values.mazeStyle}.pdf`;
     } else if (isCircular) {
+      const preset = getDifficultyPreset(values.ageRange);
       const mazes = generatePolarMazes({
         ageRange: values.ageRange,
         quantity: values.quantity,
         baseSeed,
+        algorithm: preset.algorithm,
+        useAlgorithmRandomizerForOlderAges: OLDER_AGE_RANGES_FOR_RANDOMIZER.includes(values.ageRange),
       });
       result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
       styleForPdf = 'classic';
