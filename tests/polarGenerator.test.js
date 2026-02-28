@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { generatePolarMaze, generatePolarMazes } from '../src/maze/polarGenerator.js';
-import { POLAR_DIRECTIONS } from '../src/maze/polarGrid.js';
+import { generatePolarMaze, generatePolarMazes, getCarveWeight, directionFromTo } from '../src/maze/polarGenerator.js';
+import { PolarGrid, POLAR_DIRECTIONS } from '../src/maze/polarGrid.js';
 import { ALGORITHM_IDS } from '../src/utils/constants.js';
 
 /** Count cells reachable from (0,0) by following open walls (no solver adapter yet). */
@@ -179,5 +179,41 @@ describe('variable wedges', () => {
     const firstRing = grid.getCell(1, 0);
     expect(center.hasWall(POLAR_DIRECTIONS.OUTWARD, 0)).toBe(false);
     expect(firstRing.hasWall(POLAR_DIRECTIONS.INWARD)).toBe(false);
+  });
+});
+
+describe('getCarveWeight and directionFromTo', () => {
+  it('inward weight is higher at inner ring than at outer ring', () => {
+    const maxRing = 4;
+    const inner = getCarveWeight(1, POLAR_DIRECTIONS.INWARD, maxRing);
+    const outer = getCarveWeight(maxRing, POLAR_DIRECTIONS.INWARD, maxRing);
+    expect(inner).toBeGreaterThan(outer);
+  });
+
+  it('angular weight is higher at outer ring than at inner ring', () => {
+    const maxRing = 4;
+    const inner = getCarveWeight(1, POLAR_DIRECTIONS.CW, maxRing);
+    const outer = getCarveWeight(maxRing, POLAR_DIRECTIONS.CW, maxRing);
+    expect(outer).toBeGreaterThan(inner);
+  });
+
+  it('directionFromTo returns INWARD when moving toward center', () => {
+    const grid = new PolarGrid(3, 4);
+    expect(directionFromTo(grid, { ring: 1, wedge: 0 }, { ring: 0, wedge: 0 })).toBe(POLAR_DIRECTIONS.INWARD);
+  });
+
+  it('directionFromTo returns OUTWARD when moving toward edge', () => {
+    const grid = new PolarGrid(3, 4);
+    expect(directionFromTo(grid, { ring: 1, wedge: 0 }, { ring: 2, wedge: 0 })).toBe(POLAR_DIRECTIONS.OUTWARD);
+  });
+
+  it('directionFromTo returns CW when moving to next wedge on same ring', () => {
+    const grid = new PolarGrid(3, 4);
+    expect(directionFromTo(grid, { ring: 1, wedge: 0 }, { ring: 1, wedge: 1 })).toBe(POLAR_DIRECTIONS.CW);
+  });
+
+  it('directionFromTo returns CCW when moving to previous wedge on same ring', () => {
+    const grid = new PolarGrid(3, 4);
+    expect(directionFromTo(grid, { ring: 1, wedge: 1 }, { ring: 1, wedge: 0 })).toBe(POLAR_DIRECTIONS.CCW);
   });
 });

@@ -2,11 +2,56 @@
  * Polar maze generator: Prim's, recursive-backtracker, or Kruskal's on PolarGrid.
  * Supports fixed or variable wedges (polarWedgeMultiplier in preset).
  * Deterministic given seed.
+ * DFS can use per-ring carve weights: outer rings favor angular (orbit), inner rings favor inward (funnel).
  */
 
 import { PolarGrid, POLAR_DIRECTIONS } from './polarGrid.js';
 import { createRng, generateSeed } from '../utils/rng.js';
 import { getDifficultyPreset, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from '../utils/constants.js';
+
+const CARVE_WEIGHT_K = 1.5;
+
+/**
+ * Weight for choosing a carve direction at a given ring (used by DFS).
+ * Outer rings get higher angular weight (orbit); inner rings get higher inward weight (funnel).
+ * @param {number} ring - Current ring index (0 .. maxRing)
+ * @param {number} direction - POLAR_DIRECTIONS value
+ * @param {number} maxRing - Maximum ring index
+ * @returns {number} Positive weight for weighted random choice
+ */
+export function getCarveWeight(ring, direction, maxRing) {
+  if (maxRing <= 0) return 1;
+  const t = ring / maxRing;
+  switch (direction) {
+    case POLAR_DIRECTIONS.INWARD:
+      return 1 + (1 - t) * CARVE_WEIGHT_K;
+    case POLAR_DIRECTIONS.OUTWARD:
+      return 1;
+    case POLAR_DIRECTIONS.CW:
+    case POLAR_DIRECTIONS.CCW:
+      return 1 + t * CARVE_WEIGHT_K;
+    default:
+      return 1;
+  }
+}
+
+/**
+ * Direction from cell 'from' to cell 'to' (for polar grid).
+ * @param {import('./polarGrid.js').PolarGrid} grid
+ * @param {{ ring: number, wedge: number }} from
+ * @param {{ ring: number, wedge: number }} to
+ * @returns {number} POLAR_DIRECTIONS value
+ */
+export function directionFromTo(grid, from, to) {
+  const { ring: r, wedge: w } = from;
+  const { ring: nr, wedge: nw } = to;
+  if (nr < r) return POLAR_DIRECTIONS.INWARD;
+  if (nr > r) return POLAR_DIRECTIONS.OUTWARD;
+  const W = grid.wedgesAtRing(r);
+  if ((nw - w + W) % W === 1) return POLAR_DIRECTIONS.CW;
+  if ((w - nw + W) % W === 1) return POLAR_DIRECTIONS.CCW;
+  return POLAR_DIRECTIONS.INWARD;
+}
 
 function addPolarWallsToList(grid, cell, walls) {
   const { ring, wedge } = cell;
@@ -57,8 +102,11 @@ function recursiveBacktrackerGeneratePolar(grid, rng) {
       continue;
     }
 
-    rng.shuffle(neighbors);
-    const next = neighbors[0];
+    // Per-ring carve weights: outer rings favor angular (orbit), inner rings favor inward (funnel).
+    const weights = neighbors.map((n) =>
+      getCarveWeight(current.ring, directionFromTo(grid, current, n), grid.maxRing)
+    );
+    const next = rng.weightedChoice(neighbors, weights);
     const nextCell = grid.getCell(next.ring, next.wedge);
     grid.removeWallBetween(currentCell, nextCell);
     nextCell.markVisited();

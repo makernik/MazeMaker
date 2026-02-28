@@ -4,6 +4,17 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-017 — Polar per-ring carve weights and optional wedge count array (2026-02-27)
+
+**Context:** Polar mazes should feel open and disorienting at the outer edge, then deliberately funnel toward the center so the player "earns" the funnel. We also want to support an explicit per-ring wedge count array for future preset tuning.
+
+**Decision:**
+
+- **Carve weights:** When generating a polar maze with **recursive-backtracker (DFS)**, neighbor choice is **weighted by ring and direction**: outer rings get higher weight for angular moves (CW/CCW), inner rings get higher weight for inward moves. Prim and Kruskal remain uniform; only DFS uses these weights. Implemented via `getCarveWeight(ring, direction, maxRing)` and `directionFromTo(grid, from, to)` in `polarGenerator.js`; DFS uses `rng.weightedChoice(neighbors, weights)`.
+- **Optional wedge count array:** `PolarGrid` accepts an optional 4th argument `wedgeCounts: number[]`. If provided, it must satisfy: length === rings, wedgeCounts[0] === 1, all positive integers, and **each ring's count must be an integer multiple of the prior ring's** (so `outwardIndexFromInner` and related logic remain correct). Invalid arrays **throw** with a clear message; no silent fallback. Presets can stay formula-based; see DEFERRED_IDEAS for validating preset arrays when we add `polarWedgeCounts`.
+
+---
+
 ## D-015 — Unified draw backends: one drawer per style (2026-02-25)
 
 **Context:** Every drawing style (grid, jagged, curvy) had two near-identical implementations: one calling pdf-lib (`page.drawLine`, `page.drawSvgPath`) and one calling `CanvasRenderingContext2D` (`ctx.moveTo`, `ctx.lineTo`, `ctx.stroke`). Geometry and algorithms were 90-100% duplicated; only the final draw calls differed.

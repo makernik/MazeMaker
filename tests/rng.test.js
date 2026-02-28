@@ -95,3 +95,39 @@ describe('Seeded RNG', () => {
     expect(seeds.size).toBeGreaterThan(90);
   });
 });
+
+describe('weightedChoice', () => {
+  it('is deterministic with same seed', () => {
+    const arr = ['a', 'b', 'c'];
+    const weights = [1, 2, 3];
+    const rng1 = createRng(100);
+    const rng2 = createRng(100);
+    const choices1 = Array.from({ length: 10 }, () => rng1.weightedChoice(arr, weights));
+    const choices2 = Array.from({ length: 10 }, () => rng2.weightedChoice(arr, weights));
+    expect(choices1).toEqual(choices2);
+  });
+
+  it('returns an element from the array', () => {
+    const arr = [10, 20, 30];
+    const rng = createRng(42);
+    for (let i = 0; i < 50; i++) {
+      const chosen = rng.weightedChoice(arr, [1, 1, 1]);
+      expect(arr).toContain(chosen);
+    }
+  });
+
+  it('throws when array is empty', () => {
+    const rng = createRng(1);
+    expect(() => rng.weightedChoice([], [])).toThrow(/array must not be empty/);
+  });
+
+  it('throws when weights length does not match array length', () => {
+    const rng = createRng(1);
+    expect(() => rng.weightedChoice([1, 2], [1])).toThrow(/weights length must equal array length/);
+  });
+
+  it('throws when all weights are zero', () => {
+    const rng = createRng(1);
+    expect(() => rng.weightedChoice(['a', 'b'], [0, 0])).toThrow(/at least one weight must be positive/);
+  });
+});
