@@ -94,41 +94,48 @@ export function drawWalls(backend, maze, layoutResult) {
  * @param {object} options - { useArrows, canvasHeight? }
  */
 export function drawLabels(backend, maze, layoutResult, options = {}) {
+  const grid = maze.polarGrid;
   const { centerX, centerY, maxRadius } = layoutResult;
-  const roomRadius = layoutResult.roomRadius ?? maxRadius / maze.polarGrid.maxRing;
+  const roomRadius = layoutResult.roomRadius ?? maxRadius / grid.maxRing;
   const useArrows = options.useArrows ?? false;
   const canvasHeight = options.canvasHeight;
   const isCanvas = canvasHeight != null;
   const toY = isCanvas ? (y) => canvasHeight - y : (y) => y;
   const yDir = isCanvas ? -1 : 1;
 
-  // Start at top of circle (angle π/2), finish at center
-  const startPos = polarToXY(centerX, centerY, Math.PI / 2, maxRadius);
-  const startX = startPos.x;
-  const startY = toY(startPos.y);
+  // Start: center of gap = center of start wedge on outer ring (angle at wedge mid)
+  const outerW = grid.wedgesAtRing(grid.maxRing);
+  const startAngle = (maze.start.wedge + 0.5) * (2 * Math.PI / outerW);
+  const startBoundary = polarToXY(centerX, centerY, startAngle, maxRadius);
+  const startTip = polarToXY(centerX, centerY, startAngle, maxRadius - 15);
+  const startX = startBoundary.x;
+  const startY = toY(startBoundary.y);
   const finishX = centerX;
   const finishY = toY(centerY);
   const fontSize = 10;
+
+  // Finish: center of gap = center of wedge 0 on ring 1 (passage into center room)
+  const ring1W = grid.wedgesAtRing(1);
+  const finishAngle = (0 + 0.5) * (2 * Math.PI / ring1W);
+  const finishBoundary = polarToXY(centerX, centerY, finishAngle, roomRadius);
+  const finishTip = polarToXY(centerX, centerY, finishAngle, roomRadius - 15);
 
   const render = () => {
     if (useArrows) {
       backend.setStroke('#000', 2, 'butt');
       const shaftLen = 15;
       const headSize = 8;
+      const headSpread = 0.5;
 
-      // Start arrow: shaft from boundary to tip just inside; arrowhead points inward (into maze from top)
-      const startTipX = startX;
-      const startTipY = startY - yDir * shaftLen;
-      backend.line(startX, startY, startTipX, startTipY);
-      backend.line(startTipX, startTipY, startTipX + headSize * 0.5, startTipY + yDir * headSize);
-      backend.line(startTipX, startTipY, startTipX - headSize * 0.5, startTipY + yDir * headSize);
+      // Start arrow: shaft from boundary to tip; arrowhead points inward
+      backend.line(startBoundary.x, toY(startBoundary.y), startTip.x, toY(startTip.y));
+      backend.line(startTip.x, toY(startTip.y), startTip.x + headSize * Math.cos(startAngle + headSpread), toY(startTip.y + headSize * Math.sin(startAngle + headSpread)));
+      backend.line(startTip.x, toY(startTip.y), startTip.x + headSize * Math.cos(startAngle - headSpread), toY(startTip.y + headSize * Math.sin(startAngle - headSpread)));
 
-      // Finish arrow: shaft from room boundary to tip just inside room; arrowhead points inward (toward center)
-      const arrowTipX = centerX + roomRadius - shaftLen;
-      const arrowTipY = toY(centerY);
-      backend.line(centerX + roomRadius, arrowTipY, arrowTipX, arrowTipY);
-      backend.line(arrowTipX, arrowTipY, arrowTipX + headSize * Math.cos(0.5), arrowTipY - yDir * headSize * Math.sin(0.5));
-      backend.line(arrowTipX, arrowTipY, arrowTipX + headSize * Math.cos(0.5), arrowTipY + yDir * headSize * Math.sin(0.5));
+      // Finish arrow: shaft from room boundary to tip; arrowhead points inward (toward center)
+      backend.line(finishBoundary.x, toY(finishBoundary.y), finishTip.x, toY(finishTip.y));
+      backend.line(finishTip.x, toY(finishTip.y), finishTip.x + headSize * Math.cos(finishAngle + headSpread), toY(finishTip.y + headSize * Math.sin(finishAngle + headSpread)));
+      backend.line(finishTip.x, toY(finishTip.y), finishTip.x + headSize * Math.cos(finishAngle - headSpread), toY(finishTip.y + headSize * Math.sin(finishAngle - headSpread)));
     } else {
       const startText = 'Start';
       const startW = backend.measureText(startText, { bold: true, fontSize });
