@@ -12,7 +12,7 @@ import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
 import { getLayoutForMaze } from './pdf/layout.js';
 import { getDrawer, getDrawerKey } from './pdf/drawers/index.js';
 import { createCanvasBackend } from './pdf/drawers/draw-backend.js';
-import { getDifficultyPreset, DIFFICULTY_PRESETS, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
+import { getDifficultyPreset, DIFFICULTY_PRESETS, GRID_ALGORITHM_IDS, POLAR_ALGORITHM_IDS, ORGANIC_ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
 
 // DOM elements
@@ -373,11 +373,11 @@ async function generateAndDownload(event) {
       filename = `mazes-each-algo-${values.mazeStyle}-${values.ageRange}.pdf`;
     } else if (oneOfEachAlgo && isCircular) {
       const mazes = [];
-      for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+      for (let a = 0; a < POLAR_ALGORITHM_IDS.length; a++) {
         mazes.push(generatePolarMaze({
           ageRange: values.ageRange,
           seed: baseSeed + a,
-          algorithm: ALGORITHM_IDS[a],
+          algorithm: POLAR_ALGORITHM_IDS[a],
         }));
       }
       result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
@@ -400,13 +400,13 @@ async function generateAndDownload(event) {
         }
         styleForPdf = values.mazeStyle;
       } else {
-        for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+        for (let a = 0; a < GRID_ALGORITHM_IDS.length; a++) {
           for (let l = 0; l < ageRangeKeys.length; l++) {
             const ageRange = ageRangeKeys[l];
             const maze = generateMaze({
               ageRange,
               seed: baseSeed + a * 100 + l,
-              algorithm: ALGORITHM_IDS[a],
+              algorithm: GRID_ALGORITHM_IDS[a],
             });
             mazes.push(maze);
           }

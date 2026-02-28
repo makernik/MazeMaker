@@ -13,10 +13,20 @@ export const ALGORITHMS = {
   PRIM: 'prim',
   RECURSIVE_BACKTRACKER: 'recursive-backtracker',
   KRUSKAL: 'kruskal',
+  WILSON: 'wilson',
 };
 
-/** Ordered list of all algorithm ids (for randomizer and debug "1 of each") */
+/** Ordered list of all algorithm ids (for footer label and any "all algorithms" reference). */
 export const ALGORITHM_IDS = Object.values(ALGORITHMS);
+
+/** Algorithm ids for grid randomizer and "1 of each algorithm" (includes Wilson's). */
+export const GRID_ALGORITHM_IDS = ['prim', 'recursive-backtracker', 'kruskal', 'wilson'];
+
+/** Algorithm ids for polar randomizer and "1 of each" (Prim excluded; polar coerces prim to recursive-backtracker). */
+export const POLAR_ALGORITHM_IDS = ['recursive-backtracker', 'kruskal', 'wilson'];
+
+/** Algorithm ids for organic randomizer and "1 of each" (Wilson's excluded). */
+export const ORGANIC_ALGORITHM_IDS = ['recursive-backtracker', 'prim', 'kruskal'];
 
 /** Age ranges that use algorithm randomizer for additional mazes (quantity > 1). First maze always uses preset.algorithm. */
 export const OLDER_AGE_RANGES_FOR_RANDOMIZER = ['12-14', '15-17', '18+'];

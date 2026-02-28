@@ -25,7 +25,11 @@ export function generateOrganicMaze(config) {
   const { ageRange, seed = generateSeed(), algorithm } = config;
   const preset = getDifficultyPreset(ageRange);
   const targetCount = preset.organicNodeCount || (preset.gridWidth || 10) * (preset.gridHeight || 14);
-  const algo = algorithm || preset.algorithm || 'recursive-backtracker';
+  let algo = algorithm || preset.algorithm || 'recursive-backtracker';
+  // Organic does not support Wilson's; fallback to preset or recursive-backtracker
+  if (algo === 'wilson') {
+    algo = preset.algorithm && preset.algorithm !== 'wilson' ? preset.algorithm : 'recursive-backtracker';
+  }
 
   const boundsWidth = PRINTABLE_WIDTH;
   const boundsHeight = PRINTABLE_HEIGHT - FOOTER_HEIGHT - MAZE_TOP_MARGIN;

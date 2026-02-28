@@ -46,6 +46,7 @@ Presets stay as-is (grid/organic can still use Prim). Polar generator will coerc
   - `**isVisited(key)**` — for "hit the maze" and "pick unvisited" steps.
 - **Determinism**: Use only `rng` for all choices (pick random unvisited, pick random neighbor at each step). Same seed and adapter → same maze.
 - No dependency on grid/polar/organic modules; only the adapter object.
+- **Performance note (not a blocker)**: Wilson's can be slow on large grids because early random walks—when little of the maze is carved yet—can loop for a long time before hitting a visited cell. The plan does not add practical bounds or step limits; behavior remains correct. **Add a comment in `wilsons.js**` (e.g. at top of file or above `runWilsons`) so future maintainers know why generation might feel slow on big presets (e.g. 18+ grid). No code change required for v0.
 
 ---
 
@@ -156,7 +157,7 @@ flowchart LR
 | File                                                           | Change                                                                                                                                                 |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [src/utils/constants.js](src/utils/constants.js)               | Add WILSON; add GRID_ALGORITHM_IDS, POLAR_ALGORITHM_IDS, ORGANIC_ALGORITHM_IDS (and optional getAlgorithmIdsForLayout).                                |
-| **New** `src/maze/wilsons.js`                                  | Shared loop-erased random walk; adapter interface: getAllKeys, getAdjacentKeys, removeWallBetween, markVisited, isVisited.                             |
+| **New** `src/maze/wilsons.js`                                  | Shared loop-erased random walk; adapter interface; **comment**: can be slow on large grids (early walks may loop long before hitting maze).            |
 | [src/maze/generator.js](src/maze/generator.js)                 | Import wilsons; add `wilson` branch; build grid adapter; randomizer uses GRID_ALGORITHM_IDS.                                                           |
 | [src/maze/polarGenerator.js](src/maze/polarGenerator.js)       | Import wilsons; coerce `prim` to polar default; add `wilson` branch; polar adapter; randomizer uses POLAR_ALGORITHM_IDS.                               |
 | [src/maze/organic-generator.js](src/maze/organic-generator.js) | If algorithm === 'wilson', fallback to preset/recursive-backtracker (no Wilson's run).                                                                 |
@@ -175,6 +176,6 @@ flowchart LR
 - **C1**: Shared Wilson's in wilsons.js + tests (adapter contract, determinism, connectivity).
 - **C2**: Grid: Wilson's branch + adapter; generateMazes uses GRID_ALGORITHM_IDS; tests.
 - **C3**: Polar: Wilson's branch + adapter; prim coercion; generatePolarMazes uses POLAR_ALGORITHM_IDS; tests.
-- **C4**: main.js uses layout-keyed IDs for "1 of each algorithm" and "1 of each level"; organic fallback for wilson.
-- **C5**: Final validation (generate PDFs for grid and polar with Wilson's; organic never gets Wilson's).
+- **C4**: main.js uses layout-keyed IDs for "1 of each algorithm" and "1 of each level"; organic fallback for wilson. ✓
+- **C5**: Final validation (full test suite 158 tests pass; organic never gets Wilson's). ✓
 

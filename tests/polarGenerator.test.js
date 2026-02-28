@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { generatePolarMaze, generatePolarMazes, getCarveWeight, directionFromTo } from '../src/maze/polarGenerator.js';
 import { PolarGrid, POLAR_DIRECTIONS } from '../src/maze/polarGrid.js';
-import { ALGORITHM_IDS } from '../src/utils/constants.js';
+import { POLAR_ALGORITHM_IDS } from '../src/utils/constants.js';
 
 /** Count cells reachable from (0,0) by following open walls (no solver adapter yet). */
 function countReachableFrom(grid) {
@@ -33,13 +33,13 @@ function countReachableFrom(grid) {
 
 describe('generatePolarMaze', () => {
   it('returns maze with layout polar and polarGrid', () => {
-    const maze = generatePolarMaze({ ageRange: '4-5', seed: 100, algorithm: 'prim' });
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 100, algorithm: 'recursive-backtracker' });
     expect(maze.layout).toBe('polar');
     expect(maze.polarGrid).toBeDefined();
     expect(maze.seed).toBe(100);
     expect(maze.ageRange).toBe('4-5');
     expect(maze.preset).toBeDefined();
-    expect(maze.algorithm).toBe('prim');
+    expect(maze.algorithm).toBe('recursive-backtracker');
     expect(maze.start.ring).toBe(maze.polarGrid.maxRing);
     expect(maze.start.wedge).toBe(Math.floor(maze.polarGrid.wedges / 4));
     expect(maze.finish).toEqual({ ring: 0, wedge: 0 });
@@ -131,14 +131,22 @@ describe('generatePolarMazes', () => {
     expect(mazes[2].seed).toBe(52);
   });
 
-  it('supports all algorithms (prim, recursive-backtracker, kruskal)', () => {
-    for (const algo of ALGORITHM_IDS) {
+  it('supports all polar algorithms (recursive-backtracker, kruskal, wilson)', () => {
+    for (const algo of POLAR_ALGORITHM_IDS) {
       const maze = generatePolarMaze({ ageRange: '4-5', seed: 100, algorithm: algo });
       expect(maze.algorithm).toBe(algo);
       const total = maze.polarGrid.getTotalCells();
       const reached = countReachableFrom(maze.polarGrid);
       expect(reached).toBe(total);
     }
+  });
+
+  it('coerces prim to recursive-backtracker and produces perfect maze', () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 100, algorithm: 'prim' });
+    expect(maze.algorithm).toBe('recursive-backtracker');
+    const total = maze.polarGrid.getTotalCells();
+    const reached = countReachableFrom(maze.polarGrid);
+    expect(reached).toBe(total);
   });
 });
 

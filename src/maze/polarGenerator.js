@@ -7,7 +7,8 @@
 
 import { PolarGrid, POLAR_DIRECTIONS } from './polarGrid.js';
 import { createRng, generateSeed } from '../utils/rng.js';
-import { getDifficultyPreset, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from '../utils/constants.js';
+import { getDifficultyPreset, POLAR_ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from '../utils/constants.js';
+import { runWilsons } from './wilsons.js';
 
 const CARVE_WEIGHT_K = 1.5;
 
@@ -51,6 +52,57 @@ export function directionFromTo(grid, from, to) {
   if ((nw - w + W) % W === 1) return POLAR_DIRECTIONS.CW;
   if ((w - nw + W) % W === 1) return POLAR_DIRECTIONS.CCW;
   return POLAR_DIRECTIONS.INWARD;
+}
+
+/**
+ * Wilson's adapter for PolarGrid. getAdjacentKeys returns only symmetric neighbors
+ * (center (0,0) is only adjacent to (1,0) in the grid's wall structure).
+ */
+function makePolarWilsonAdapter(grid) {
+  return {
+    getAllKeys() {
+      const out = [];
+      for (let r = 0; r < grid.rings; r++) {
+        const W = grid.wedgesAtRing(r);
+        for (let w = 0; w < W; w++) out.push(`${r},${w}`);
+      }
+      return out;
+    },
+    getAdjacentKeys(key) {
+      const [r, w] = key.split(',').map(Number);
+      const out = [];
+      for (const dir of Object.values(POLAR_DIRECTIONS)) {
+        const neighbors = grid.getNeighbor(r, w, dir);
+        for (const n of neighbors) {
+          const nKey = `${n.ring},${n.wedge}`;
+          if (out.includes(nKey)) continue;
+          let symmetric = false;
+          for (const d of Object.values(POLAR_DIRECTIONS)) {
+            const back = grid.getNeighbor(n.ring, n.wedge, d);
+            if (back.some((b) => b.ring === r && b.wedge === w)) {
+              symmetric = true;
+              break;
+            }
+          }
+          if (symmetric) out.push(nKey);
+        }
+      }
+      return out;
+    },
+    removeWallBetween(k1, k2) {
+      const [r1, w1] = k1.split(',').map(Number);
+      const [r2, w2] = k2.split(',').map(Number);
+      grid.removeWallBetween(grid.getCell(r1, w1), grid.getCell(r2, w2));
+    },
+    markVisited(key) {
+      const [r, w] = key.split(',').map(Number);
+      grid.getCell(r, w).markVisited();
+    },
+    isVisited(key) {
+      const [r, w] = key.split(',').map(Number);
+      return grid.getCell(r, w).isVisited();
+    },
+  };
 }
 
 function addPolarWallsToList(grid, cell, walls) {
@@ -176,7 +228,8 @@ function kruskalGeneratePolar(grid, rng) {
 export function generatePolarMaze(config) {
   const { ageRange, seed = generateSeed(), algorithm: configAlgo } = config;
   const preset = getDifficultyPreset(ageRange);
-  const algorithm = configAlgo ?? preset.algorithm ?? 'prim';
+  let algorithm = configAlgo ?? preset.algorithm ?? 'prim';
+  if (algorithm === 'prim') algorithm = 'recursive-backtracker';
   const polarRings = preset.polarRings ?? 5;
   const polarBaseWedges = preset.polarBaseWedges ?? 6;
   const polarWedgeMultiplier = preset.polarWedgeMultiplier ?? 1;
@@ -188,6 +241,8 @@ export function generatePolarMaze(config) {
     recursiveBacktrackerGeneratePolar(grid, rng);
   } else if (algorithm === 'kruskal') {
     kruskalGeneratePolar(grid, rng);
+  } else if (algorithm === 'wilson') {
+    runWilsons(makePolarWilsonAdapter(grid), rng);
   } else {
     primGeneratePolar(grid, rng);
   }
@@ -227,10 +282,11 @@ export function generatePolarMazes(config) {
   const mazes = [];
   for (let i = 0; i < quantity; i++) {
     let algo = preset.algorithm ?? configAlgo ?? 'prim';
+    if (algo === 'prim') algo = 'recursive-backtracker';
     if (useRandomizer && i > 0) {
       const rng = createRng(baseSeed + i);
-      const idx = rng.randomInt(0, ALGORITHM_IDS.length - 1);
-      algo = ALGORITHM_IDS[idx];
+      const idx = rng.randomInt(0, POLAR_ALGORITHM_IDS.length - 1);
+      algo = POLAR_ALGORITHM_IDS[idx];
     }
     mazes.push(generatePolarMaze({ ageRange, seed: baseSeed + i, algorithm: algo }));
   }

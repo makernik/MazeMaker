@@ -180,6 +180,7 @@ function formatAlgorithmLabel(algorithmId) {
   if (algorithmId === 'prim') return 'Prim';
   if (algorithmId === 'recursive-backtracker') return 'Recursive backtracker';
   if (algorithmId === 'kruskal') return 'Kruskal';
+  if (algorithmId === 'wilson') return "Wilson's";
   return algorithmId || 'Prim';
 }
 
