@@ -6,15 +6,22 @@ Ideas considered but explicitly deferred from v0 scope.
 
 ---
 
+## Priority suggestions (from current implementation)
+
+- **Higher value, lower effort:** Age-specific algorithm selection (preset and algorithm plumbing exist; only age→algorithm mapping is missing). Use debug seed for next PDF (debug seed already drives preview; extend to PDF generation).
+- **Builds on existing work:** Solver match-up and solution metrics (adapter + algorithm registry in place; add optional metrics and compare UI when needed). 2.5D visual bridges (Curvy and miter-point geometry are stable; bridge candidate edges can be scheduled when desired).
+- **Moderate scope:** Random start/finish (topology-specific: grid corners vs organic endpoints vs polar center/rim).
+- **Lower until themes re-enabled:** Locked rooms, masked shapes (Theme UI is paused; backend supports theme param).
+- **Keep deferred by design:** Random preview on every click (determinism preferred; same controls → same preview).
+
+---
+
 ## Maze Topology
 
 ### Organic / Curvy Maze Paths
 **Organic (implemented):** Maze style "Organic" uses circle-packing layout and a non-grid graph; DFS generates the maze (see DECISIONS.md D-008). Curvy (grid + Bezier rendering) was removed in favor of Organic.
 
-**Planned enhancements (see `.cursor/plans/organic_enhancements_plan_048eced4.plan.md`):**
-- Split Organic into **Jagged** (current straight-line rendering) and **Curvy** (Catmull-Rom splines through shared miter-point geometry)
-- **Two-pass dense fill:** pass 1 generates maze at current density for difficulty control; pass 2 adds decorative disconnected corridors in void regions (visual complexity, not connected to solvable maze)
-- **Debug algorithm picker:** all 3 algorithms (DFS, Prim's, Kruskal's) available for organic-topology styles; "1 of each algorithm" debug mode
+**Implemented:** Jagged/Curvy split, two-pass dense fill, debug algorithm picker ("1 of each algorithm"). See built plan `.cursor/plans/built/organic_enhancements_plan_048eced4.plan.md`.
 
 ### 2.5D Visual Bridges (Curvy)
 Allow corridors to visually cross over other corridors while the maze remains a perfect tree (single solution, no loops). The crossing is a rendering trick — the "over" corridor is drawn with a gap/shadow where it passes above the "under" corridor; optional bridge rails for visual clarity.
@@ -30,6 +37,15 @@ Allow corridors to visually cross over other corridors while the maze remains a 
 
 ### Age-Specific Algorithm Selection
 Use Prim's algorithm for younger ages (3-8) and Recursive Backtracker / DFS for older ages (9+). Prim's produces short branching dead-ends (forgiving); DFS produces long winding passages (challenging).
+
+### Wilson's algorithm
+Add Wilson's (loop-erased random walk) as a topology-agnostic maze generator for grid and polar. Layout-keyed algorithm pools: polar would exclude Prim; organic would exclude Wilson's. Plan: `add_wilson's_algorithm_4078dece.plan.md` (not yet implemented).
+
+### Corridor-following filler placement
+Replace the current grid-based void filler in organic mazes with corridor-parallel placement: place filler nodes at perpendicular offsets from carved main edges so filler corridors run alongside main corridors instead of forming random blobs. Plan: `corridor-following_filler_1e0d2fdf.plan.md` (not yet implemented).
+
+### Polar debug overlay (optional)
+Optional ring/wedge labels or minimal footer stats on the canvas preview when topology is Circular. Not required for polar; documented as optional cleanup in the circular mazes plan.
 
 ---
 
@@ -56,7 +72,7 @@ Generate start and finish points at varied positions instead of fixed top-left /
 Extend solver solution object with optional algorithm-specific metrics (e.g. `stepsExpanded`, `nodesVisited`) so that a future "solver match-up" (comparing BFS vs DFS vs A* on the same maze) can display path length, step count, or nodes explored. The refactor (adapter + algorithm registry) prepares for this; the solution contract may allow extra fields. Not implemented in the solver refactor.
 
 ### Deterministic neighbor order in maze adapters
-Adapter contract should require `getNeighbors(state)` to return a **deterministic order** (e.g. fixed order per topology) so that same maze + same algorithm yields the same path. Document in the adapter contract; implementors (grid, organic, polar) must return stable neighbor order. The refactor prepares for multiple algorithms with reproducible output.
+**Implemented.** Adapter contract requires `getNeighbors(state)` to return deterministic order. Grid adapter uses fixed `DIRECTIONS` order; organic uses graph neighbor order; polar uses fixed `POLAR_DIRECTIONS` order. Documented in solver-adapters.js; same maze + same algorithm yields the same path.
 
 ### Match-up cost on large mazes
 Running multiple solver algorithms on one maze (e.g. for debug or educational match-up) may be slow on large mazes (e.g. 18+ organic, ~1900 nodes). If match-up is added later, consider limiting it to a subset of algorithms, smaller mazes only, or on-demand only. Not a refactor requirement; a note for future match-up UX.

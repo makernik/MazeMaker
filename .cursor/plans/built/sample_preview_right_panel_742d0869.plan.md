@@ -7,7 +7,7 @@ isProject: false
 
 # Sample / Pregenerated Output on Right Panel
 
-**Status:** draft  
+**Status:** superseded (by live canvas preview, D-012)
 **Scope:** Display a static sample image in the right preview area based on selected **level** and **maze style**. Samples are app-provided assets (not live-generated); they will not match the generated PDF. **The preview does not display any solver or solution path.**
 
 ---

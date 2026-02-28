@@ -16,6 +16,8 @@ isProject: false
 
 # Organic Corridor Rendering
 
+**Status:** built
+
 ## Problem
 
 The current `drawOrganicMaze` draws open passages as stroked Bezier curves. The result looks like a node-and-edge graph diagram, not a maze. A maze needs **walls** — continuous boundaries that define navigable corridors.

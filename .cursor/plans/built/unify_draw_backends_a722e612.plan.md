@@ -25,6 +25,8 @@ isProject: false
 
 # Unify PDF and Canvas Drawing Backends
 
+**Status:** built
+
 ## Problem
 
 Every drawing style has two near-identical implementations: one calling `pdf-lib` (`page.drawLine`, `page.drawSvgPath`) and one calling `CanvasRenderingContext2D` (`ctx.moveTo`, `ctx.lineTo`, `ctx.stroke`). The geometry and algorithms are 90-100% duplicated; only the final draw calls differ.

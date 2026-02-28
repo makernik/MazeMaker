@@ -19,7 +19,7 @@ isProject: false
 
 # Organic Junction Miter Joints
 
-**Status:** draft
+**Status:** built
 **Last updated:** 2026-02-17
 **Related:** D-008 (organic topology)
 

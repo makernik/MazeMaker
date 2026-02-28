@@ -7,6 +7,8 @@ isProject: false
 
 # Solver and Renderer Refactor for Multi-Topology Support
 
+**Status:** built
+
 Refactor [src/maze/solver.js](src/maze/solver.js) and [src/pdf/renderer.js](src/pdf/renderer.js) so that existing capabilities (grid + square/rounded/curvy, organic) and planned ones (polar from [circular_mazes_implementation_f1dda3a0.plan.md](.cursor/plans/circular_mazes_implementation_f1dda3a0.plan.md), organic from [organic_non-grid_maze_a59da083.plan.md](.cursor/plans/organic_non-grid_maze_a59da083.plan.md)) are supported through **maze adapters + pluggable solver algorithms** (solver) and **layout-specific drawers + layout pipeline** (renderer). Right now only one solver algorithm (BFS) is used; the design allows future user-selectable solvers (e.g. UI) and solver match-up output (e.g. compare multiple algorithms on the same maze).
 
 ---

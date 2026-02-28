@@ -7,7 +7,7 @@ isProject: false
 
 # Recursive Backtracker / DFS Implementation Plan
 
-**Status:** draft  
+**Status:** built  
 **Scope:** Implement the algorithm and wire it into the generator; no UI or age-based selection in this plan.
 
 ---

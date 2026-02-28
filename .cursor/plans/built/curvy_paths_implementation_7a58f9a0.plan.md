@@ -7,7 +7,7 @@ isProject: false
 
 # Curvy Paths Implementation Plan
 
-**Status:** draft  
+**Status:** superseded (Curvy style implemented via organic/Jagged–Curvy split; grid Curvy not implemented)
 **Scope:** Curvy **rendering** of the existing grid maze (same topology, same generation). Organic **topology** (different generation algorithm) is out of scope.
 
 ---

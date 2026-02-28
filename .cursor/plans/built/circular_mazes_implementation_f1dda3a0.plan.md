@@ -7,7 +7,7 @@ isProject: false
 
 # Circular Mazes Implementation
 
-**Status:** executing — C0–C3 done  
+**Status:** built  
 **Spec:** [v1_spec.md](.cursor/plans/v1_spec.md) (see "Circular (Polar) Topology" section)  
 **Related:** D-010 (solver/renderer adapter pattern), D-004 (style naming), D-001 (algorithms)  
 **Scope:** Polar/circular topology only. Random start/finish on polar mazes is a separate v1 effort (see v1_spec.md).

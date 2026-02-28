@@ -7,7 +7,7 @@ isProject: false
 
 # Organic Non-Grid Maze Plan
 
-**Status:** draft  
+**Status:** built  
 **Scope:** Replace grid-based "Curvy" with an **Organic** maze style: arbitrary graph from circle packing, spanning-tree generation (e.g. DFS), and rendering of walls between touching cells. Grid styles (Square, Rounded) and all existing presets remain unchanged.
 
 ---

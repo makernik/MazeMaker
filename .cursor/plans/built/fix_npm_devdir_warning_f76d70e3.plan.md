@@ -7,6 +7,8 @@ isProject: false
 
 # Fix npm devdir warning
 
+**Status:** built (documented in D-009)
+
 ## Context
 
 - **"devdir"** refers to node-gyp’s development directory (default `~/.node-gyp` on Unix or `%USERPROFILE%\.node-gyp` on Windows), where Node headers are stored for building native addons.

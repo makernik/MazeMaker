@@ -7,7 +7,7 @@ isProject: false
 
 # Plan: Live canvas preview
 
-**Status:** done  
+**Status:** built  
 **Last updated:** 2025-02-07  
 **Related:** DECISIONS.md (to add: preview seed policy, debug seed usage)
 
