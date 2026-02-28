@@ -7,19 +7,29 @@ import { generatePolarMaze, generatePolarMazes, getCarveWeight, directionFromTo 
 import { PolarGrid, POLAR_DIRECTIONS } from '../src/maze/polarGrid.js';
 import { POLAR_ALGORITHM_IDS } from '../src/utils/constants.js';
 
+/** Normalize (ring, wedge) to integer indices so getCell never receives a float. */
+function normalizeCell(grid, state) {
+  const ring = Math.max(0, Math.min(grid.maxRing, Math.floor(Number(state.ring))));
+  const W = grid.wedgesAtRing(ring);
+  const wedge = W <= 1 ? 0 : Math.max(0, Math.min(W - 1, Math.floor(Number(state.wedge))));
+  return { ring, wedge };
+}
+
 /** Count cells reachable from (0,0) by following open walls (no solver adapter yet). */
 function countReachableFrom(grid) {
   const key = (r, w) => `${r},${w}`;
   const visited = new Set([key(0, 0)]);
   let stack = [{ ring: 0, wedge: 0 }];
   while (stack.length > 0) {
-    const { ring, wedge } = stack.pop();
+    const state = stack.pop();
+    const { ring, wedge } = normalizeCell(grid, state);
     const cell = grid.getCell(ring, wedge);
+    if (!cell) continue;
     for (const dir of Object.values(POLAR_DIRECTIONS)) {
       const neighbors = grid.getNeighbor(ring, wedge, dir);
       for (let i = 0; i < neighbors.length; i++) {
         if (cell.hasWall(dir, i)) continue;
-        const n = neighbors[i];
+        const n = normalizeCell(grid, neighbors[i]);
         const k = key(n.ring, n.wedge);
         if (!visited.has(k)) {
           visited.add(k);
@@ -41,7 +51,8 @@ describe('generatePolarMaze', () => {
     expect(maze.preset).toBeDefined();
     expect(maze.algorithm).toBe('recursive-backtracker');
     expect(maze.start.ring).toBe(maze.polarGrid.maxRing);
-    expect(maze.start.wedge).toBe(Math.floor(maze.polarGrid.wedges / 4));
+    const outerWedges = maze.polarGrid.wedgesAtRing(maze.polarGrid.maxRing);
+    expect(maze.start.wedge).toBe(Math.floor(outerWedges / 4));
     expect(maze.finish).toEqual({ ring: 0, wedge: 0 });
   });
 
@@ -83,9 +94,9 @@ describe('generatePolarMaze', () => {
 
   it('entrance and exit are open', () => {
     const maze = generatePolarMaze({ ageRange: '4-5', seed: 200 });
-    const topW = Math.floor(maze.polarGrid.wedges / 4);
+    const topW = maze.start.wedge;
     const startCell = maze.polarGrid.getCell(maze.polarGrid.maxRing, topW);
-    expect(startCell.hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);
+    expect(startCell.hasWall(POLAR_DIRECTIONS.OUTWARD, 0)).toBe(false);
     const center = maze.polarGrid.getCell(0, 0);
     const firstRing = maze.polarGrid.getCell(1, 0);
     expect(center.hasWall(POLAR_DIRECTIONS.OUTWARD)).toBe(false);

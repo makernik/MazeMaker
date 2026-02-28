@@ -206,6 +206,14 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   const maxRing = grid.maxRing;
   const ringWidth = (maxRadius - roomRadius) / maxRing;
 
+  /** Normalize path entry to integer ring/wedge and clamp wedge to valid range for that ring. */
+  function normalize(p) {
+    const r = Math.max(0, Math.min(maxRing, Math.floor(Number(p.ring))));
+    const W = grid.wedgesAtRing(r);
+    const w = W <= 1 ? 0 : Math.max(0, Math.min(W - 1, Math.floor(Number(p.wedge))));
+    return { ring: r, wedge: w };
+  }
+
   function cellToXY(r, w) {
     if (r === 0) return { x: centerX, y: centerY };
     const radius = roomRadius + (r - 0.5) * ringWidth;
@@ -221,13 +229,17 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   backend.setOpacity(0.7);
 
   for (let i = 1; i < path.length; i++) {
-    const prev = path[i - 1];
-    const curr = path[i];
+    const prev = normalize(path[i - 1]);
+    const curr = normalize(path[i]);
     const p1 = cellToXY(prev.ring, prev.wedge);
     const p2 = cellToXY(curr.ring, curr.wedge);
     const way = passageWaypoint(prev, curr, grid, centerX, centerY, roomRadius, ringWidth);
-    backend.line(p1.x, p1.y, way.x, way.y);
-    backend.line(way.x, way.y, p2.x, p2.y);
+    if (Number.isFinite(p1.x) && Number.isFinite(p1.y) && Number.isFinite(way.x) && Number.isFinite(way.y)) {
+      backend.line(p1.x, p1.y, way.x, way.y);
+    }
+    if (Number.isFinite(way.x) && Number.isFinite(way.y) && Number.isFinite(p2.x) && Number.isFinite(p2.y)) {
+      backend.line(way.x, way.y, p2.x, p2.y);
+    }
   }
 
   backend.restore();

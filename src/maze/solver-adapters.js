@@ -90,6 +90,16 @@ export function organicAdapter(maze) {
  * @param {object} maze - Maze object with layout 'polar', polarGrid, start, finish
  * @returns {object} Adapter
  */
+/**
+ * Normalize polar state so ring/wedge are integers in valid range (getCell can return null for float wedge).
+ */
+function normalizePolarState(grid, state) {
+  const ring = Math.max(0, Math.min(grid.maxRing, Math.floor(Number(state.ring))));
+  const W = grid.wedgesAtRing(ring);
+  const wedge = W <= 1 ? 0 : Math.max(0, Math.min(W - 1, Math.floor(Number(state.wedge))));
+  return { ring, wedge };
+}
+
 export function polarAdapter(maze) {
   const grid = maze.polarGrid;
   const start = maze.start ?? grid.start;
@@ -103,20 +113,23 @@ export function polarAdapter(maze) {
       return { ring: finish.ring, wedge: finish.wedge };
     },
     getNeighbors(state) {
-      const { ring, wedge } = state;
+      const { ring, wedge } = normalizePolarState(grid, state);
       const cell = grid.getCell(ring, wedge);
+      if (!cell) return [];
       const out = [];
       for (const dir of Object.values(POLAR_DIRECTIONS)) {
         const neighbors = grid.getNeighbor(ring, wedge, dir);
         for (let i = 0; i < neighbors.length; i++) {
           if (cell.hasWall(dir, i)) continue;
-          out.push({ ring: neighbors[i].ring, wedge: neighbors[i].wedge });
+          const n = neighbors[i];
+          out.push(normalizePolarState(grid, { ring: n.ring, wedge: n.wedge }));
         }
       }
       return out;
     },
     key(state) {
-      return `${state.ring},${state.wedge}`;
+      const { ring, wedge } = normalizePolarState(grid, state);
+      return `${ring},${wedge}`;
     },
     getTotalCells() {
       return grid.getTotalCells();

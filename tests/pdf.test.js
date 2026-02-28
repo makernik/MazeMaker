@@ -166,6 +166,26 @@ describe('PDF Renderer', () => {
     expect(String.fromCharCode(...pdfBytes.slice(0, 5))).toBe('%PDF-');
   });
 
+  it('renders polar solution overlay for medium and hard levels', async () => {
+    const { solveMaze } = await import('../src/maze/solver.js');
+    for (const ageRange of ['6-8', '9-11']) {
+      const maze = generatePolarMaze({ ageRange, seed: 80000 });
+      const solution = solveMaze(maze);
+      expect(solution).not.toBeNull();
+      expect(solution.solved).toBe(true);
+      expect(solution.path.length).toBeGreaterThan(1);
+      const pdfBytes = await renderMazesToPdf({
+        mazes: [maze],
+        style: 'classic',
+        ageRange,
+        debugMode: true,
+        showSolution: true,
+      });
+      expect(pdfBytes).toBeInstanceOf(Uint8Array);
+      expect(pdfBytes.length).toBeGreaterThan(1000);
+    }
+  });
+
   it('generates different PDFs for different mazes', async () => {
     const maze1 = generateMaze({ ageRange: '4-5', seed: 77777 });
     const maze2 = generateMaze({ ageRange: '4-5', seed: 88888 });

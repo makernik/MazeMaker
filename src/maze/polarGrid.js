@@ -183,6 +183,7 @@ export class PolarGrid {
 
   /**
    * Outward neighbor(s). Returns array of { ring, wedge } (length 1 or 2), or empty when at maxRing.
+   * Wedge is rounded and clamped to a valid index so getCell(ring, wedge) never receives a float.
    */
   getOutwardNeighbors(ring, wedge) {
     if (ring === 0) return [{ ring: 1, wedge: 0 }];
@@ -191,8 +192,10 @@ export class PolarGrid {
     const outerW = this.wedgesAtRing(ring + 1);
     const ratio = outerW / innerW;
     const out = [];
+    const iW = Math.floor(Number(wedge));
     for (let i = 0; i < ratio; i++) {
-      out.push({ ring: ring + 1, wedge: wedge * ratio + i });
+      const outerWedge = Math.min(outerW - 1, iW * ratio + i);
+      out.push({ ring: ring + 1, wedge: outerWedge });
     }
     return out;
   }
