@@ -69,17 +69,12 @@ export function drawWalls(backend, maze, layoutResult) {
         backend.stroke();
       }
       if (cell.hasWall(POLAR_DIRECTIONS.INWARD)) {
-        if (r === 1) {
-          const p0 = polarToXY(centerX, centerY, a0, outerR);
-          const p1 = polarToXY(centerX, centerY, a1, outerR);
-          backend.line(centerX + roomRadius * Math.cos(a0), centerY + roomRadius * Math.sin(a0), p0.x, p0.y);
-          backend.line(centerX + roomRadius * Math.cos(a1), centerY + roomRadius * Math.sin(a1), p1.x, p1.y);
-        } else {
-          backend.beginPath();
-          backend.moveTo(centerX + innerR * Math.cos(a0), centerY + innerR * Math.sin(a0));
-          backend.arc(centerX, centerY, innerR, a0, a1);
-          backend.stroke();
-        }
+        // Inner boundary: for r===1 it's the room circle; for r>1 it's the inner ring edge.
+        const innerBoundR = r === 1 ? roomRadius : innerR;
+        backend.beginPath();
+        backend.moveTo(centerX + innerBoundR * Math.cos(a0), centerY + innerBoundR * Math.sin(a0));
+        backend.arc(centerX, centerY, innerBoundR, a0, a1);
+        backend.stroke();
       }
       if (cell.hasWall(POLAR_DIRECTIONS.CW)) {
         const pInner = polarToXY(centerX, centerY, a1, r === 1 ? roomRadius : innerR);

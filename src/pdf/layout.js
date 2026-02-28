@@ -53,7 +53,7 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
     // Center room: radius = 1.5 × ring thickness (ring thickness = maxRadius / maxRing)
     const maxRing = grid.maxRing;
     const ringThickness = maxRadius / maxRing;
-    const ROOM_FACTOR = 1.5;
+    const ROOM_FACTOR = 1;
     const roomRadius = ringThickness * ROOM_FACTOR;
     return {
       layoutType: 'polar',
