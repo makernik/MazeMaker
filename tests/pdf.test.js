@@ -152,6 +152,20 @@ describe('PDF Renderer', () => {
     expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
   });
 
+  it('renders polar maze to PDF with debug mode and showSolution', async () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 70002 });
+    const pdfBytes = await renderMazesToPdf({
+      mazes: [maze],
+      style: 'classic',
+      ageRange: '4-5',
+      debugMode: true,
+      showSolution: true,
+    });
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.length).toBeGreaterThan(1000);
+    expect(String.fromCharCode(...pdfBytes.slice(0, 5))).toBe('%PDF-');
+  });
+
   it('generates different PDFs for different mazes', async () => {
     const maze1 = generateMaze({ ageRange: '4-5', seed: 77777 });
     const maze2 = generateMaze({ ageRange: '4-5', seed: 88888 });

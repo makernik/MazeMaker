@@ -61,6 +61,9 @@ export async function renderMazesToPdf(config) {
   const mazeWidth = PRINTABLE_WIDTH;
 
   for (const maze of mazes) {
+    if (maze.layout === 'polar' && (!maze.polarGrid || !maze.start)) {
+      throw new Error('Polar maze missing polarGrid or start; cannot render PDF.');
+    }
     const mazeAgeRange = maze.ageRange ?? ageRange;
     const useArrows = mazeAgeRange === '3' || mazeAgeRange === '4-5' || mazeAgeRange === '6-8';
     const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
@@ -84,12 +87,12 @@ export async function renderMazesToPdf(config) {
       await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/animals/', animalImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     }
     drawFooter(page, font, debugMode ? {
-      label: maze.preset.label,
-      ageRange: maze.ageRange,
-      algorithm: maze.algorithm ?? maze.preset.algorithm,
+      label: maze.preset?.label ?? '—',
+      ageRange: maze.ageRange ?? '—',
+      algorithm: maze.algorithm ?? maze.preset?.algorithm ?? '—',
       seed: maze.seed,
       style: maze.layout === 'organic' ? style : style,
-      nodeCount: maze.layout === 'organic' ? maze.graph.nodes.length : undefined,
+      nodeCount: maze.layout === 'organic' ? maze.graph?.nodes?.length : undefined,
       connectedCount: maze.layout === 'organic' ? maze.connectedCount : undefined,
       corridorWidth: organicStats?.corridorWidth,
       avgDist: organicStats?.avgDist,

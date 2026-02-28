@@ -44,6 +44,9 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
 
   if (maze.layout === 'polar') {
     const grid = maze.polarGrid;
+    if (!grid || typeof grid.maxRing !== 'number') {
+      throw new Error('Polar maze layout: polarGrid is missing or invalid.');
+    }
     const labelClearance = 24;
     const maxRadius = Math.min(mazeWidth, mazeHeight) / 2 - labelClearance;
     const offsetX = margin + (printableW - mazeWidth) / 2;
