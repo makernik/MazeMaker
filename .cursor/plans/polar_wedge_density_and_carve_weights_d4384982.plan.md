@@ -22,8 +22,9 @@ isProject: false
 **File:** [src/maze/polarGrid.js](src/maze/polarGrid.js)
 
 - **Constructor**: Support an optional 4th argument or options object that provides an explicit **wedge count per ring**: e.g. `wedgeCounts: number[]` with length `rings`, where `wedgeCounts[0] === 1` (center) and `wedgeCounts[r]` is the wedge count for ring `r`.
-- **Behavior**: If `wedgeCounts` is provided and valid (length === rings, wedgeCounts[0] === 1, all >= 1), use it to set `_wedgeCounts`. Otherwise keep current behavior: compute from `baseWedges` and `wedgeMultiplier` (and cap at MAX_WEDGES). This preserves backward compatibility; presets can stay formula-based until we want custom profiles.
-- **Validation**: Ensure wedge counts are positive and ring 0 has exactly 1; outer ring wedge count used for start/finish placement (existing `topWedgeForWedges` etc. already use `wedgesAtRing(maxRing)`).
+- **Integer ratio requirement**: For each adjacent pair of rings, the outer ring's wedge count **must** be an integer multiple of the inner ring's count. That is, for all `r` in `1 .. rings-1`, `wedgeCounts[r] % wedgeCounts[r-1] === 0`. The existing logic (`outwardIndexFromInner`, `getOutwardNeighbors`, `innerWedgeFor`) assumes `outerW / innerW` is an integer; if someone passes e.g. `[1, 6, 7, 14]`, then 6→7 is not an integer ratio and `outwardIndexFromInner` will silently produce wrong indices. Valid example: `[1, 6, 12, 24]` (each step is an integer multiple).
+- **Behavior**: If `wedgeCounts` is provided and valid (see validation below), use it to set `_wedgeCounts`. Otherwise keep current behavior: compute from `baseWedges` and `wedgeMultiplier` (and cap at MAX_WEDGES). This preserves backward compatibility; presets can stay formula-based until we want custom profiles.
+- **Validation**: Reject invalid `wedgeCounts` explicitly. Require: (1) length === rings, (2) wedgeCounts[0] === 1, (3) all values >= 1, and (4) **for each r from 1 to rings-1, wedgeCounts[r] is an integer multiple of wedgeCounts[r-1]** (i.e. `wedgeCounts[r] % wedgeCounts[r-1] === 0`). If any check fails, throw or fall back to formula-based counts; do not accept the array. C0 must implement this validation so invalid arrays like `[1, 6, 7, 14]` are never used.
 - No change to `wedgesAtRing(r)`, `getNeighbor`, `outwardNeighborCount`, or `innerWedgeFor` — they already read from `_wedgeCounts`. Drawing and solver continue to work.
 
 ---
@@ -102,7 +103,7 @@ isProject: false
 
 ## 9. Tests
 
-- **PolarGrid**: If constructor accepts `wedgeCounts`, add test that when `wedgeCounts` is provided, `wedgesAtRing(r)` returns the given values and that `getTotalCells`, `getNeighbor`, and `removeWallBetween` behave (e.g. connectivity test with explicit wedge array).
+- **PolarGrid**: If constructor accepts `wedgeCounts`, add test that when `wedgeCounts` is provided and valid, `wedgesAtRing(r)` returns the given values and that `getTotalCells`, `getNeighbor`, and `removeWallBetween` behave (e.g. connectivity test with explicit wedge array). **Validation**: Test that invalid arrays are rejected — e.g. `[1, 6, 7, 14]` fails (6→7 not an integer ratio); `[1, 6, 12, 24]` is accepted and works.
 - **Weight function**: Unit test that inward weight is higher at ring 1 than at maxRing and angular weight is higher at maxRing than at ring 1 (for a fixed maxRing).
 - **Determinism**: Same seed + same preset (with or without wedge counts / weights) produces same polar maze (existing determinism test still passes; add one that uses custom wedge counts if added).
 - **Connectivity**: Polar maze with carve weights still produces a perfect maze (all cells reachable from center); reuse existing countReachableFrom-style test.
@@ -118,7 +119,7 @@ isProject: false
 
 ## Checkpoints
 
-- **C0**: PolarGrid accepts optional `wedgeCounts` array; wedge counts from array when provided; tests.
+- **C0**: PolarGrid accepts optional `wedgeCounts` array; validation rejects invalid arrays (length, ring 0 === 1, positive, and **each ring's wedge count is an integer multiple of the prior ring's** — e.g. reject `[1, 6, 7, 14]`, accept `[1, 6, 12, 24]`); wedge counts from array when valid; tests.
 - **C1**: RNG: add `weightedChoice(array, weights)`; unit test.
 - **C2**: `getCarveWeight(ring, direction, maxRing)` and `directionFromTo(grid, from, to)`; unit test weights and direction logic.
 - **C3**: Polar DFS uses weighted neighbor choice when carving; no change to Prim or Kruskal; determinism and connectivity tests pass.
