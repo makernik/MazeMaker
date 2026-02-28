@@ -71,12 +71,41 @@ function topWedgeForWedges(wedges) {
 }
 
 /**
+ * Validate optional wedgeCounts array: length, ring 0 === 1, all >= 1, and each ring an integer multiple of prior.
+ * @param {number} rings
+ * @param {number[]} [wedgeCounts]
+ * @throws {Error} if wedgeCounts is provided but invalid
+ */
+function validateWedgeCounts(rings, wedgeCounts) {
+  if (!Array.isArray(wedgeCounts)) return;
+  if (wedgeCounts.length !== rings) {
+    throw new Error(`PolarGrid wedgeCounts length (${wedgeCounts.length}) must equal rings (${rings})`);
+  }
+  if (wedgeCounts[0] !== 1) {
+    throw new Error(`PolarGrid wedgeCounts[0] must be 1 (center), got ${wedgeCounts[0]}`);
+  }
+  for (let r = 0; r < rings; r++) {
+    if (wedgeCounts[r] < 1 || !Number.isInteger(wedgeCounts[r])) {
+      throw new Error(`PolarGrid wedgeCounts[${r}] must be a positive integer, got ${wedgeCounts[r]}`);
+    }
+  }
+  for (let r = 1; r < rings; r++) {
+    if (wedgeCounts[r] % wedgeCounts[r - 1] !== 0) {
+      throw new Error(
+        `PolarGrid wedgeCounts[${r}] (${wedgeCounts[r]}) must be an integer multiple of wedgeCounts[${r - 1}] (${wedgeCounts[r - 1]})`
+      );
+    }
+  }
+}
+
+/**
  * Polar grid: rings (including center) and wedges per ring (fixed or variable).
  * wedgeMultiplier > 1: ring r has baseWedges * (wedgeMultiplier ^ (r-1)) wedges, capped at MAX_WEDGES.
+ * Optional wedgeCounts: explicit per-ring counts; must satisfy integer-ratio rule (outer ring count = integer multiple of inner).
  * Start = outer ring at top. Finish = center room (0, 0).
  */
 export class PolarGrid {
-  constructor(rings, baseWedges, wedgeMultiplier = 1) {
+  constructor(rings, baseWedges, wedgeMultiplier = 1, wedgeCounts = undefined) {
     if (rings < 2) throw new Error('PolarGrid requires at least 2 rings (center + 1 ring)');
     if (baseWedges < 2) throw new Error('PolarGrid requires at least 2 base wedges');
 
@@ -85,11 +114,17 @@ export class PolarGrid {
     this.wedgeMultiplier = Math.max(1, Math.min(wedgeMultiplier, 4));
     this.maxRing = rings - 1;
 
-    /** Wedge count for ring r (r >= 0). Ring 0 = 1; ring r >= 1 = baseWedges * multiplier^(r-1), capped. */
+    validateWedgeCounts(rings, wedgeCounts);
+
+    /** Wedge count for ring r (r >= 0). From wedgeCounts if valid, else baseWedges * multiplier^(r-1), capped. */
     this._wedgeCounts = [];
-    for (let r = 0; r < rings; r++) {
-      const count = r === 0 ? 1 : Math.min(baseWedges * Math.pow(this.wedgeMultiplier, r - 1), MAX_WEDGES);
-      this._wedgeCounts[r] = count;
+    if (Array.isArray(wedgeCounts) && wedgeCounts.length === rings) {
+      for (let r = 0; r < rings; r++) this._wedgeCounts[r] = wedgeCounts[r];
+    } else {
+      for (let r = 0; r < rings; r++) {
+        const count = r === 0 ? 1 : Math.min(baseWedges * Math.pow(this.wedgeMultiplier, r - 1), MAX_WEDGES);
+        this._wedgeCounts[r] = count;
+      }
     }
 
     /** @type {PolarCell[][]} cells[ring][wedge]; ring 0 has only cells[0][0] */

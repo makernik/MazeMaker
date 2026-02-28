@@ -98,3 +98,42 @@ describe('PolarGrid', () => {
     expect(out).toContainEqual({ ring: 2, wedge: 1 });
   });
 });
+
+describe('PolarGrid wedgeCounts (explicit per-ring array)', () => {
+  it('accepts valid wedgeCounts with integer ratios and uses them', () => {
+    const wedgeCounts = [1, 6, 12, 24];
+    const grid = new PolarGrid(4, 6, 1, wedgeCounts);
+    expect(grid.wedgesAtRing(0)).toBe(1);
+    expect(grid.wedgesAtRing(1)).toBe(6);
+    expect(grid.wedgesAtRing(2)).toBe(12);
+    expect(grid.wedgesAtRing(3)).toBe(24);
+    expect(grid.getTotalCells()).toBe(1 + 6 + 12 + 24);
+    const c1_0 = grid.getCell(1, 0);
+    const c2_0 = grid.getCell(2, 0);
+    const c2_1 = grid.getCell(2, 1);
+    expect(c1_0).toBeInstanceOf(PolarCell);
+    grid.removeWallBetween(c1_0, c2_0);
+    grid.removeWallBetween(c1_0, c2_1);
+    expect(c1_0.hasWall(POLAR_DIRECTIONS.OUTWARD, 0)).toBe(false);
+    expect(c1_0.hasWall(POLAR_DIRECTIONS.OUTWARD, 1)).toBe(false);
+  });
+
+  it('throws when wedgeCounts has non-integer ratio between adjacent rings', () => {
+    expect(() => new PolarGrid(4, 6, 1, [1, 6, 7, 14])).toThrow(
+      /integer multiple of wedgeCounts\[1\] \(6\)/
+    );
+  });
+
+  it('throws when wedgeCounts length does not match rings', () => {
+    expect(() => new PolarGrid(4, 6, 1, [1, 6, 12])).toThrow(/wedgeCounts length \(3\) must equal rings \(4\)/);
+  });
+
+  it('throws when wedgeCounts[0] is not 1', () => {
+    expect(() => new PolarGrid(3, 6, 1, [2, 6, 12])).toThrow(/wedgeCounts\[0\] must be 1/);
+  });
+
+  it('throws when a wedge count is not a positive integer', () => {
+    expect(() => new PolarGrid(3, 6, 1, [1, 6, 12.5])).toThrow(/wedgeCounts\[2\] must be a positive integer/);
+    expect(() => new PolarGrid(3, 6, 1, [1, 0, 12])).toThrow(/wedgeCounts\[1\] must be a positive integer/);
+  });
+});

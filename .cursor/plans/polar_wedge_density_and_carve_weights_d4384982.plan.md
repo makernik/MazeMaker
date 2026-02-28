@@ -24,7 +24,7 @@ isProject: false
 - **Constructor**: Support an optional 4th argument or options object that provides an explicit **wedge count per ring**: e.g. `wedgeCounts: number[]` with length `rings`, where `wedgeCounts[0] === 1` (center) and `wedgeCounts[r]` is the wedge count for ring `r`.
 - **Integer ratio requirement**: For each adjacent pair of rings, the outer ring's wedge count **must** be an integer multiple of the inner ring's count. That is, for all `r` in `1 .. rings-1`, `wedgeCounts[r] % wedgeCounts[r-1] === 0`. The existing logic (`outwardIndexFromInner`, `getOutwardNeighbors`, `innerWedgeFor`) assumes `outerW / innerW` is an integer; if someone passes e.g. `[1, 6, 7, 14]`, then 6→7 is not an integer ratio and `outwardIndexFromInner` will silently produce wrong indices. Valid example: `[1, 6, 12, 24]` (each step is an integer multiple).
 - **Behavior**: If `wedgeCounts` is provided and valid (see validation below), use it to set `_wedgeCounts`. Otherwise keep current behavior: compute from `baseWedges` and `wedgeMultiplier` (and cap at MAX_WEDGES). This preserves backward compatibility; presets can stay formula-based until we want custom profiles.
-- **Validation**: Reject invalid `wedgeCounts` explicitly. Require: (1) length === rings, (2) wedgeCounts[0] === 1, (3) all values >= 1, and (4) **for each r from 1 to rings-1, wedgeCounts[r] is an integer multiple of wedgeCounts[r-1]** (i.e. `wedgeCounts[r] % wedgeCounts[r-1] === 0`). If any check fails, throw or fall back to formula-based counts; do not accept the array. C0 must implement this validation so invalid arrays like `[1, 6, 7, 14]` are never used.
+- **Validation**: Reject invalid `wedgeCounts` explicitly. Require: (1) length === rings, (2) wedgeCounts[0] === 1, (3) all values >= 1, and (4) **for each r from 1 to rings-1, wedgeCounts[r] is an integer multiple of wedgeCounts[r-1]** (i.e. `wedgeCounts[r] % wedgeCounts[r-1] === 0`). **If any check fails, throw** (do not fall back); use a clear error message so preset/config bugs are obvious. C0 must implement this validation so invalid arrays like `[1, 6, 7, 14]` are never used.
 - No change to `wedgesAtRing(r)`, `getNeighbor`, `outwardNeighborCount`, or `innerWedgeFor` — they already read from `_wedgeCounts`. Drawing and solver continue to work.
 
 ---
@@ -51,7 +51,7 @@ isProject: false
 
 **File:** [src/utils/rng.js](src/utils/rng.js)
 
-- Add `**weightedChoice(array, weights)**`: given an array and a same-length array of non-negative weights, pick an index with probability proportional to weight, return that element (or index). Deterministic: use the existing `random()` so same seed gives same choice.
+- Add `**weightedChoice(array, weights)**`: given an array and a same-length array of non-negative weights, pick an index with probability proportional to weight, return that element. Deterministic: use the existing `random()` so same seed gives same choice. **Edge cases**: throw if array is empty or if all weights are zero (no valid choice); require at least one positive weight.
 - Used by polar DFS when selecting among neighbors (and optionally Kruskal later).
 
 ---

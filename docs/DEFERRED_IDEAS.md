@@ -47,6 +47,9 @@ Replace the current grid-based void filler in organic mazes with corridor-parall
 ### Polar debug overlay (optional)
 Optional ring/wedge labels or minimal footer stats on the canvas preview when topology is Circular. Not required for polar; documented as optional cleanup in the circular mazes plan.
 
+### Polar preset wedge counts and constructor options
+When adding `polarWedgeCounts` to difficulty presets, ensure every preset array satisfies the integer-ratio rule (each ring's wedge count is an integer multiple of the prior ring's); otherwise PolarGrid will throw at creation. Consider a quick validation pass or comment in constants when preset arrays are introduced. If PolarGrid later needs more options (e.g. carve-weights toggle), consider an options object instead of a 4th positional argument.
+
 ---
 
 ## Themes
