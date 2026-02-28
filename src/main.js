@@ -225,6 +225,11 @@ function updatePreviewCanvas() {
 
   if (debugMode && debugShowSolutionCheckbox && debugShowSolutionCheckbox.checked) {
     const solution = solveMaze(maze);
+    // #region agent log
+    if (maze.layout === 'polar') {
+      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:preview solveMaze', message: 'Polar solution (preview) (H1,H2,H4)', data: { solved: solution?.solved ?? false, pathLength: solution?.path?.length ?? 0, pathStart: solution?.path?.[0], pathEnd: solution?.path?.[solution?.path?.length - 1] }, timestamp: Date.now(), hypothesisId: 'H1,H2,H4' }) }).catch(() => {});
+    }
+    // #endregion
     if (solution && solution.path.length > 1) {
       drawer.drawSolutionOverlay(backend, maze, solution.path, layoutResult);
     }

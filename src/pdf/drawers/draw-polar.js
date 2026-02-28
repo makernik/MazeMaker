@@ -29,15 +29,23 @@ export function drawWalls(backend, maze, layoutResult) {
   const ringWidth = (maxRadius - roomRadius) / maxRing;
   backend.setStroke('#000', lineThickness, 'butt');
 
-  // Center room: OUTWARD wall of ring 0 = circle at roomRadius (two semicircles for SVG)
-  const centerCell = grid.getCell(0, 0);
-  if (centerCell.hasWall(POLAR_DIRECTIONS.OUTWARD, 0)) {
-    backend.beginPath();
-    backend.moveTo(centerX + roomRadius, centerY);
-    backend.arc(centerX, centerY, roomRadius, 0, Math.PI);
-    backend.arc(centerX, centerY, roomRadius, Math.PI, 2 * Math.PI);
-    backend.stroke();
-  }
+  // Room border: always draw a circle at roomRadius to delineate the center room from the maze.
+  // Leave a gap at the passage (wedge 0 on ring 1) so the path into the room is open.
+  const ring1W = grid.wedgesAtRing(1);
+  const angleStep1 = (2 * Math.PI) / ring1W;
+  const passageAngle = 0.5 * angleStep1;
+  const gapHalf = 0.5 * angleStep1;
+  const gapStart = passageAngle - gapHalf;
+  const gapEnd = passageAngle + gapHalf;
+  // Draw room border so the gap (0 to gapEnd) is left open. Use arcs with span < π so the backend
+  // draws the short arc from gapEnd to π (not the long arc through 0° which would close the gap).
+  const midGapToPi = (gapEnd + Math.PI) / 2;
+  backend.beginPath();
+  backend.moveTo(centerX + roomRadius * Math.cos(gapEnd), centerY + roomRadius * Math.sin(gapEnd));
+  backend.arc(centerX, centerY, roomRadius, gapEnd, midGapToPi);
+  backend.arc(centerX, centerY, roomRadius, midGapToPi, Math.PI);
+  backend.arc(centerX, centerY, roomRadius, Math.PI, 2 * Math.PI);
+  backend.stroke();
 
   for (let r = 1; r <= maxRing; r++) {
     const innerR = roomRadius + (r - 1) * ringWidth;
@@ -154,6 +162,43 @@ export function drawLabels(backend, maze, layoutResult, options = {}) {
 }
 
 /**
+ * Waypoint on the boundary between two cells (passage) so the solution path stays inside corridors.
+ * @param {number} ring - Ring of the cell we're leaving
+ * @param {number} wedge - Wedge of the cell we're leaving
+ * @param {object} curr - Next cell { ring, wedge }
+ * @param {object} grid - PolarGrid
+ * @param {number} centerX
+ * @param {number} centerY
+ * @param {number} roomRadius
+ * @param {number} ringWidth
+ */
+function passageWaypoint(prev, curr, grid, centerX, centerY, roomRadius, ringWidth) {
+  const W = grid.wedgesAtRing(prev.ring);
+  const angleStep = (2 * Math.PI) / W;
+
+  if (prev.ring === curr.ring) {
+    // CW/CCW: cross radial boundary at mid-radius of the ring
+    const innerR = roomRadius + (prev.ring - 1) * ringWidth;
+    const outerR = roomRadius + prev.ring * ringWidth;
+    const midR = (innerR + outerR) / 2;
+    const passageAngle = curr.wedge === (prev.wedge + 1) % W
+      ? (prev.wedge + 1) * angleStep
+      : prev.wedge * angleStep;
+    return polarToXY(centerX, centerY, passageAngle, midR);
+  }
+
+  // INWARD or OUTWARD: cross arc boundary at midpoint of wedge angle
+  const boundaryR = prev.ring > curr.ring
+    ? roomRadius + (prev.ring - 1) * ringWidth  // inner edge of prev
+    : roomRadius + prev.ring * ringWidth;       // outer edge of prev
+  // From center (0,0) use next cell's wedge; otherwise use prev cell's wedge
+  const wedgeAngle = prev.ring === 0
+    ? (curr.wedge + 0.5) * (2 * Math.PI) / grid.wedgesAtRing(curr.ring)
+    : (prev.wedge + 0.5) * angleStep;
+  return polarToXY(centerX, centerY, wedgeAngle, boundaryR);
+}
+
+/**
  * @param {object} backend - DrawBackend
  * @param {object} maze - Maze with .polarGrid
  * @param {object[]} path - Array of { ring, wedge }
@@ -185,7 +230,9 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
     const curr = path[i];
     const p1 = cellToXY(prev.ring, prev.wedge);
     const p2 = cellToXY(curr.ring, curr.wedge);
-    backend.line(p1.x, p1.y, p2.x, p2.y);
+    const way = passageWaypoint(prev, curr, grid, centerX, centerY, roomRadius, ringWidth);
+    backend.line(p1.x, p1.y, way.x, way.y);
+    backend.line(way.x, way.y, p2.x, p2.y);
   }
 
   backend.restore();
