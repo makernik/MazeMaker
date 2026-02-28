@@ -113,20 +113,22 @@ export function drawLabels(backend, maze, layoutResult, options = {}) {
   const render = () => {
     if (useArrows) {
       backend.setStroke('#000', 2, 'butt');
-      // Start arrow: above the start point, pointing down into maze
-      backend.line(startX, startY + yDir * 15, startX, startY);
-      const startHeadSize = 8;
-      backend.line(startX, startY, startX + startHeadSize * 0.5, startY - yDir * startHeadSize);
-      backend.line(startX, startY, startX - startHeadSize * 0.5, startY - yDir * startHeadSize);
-
-      // Finish arrow: at room boundary (passage wedge 0 = right), pointing inward (toward center)
-      const arrowTipX = centerX + roomRadius;
-      const arrowTipY = toY(centerY);
       const shaftLen = 15;
       const headSize = 8;
-      backend.line(arrowTipX + shaftLen, arrowTipY, arrowTipX, arrowTipY);
-      backend.line(arrowTipX, arrowTipY, arrowTipX - headSize * Math.cos(0.5), arrowTipY - yDir * headSize * Math.sin(0.5));
-      backend.line(arrowTipX, arrowTipY, arrowTipX - headSize * Math.cos(0.5), arrowTipY + yDir * headSize * Math.sin(0.5));
+
+      // Start arrow: shaft from boundary to tip just inside; arrowhead points inward (into maze from top)
+      const startTipX = startX;
+      const startTipY = startY - yDir * shaftLen;
+      backend.line(startX, startY, startTipX, startTipY);
+      backend.line(startTipX, startTipY, startTipX + headSize * 0.5, startTipY + yDir * headSize);
+      backend.line(startTipX, startTipY, startTipX - headSize * 0.5, startTipY + yDir * headSize);
+
+      // Finish arrow: shaft from room boundary to tip just inside room; arrowhead points inward (toward center)
+      const arrowTipX = centerX + roomRadius - shaftLen;
+      const arrowTipY = toY(centerY);
+      backend.line(centerX + roomRadius, arrowTipY, arrowTipX, arrowTipY);
+      backend.line(arrowTipX, arrowTipY, arrowTipX + headSize * Math.cos(0.5), arrowTipY - yDir * headSize * Math.sin(0.5));
+      backend.line(arrowTipX, arrowTipY, arrowTipX + headSize * Math.cos(0.5), arrowTipY + yDir * headSize * Math.sin(0.5));
     } else {
       const startText = 'Start';
       const startW = backend.measureText(startText, { bold: true, fontSize });
