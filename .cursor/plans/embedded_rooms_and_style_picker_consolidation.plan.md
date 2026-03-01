@@ -347,7 +347,7 @@ locked rooms are a rendering overlay; embedded rooms are structural.
 - **C1**: Constants — `roomCount`, `roomSubSize` on all presets; `MIN_CELL_SIZE_SQUARES_PT` (28) and coercion documented in constants.js. **Done.** Validation: `npm run test` 162 passed (includes constants tests in maze.test.js).
 - **C2**: `roomsGrid.js` — RoomCell, RoomsGrid, openPassageCount; unit tests. **Done.** Validation: `tests/roomsGrid.test.js` 11 tests passed.
 - **C3**: `rooms-generator.js` — outer maze, room selection, sub-maze
-generation, RoomsGrid assembly; determinism, solvability, fallback tests.
+generation, RoomsGrid assembly; determinism, solvability, fallback tests. **Done.** Optional gridWidth/gridHeight added to generateMaze. Validation: `tests/rooms-generator.test.js` 8 passed; full suite 181 passed.
 - **C4**: `solver-adapters.js` — `squaresAdapter`; solver finds outer path;
 `isPerfectMaze` works. Wire `main.js` squares branch.
 - **C5**: `draw-rooms.js` — `drawWalls`; smoke test on canvas backend.

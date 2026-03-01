@@ -48,7 +48,7 @@ Then run DFS on the filler graph to carve a spanning tree (preserving dead-ends 
 
 ## Files Changed
 
-- `**[src/maze/circle-packing.js](src/maze/circle-packing.js)**`: Replace `fillVoids()` with new `generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, corridorHalfW, seed)` function
+- `**[src/maze/circle-packing.js](src/maze/circle-packing.js)`**: Replace `fillVoids()` with new `generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, corridorHalfW, seed)` function
 - `**[src/maze/organic-generator.js](src/maze/organic-generator.js)**`: Update lines 62-71 to call the new function; compute `corridorHalfW` from avgDist (same formula as drawers) so filler placement knows where walls are
 - `**[tests/circle-packing.test.js](tests/circle-packing.test.js)**`: Update/add tests for new filler function
 

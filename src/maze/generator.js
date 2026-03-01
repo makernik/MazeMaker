@@ -88,14 +88,17 @@ class WallEntry {
  * @param {string} config.ageRange - Age range ('3', '4-5', '6-8', '9-11', '12-14', '15-17', '18+')
  * @param {number} [config.seed] - Optional seed for deterministic generation
  * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' | 'kruskal' (default 'prim')
+ * @param {number} [config.gridWidth] - Optional override for grid columns (e.g. Squares outer maze or sub-maze)
+ * @param {number} [config.gridHeight] - Optional override for grid rows
  * @returns {object} Generated maze with grid and metadata
  */
 export function generateMaze(config) {
-  const { ageRange, seed = generateSeed(), algorithm = 'prim' } = config;
+  const { ageRange, seed = generateSeed(), algorithm = 'prim', gridWidth: configWidth, gridHeight: configHeight } = config;
 
   // Get difficulty preset for age range
   const preset = getDifficultyPreset(ageRange);
-  const { gridWidth, gridHeight } = preset;
+  const gridWidth = configWidth ?? preset.gridWidth;
+  const gridHeight = configHeight ?? preset.gridHeight;
 
   // Create RNG with seed
   const rng = createRng(seed);
