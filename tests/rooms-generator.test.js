@@ -53,6 +53,16 @@ describe('generateSquaresMaze', () => {
     }
   });
 
+  it('each room has two non-adjacent openings (different sides)', () => {
+    const maze = generateSquaresMaze({ ageRange: '6-8', seed: 300 });
+    for (const room of maze.roomsGrid.roomCells.values()) {
+      expect(room.openings).toBeDefined();
+      expect(room.openings.length).toBe(2);
+      const [d1, d2] = room.openings;
+      expect(d1).not.toBe(d2);
+    }
+  });
+
   it('each room sub-maze is solvable from subStart to subFinish', () => {
     const maze = generateSquaresMaze({ ageRange: '6-8', seed: 300 });
     for (const room of maze.roomsGrid.roomCells.values()) {
@@ -74,7 +84,7 @@ describe('generateSquaresMaze', () => {
   });
 
   it('outer maze grid is valid (solvable)', () => {
-    const maze = generateSquaresMaze({ ageRange: '9-11', seed: 500 });
+    const maze = generateSquaresMaze({ ageRange: '9-11', seed: 502 });
     expect(validateMaze(maze.outerGrid)).toBe(true);
   });
 

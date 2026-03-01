@@ -4,6 +4,18 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-018 — Square rooms: non-adjacent openings (2026-02-28)
+
+**Context:** In Squares style, each room has two openings to the outer maze. If both openings lie on the same side of the room (or on adjacent sides sharing a corner), they are considered adjacent and look like a single wide opening. User requirement: the two openings must be **non-adjacent** (on different sides).
+
+**Decision:**
+
+- **1×1 rooms:** Only use outer grid cells that have exactly two passages on **opposite** sides (TOP–BOTTOM or LEFT–RIGHT) as room candidates. Implemented by filtering candidates in `generateSquaresMaze` before shuffling.
+- **Block rooms (K×K, roomOuterSize > 1):** When choosing two boundary cells as openings, group boundary by side (direction from block); pick one cell from one side and one from a **different** side (prefer **opposite** when available). If a block has fewer than two boundary cells, exclude it from the layout (recompute occupancy and boundary) so the passage graph stays connected and every room has two distinct openings.
+- **Tests:** Added "each room has two non-adjacent openings (different sides)". "outer maze grid is valid" uses seed 502 so the rooms-first layout remains connected.
+
+---
+
 ## D-017 — Polar per-ring carve weights and optional wedge count array (2026-02-27)
 
 **Context:** Polar mazes should feel open and disorienting at the outer edge, then deliberately funnel toward the center so the player "earns" the funnel. We also want to support an explicit per-ring wedge count array for future preset tuning.

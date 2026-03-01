@@ -154,15 +154,15 @@ export function packCircles(options) {
  * Build neighbor list for each circle: i and j are neighbors if circles touch (within epsilon).
  *
  * @param {Array<{ id: number, x: number, y: number, r: number }>} circles
+ * @param {number} [extraGap=0] - additional distance beyond touching to still count as neighbors
  * @returns {Map<number, number[]>} node id -> array of neighbor ids
  */
-export function computeNeighbors(circles) {
+export function computeNeighbors(circles, extraGap = 0) {
   let maxR = 0;
   for (let i = 0; i < circles.length; i++) {
     if (circles[i].r > maxR) maxR = circles[i].r;
   }
-  // Max neighbor distance: (a.r + b.r) * 1.05 + 2
-  const cellSize = Math.max(1, 2 * maxR * 1.1 + 4);
+  const cellSize = Math.max(1, 2 * maxR * 1.1 + 4 + extraGap);
 
   let maxX = 0, maxY = 0;
   for (let i = 0; i < circles.length; i++) {
@@ -188,7 +188,7 @@ export function computeNeighbors(circles) {
       const dx = a.x - b.x;
       const dy = a.y - b.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= a.r + b.r + Math.max(2, (a.r + b.r) * 0.05)) {
+      if (dist <= a.r + b.r + Math.max(2, (a.r + b.r) * 0.05) + extraGap) {
         list.push(b.id);
         neighborMap.get(b.id).push(a.id);
       }
@@ -342,7 +342,7 @@ export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsH
   const clearanceSq = clearance * clearance;
 
   // Pack at similar density to main graph
-  const targetCount = Math.floor(circles.length * 2);
+  const targetCount = Math.floor(circles.length * 2.5);
   const { circles: rawFillers } = packCircles({
     width: boundsWidth,
     height: boundsHeight,
@@ -376,7 +376,7 @@ export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsH
     fc.id = nextId++;
   }
 
-  const neighborMap = computeNeighbors(fillerCircles);
+  const neighborMap = computeNeighbors(fillerCircles, 5);
 
   return { circles: fillerCircles, neighborMap };
 }

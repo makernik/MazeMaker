@@ -7,7 +7,7 @@ isProject: false
 
 # Plan: Square rooms — non-adjacent openings
 
-**Status:** executing  
+**Status:** done  
 **Last updated:** 2026-02-28  
 **Owner:** agent  
 
