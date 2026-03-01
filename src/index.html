@@ -59,22 +59,7 @@
             </div>
           </fieldset>
 
-          <!-- Maze Topology -->
-          <fieldset class="control-group">
-            <legend>Maze Topology</legend>
-            <div class="toggle-group" role="radiogroup" aria-label="Maze Topology">
-              <label class="toggle">
-                <input type="radio" name="topology" value="rectangular" checked />
-                <span>Rectangular</span>
-              </label>
-              <label class="toggle">
-                <input type="radio" name="topology" value="circular" />
-                <span>Circular</span>
-              </label>
-            </div>
-          </fieldset>
-
-          <!-- Maze Style: Toggle Group (only when Rectangular) -->
+          <!-- Maze Style: single picker (Classic, Jagged, Curvy, Circular, Squares) -->
           <fieldset class="control-group" id="maze-style-fieldset">
             <legend>Maze Style</legend>
             <div class="toggle-group" role="radiogroup" aria-label="Maze Style">
@@ -91,8 +76,12 @@
                 <span>Curvy</span>
               </label>
               <label class="toggle">
-                <input type="radio" name="maze-style" value="square" />
-                <span>Square Corners</span>
+                <input type="radio" name="maze-style" value="circular" />
+                <span>Circular</span>
+              </label>
+              <label class="toggle">
+                <input type="radio" name="maze-style" value="squares" />
+                <span>Squares</span>
               </label>
             </div>
           </fieldset>

@@ -94,13 +94,11 @@ document.addEventListener('keydown', (e) => {
 function getFormValues() {
   const ageRangeEl = form && form.querySelector('input[name="age-range"]:checked');
   const mazeStyleEl = form && form.querySelector('input[name="maze-style"]:checked');
-  const topologyEl = form && form.querySelector('input[name="topology"]:checked');
   const themeEl = form && form.querySelector('input[name="theme"]:checked');
   const quantityEl = form && form.querySelector('#quantity');
   return {
     ageRange: ageRangeEl ? ageRangeEl.value : null,
     mazeStyle: mazeStyleEl ? mazeStyleEl.value : null,
-    topology: topologyEl ? topologyEl.value : 'rectangular',
     theme: themeEl ? themeEl.value : null,
     quantity: quantityEl ? parseInt(quantityEl.value, 10) : 1,
   };
@@ -144,9 +142,9 @@ function setStatus(message, type = 'info') {
   }
 }
 
-/** Deterministic preview seed per level + style/topology (no debug). */
-function previewSeedFor(ageRange, mazeStyle, topology) {
-  const styleKey = topology === 'circular' ? 'polar' : (mazeStyle || '');
+/** Deterministic preview seed per level + style (no debug). Circular is derived from mazeStyle. */
+function previewSeedFor(ageRange, mazeStyle) {
+  const styleKey = mazeStyle === 'circular' ? 'polar' : (mazeStyle || '');
   let h = 0;
   const s = (ageRange || '') + '-' + styleKey;
   for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
@@ -163,7 +161,7 @@ function getPreviewSeed(values) {
     const n = parseInt(debugPreviewSeedInput.value.trim(), 10);
     if (!Number.isNaN(n) && n >= 0) return n;
   }
-  return previewSeedFor(values.ageRange, values.mazeStyle, values.topology);
+  return previewSeedFor(values.ageRange, values.mazeStyle);
 }
 
 /**
@@ -177,7 +175,7 @@ function updatePreviewCanvas() {
   if (debugMode && debugPreviewSeedInput) {
     debugPreviewSeedInput.value = String(seed);
   }
-  const isCircular = values.topology === 'circular';
+  const isCircular = values.mazeStyle === 'circular';
   const isOrganic = !isCircular && isOrganicStyle(values.mazeStyle);
   const style = isCircular ? 'classic' : values.mazeStyle;
   const ageRange = values.ageRange;
@@ -186,6 +184,10 @@ function updatePreviewCanvas() {
   try {
     if (isCircular) {
       maze = generatePolarMaze({ ageRange, seed });
+    } else if (values.mazeStyle === 'squares') {
+      // C0: Squares not yet implemented; show classic grid for preview until C4
+      const preset = getDifficultyPreset(ageRange);
+      maze = generateMaze({ ageRange, seed, algorithm: preset.algorithm });
     } else if (isOrganic) {
       maze = generateOrganicMaze({ ageRange, seed });
     } else {
@@ -292,28 +294,17 @@ quantitySlider.addEventListener('input', () => {
   quantityDisplay.textContent = quantitySlider.value;
 });
 
-/** Show/hide maze style fieldset based on topology (circular = style disabled). */
+/** Ensure maze style fieldset is visible (topology is under the hood; user only sees style picker). */
 function syncMazeStyleVisibility() {
   if (!mazeStyleFieldset) return;
-  const values = getFormValues();
-  if (values.topology === 'circular') {
-    mazeStyleFieldset.classList.add('topology-disabled');
-    mazeStyleFieldset.setAttribute('aria-hidden', 'true');
-  } else {
-    mazeStyleFieldset.classList.remove('topology-disabled');
-    mazeStyleFieldset.removeAttribute('aria-hidden');
-  }
+  mazeStyleFieldset.classList.remove('topology-disabled');
+  mazeStyleFieldset.removeAttribute('aria-hidden');
 }
 
 /**
- * Sample preview: update when level, maze style, or topology changes
+ * Sample preview: update when level or maze style changes
  */
 form.addEventListener('change', (e) => {
-  if (e.target.name === 'topology') {
-    syncMazeStyleVisibility();
-    updatePreviewCanvas();
-    return;
-  }
   if (e.target.name === 'age-range' || e.target.name === 'maze-style') {
     updatePreviewCanvas();
   }
@@ -332,6 +323,11 @@ async function generateAndDownload(event) {
   const values = getFormValues();
   console.log('Generate clicked with values:', values);
 
+  if (values.mazeStyle === 'squares') {
+    setStatus('Squares style is not yet available. Please choose another style.', 'info');
+    return;
+  }
+
   setStatus('Generating mazes...');
   generateBtn.disabled = true;
   generateBtn.setAttribute('aria-busy', 'true');
@@ -349,22 +345,22 @@ async function generateAndDownload(event) {
     const oneOfEachLevel = debugMode && debugOneOfEachCheckbox && debugOneOfEachCheckbox.checked;
     const oneOfEachAlgo = debugMode && debugOneOfEachAlgoCheckbox && debugOneOfEachAlgoCheckbox.checked;
 
-    const isCircular = values.topology === 'circular';
+    const isCircular = values.mazeStyle === 'circular';
 
     if (oneOfEachAlgo && !isCircular) {
       const mazes = [];
-      for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+      for (let a = 0; a < GRID_ALGORITHM_IDS.length; a++) {
         if (isOrganicStyle(values.mazeStyle)) {
           mazes.push(generateOrganicMaze({
             ageRange: values.ageRange,
             seed: baseSeed + a,
-            algorithm: ALGORITHM_IDS[a],
+            algorithm: GRID_ALGORITHM_IDS[a],
           }));
         } else {
           mazes.push(generateMaze({
             ageRange: values.ageRange,
             seed: baseSeed + a,
-            algorithm: ALGORITHM_IDS[a],
+            algorithm: GRID_ALGORITHM_IDS[a],
           }));
         }
       }
@@ -509,7 +505,7 @@ async function generateAndDownload(event) {
 
 form.addEventListener('submit', generateAndDownload);
 
-// Initialize: restore debug from URL, sync topology→style visibility, then live preview
+// Initialize: restore debug from URL, ensure style fieldset visible, then live preview
 initDebugFromUrl();
 syncMazeStyleVisibility();
 updatePreviewCanvas();
