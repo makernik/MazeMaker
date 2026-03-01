@@ -3,7 +3,7 @@
  * Outer maze is a perfect grid maze; room cells are 2-passage cells with interior sub-mazes.
  */
 
-import { DIRECTIONS, DIRECTION_OFFSETS } from './grid.js';
+import { DIRECTIONS, DIRECTION_OFFSETS, OPPOSITE } from './grid.js';
 import { MazeGrid } from './grid.js';
 import { generateMaze } from './generator.js';
 import { solveMaze, validateMaze } from './solver.js';
@@ -111,7 +111,7 @@ function generateSquaresMazeRoomsFirst(opts) {
 
   // 3. Boundary passage cells per room
   /** @type {{ row: number, col: number }[][]} */
-  const boundaryByRoom = blocks.map(() => []);
+  let boundaryByRoom = blocks.map(() => []);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (occupancy[r][c] !== null) continue;
@@ -126,15 +126,74 @@ function generateSquaresMazeRoomsFirst(opts) {
     }
   }
 
-  // 4. For each room, pick 2 boundary cells (openings)
+  // 3b. Keep only blocks with at least 2 boundary cells (so we can pick two distinct non-adjacent openings)
+  const validIds = blocks.map((_, id) => id).filter((id) => boundaryByRoom[id].length >= 2);
+  if (validIds.length < blocks.length) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const id = occupancy[r][c];
+        if (id !== null && !validIds.includes(id)) occupancy[r][c] = null;
+      }
+    }
+    const validBlocks = validIds.map((id) => blocks[id]);
+    boundaryByRoom = validIds.map(() => []);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (occupancy[r][c] !== null) continue;
+        for (const d of Object.values(DIRECTIONS)) {
+          const [dr, dc] = DIRECTION_OFFSETS[d];
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+          const roomId = occupancy[nr][nc];
+          if (roomId !== null) {
+            const idx = validIds.indexOf(roomId);
+            if (idx >= 0) boundaryByRoom[idx].push({ row: r, col: c });
+          }
+        }
+      }
+    }
+    blocks.length = 0;
+    blocks.push(...validBlocks);
+  }
+
+  // 4. For each room, pick 2 boundary cells (openings) on non-adjacent sides
   /** @type {{ row: number, col: number }[][]} */
   const openingCellsByRoom = [];
   for (let id = 0; id < blocks.length; id++) {
+    const { r: or, c: oc } = blocks[id];
     const boundary = boundaryByRoom[id];
-    rng.shuffle(boundary);
-    const b1 = boundary[0];
-    const b2 = boundary.length > 1 ? boundary[1] : boundary[0];
-    openingCellsByRoom[id] = [b1, b2];
+    const bySide = new Map();
+    for (const cell of boundary) {
+      const dir = directionFromBlockToCell(or, oc, K, cell.row, cell.col);
+      if (dir != null) {
+        if (!bySide.has(dir)) bySide.set(dir, []);
+        bySide.get(dir).push(cell);
+      }
+    }
+    const sides = Array.from(bySide.keys());
+    rng.shuffle(sides);
+    let b1 = null;
+    let b2 = null;
+    const side1 = sides[0];
+    const cells1 = bySide.get(side1) ?? [];
+    if (cells1.length > 0) {
+      b1 = cells1[rng.randomInt(0, cells1.length - 1)];
+      const opposite = OPPOSITE[side1];
+      const otherSides = sides.filter((s) => s !== side1);
+      const preferOpposite = otherSides.find((s) => s === opposite);
+      const side2 = preferOpposite ?? otherSides[0];
+      if (side2 != null) {
+        const cells2 = bySide.get(side2) ?? [];
+        if (cells2.length > 0) b2 = cells2[rng.randomInt(0, cells2.length - 1)];
+      }
+    }
+    if (b2 == null && boundary.length > 0) {
+      b1 = b1 ?? boundary[0];
+      const second = boundary.find((c) => c !== b1) ?? boundary[boundary.length > 1 ? 1 : 0];
+      b2 = second;
+    }
+    openingCellsByRoom[id] = [b1 ?? boundary[0], b2 ?? boundary[0]];
   }
 
   // 5. Passage cell list and key -> index
@@ -343,7 +402,11 @@ export function generateSquaresMaze(config) {
   const candidates = [];
   for (let r = 0; r < outerGrid.rows; r++) {
     for (let c = 0; c < outerGrid.cols; c++) {
-      if (roomsGrid.openPassageCount(r, c) === 2) candidates.push({ row: r, col: c });
+      if (roomsGrid.openPassageCount(r, c) !== 2) continue;
+      const openings = getOpenDirections(outerGrid, r, c);
+      if (openings.length === 2 && OPPOSITE[openings[0]] === openings[1]) {
+        candidates.push({ row: r, col: c });
+      }
     }
   }
   rng.shuffle(candidates);
@@ -352,7 +415,6 @@ export function generateSquaresMaze(config) {
   for (let i = 0; i < roomCount; i++) {
     const { row: outerRow, col: outerCol } = candidates[i];
     const openings = getOpenDirections(outerGrid, outerRow, outerCol);
-    if (openings.length !== 2) continue;
 
     const subStart = borderPositionForDirection(openings[0], roomSubSize);
     const subFinish = borderPositionForDirection(openings[1], roomSubSize);

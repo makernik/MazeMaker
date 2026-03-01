@@ -342,7 +342,7 @@ export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsH
   const clearanceSq = clearance * clearance;
 
   // Pack at similar density to main graph
-  const targetCount = Math.floor(circles.length * 1.5);
+  const targetCount = Math.floor(circles.length * 2);
   const { circles: rawFillers } = packCircles({
     width: boundsWidth,
     height: boundsHeight,
