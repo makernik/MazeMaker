@@ -4,7 +4,7 @@
  * Shared interface: drawWalls, drawLabels, drawSolutionOverlay.
  */
 
-import { computeNodeTrims, prepareGraphData } from './organic-geometry.js';
+import { computeNodeTrims, computeCorridorWidth, prepareGraphData } from './organic-geometry.js';
 
 function drawArrow(backend, x1, y1, x2, y2, headSize) {
   backend.setStroke('#000', 2, 'butt');
@@ -104,24 +104,7 @@ export function drawWalls(backend, maze, layoutResult) {
   const { graph } = maze;
   const wallThickness = lineThickness * scale;
 
-  let totalDist = 0;
-  let edgeCount = 0;
-  for (const node of graph.nodes) {
-    for (const nid of node.neighbors) {
-      if (nid > node.id) {
-        const other = graph.getNode(nid);
-        if (!other) continue;
-        const dx = other.x - node.x;
-        const dy = other.y - node.y;
-        totalDist += Math.sqrt(dx * dx + dy * dy);
-        edgeCount++;
-      }
-    }
-  }
-  const avgDist = edgeCount > 0 ? totalDist / edgeCount : 30;
-  const maxCorridorW = avgDist * 0.35;
-  const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
-  const halfW = corridorWidth / 2;
+  const { corridorWidth, halfW, avgDist } = computeCorridorWidth(graph, lineThickness);
 
   const { nodePassages, allNodeTrims } = prepareGraphData(graph, halfW);
   const startPassages = nodePassages.get(maze.startId);

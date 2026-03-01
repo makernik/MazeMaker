@@ -4,16 +4,16 @@ overview: Replace the grid-based void filler placement with corridor-parallel pl
 todos:
   - id: c0-extract-computeCorridorWidth
     content: "C0: Extract computeCorridorWidth() into organic-geometry.js, replace inline blocks in all 4 drawers"
-    status: pending
+    status: completed
   - id: c1-corridor-fillers
     content: "C1: Implement generateCorridorFillers() in circle-packing.js -- place filler nodes at perpendicular offsets from carved main edges, collision-check against main circles, connect sequential nodes"
-    status: pending
+    status: completed
   - id: c2-integrate-generator
     content: "C2: Add organicFill to constants.js presets (0 for medium and below, 1 for hard and up); gate filler in organic-generator.js on preset.organicFill; use computeCorridorWidth for halfW"
-    status: pending
+    status: completed
   - id: c3-test-validate
     content: "C3: Update tests, run all tests, visual validation with jagged and curvy styles"
-    status: pending
+    status: in_progress
 isProject: false
 ---
 

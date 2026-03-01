@@ -32,6 +32,9 @@ Allow corridors to visually cross over other corridors while the maze remains a 
 
 **Timing:** Depends on maturity of Curvy style and miter-point geometry. To be scheduled after Curvy is stable and visually validated.
 
+### Labyrinth-style (rooms second)
+The current Squares 1×1 flow — generate outer maze first, then select 2-passage cells as rooms — is preserved when implementing rooms-first for roomOuterSize > 1 (do not overwrite it). It could later be promoted to a separate "Labyrinth" style (same algorithm, different style name) or remain as Squares with roomOuterSize === 1. See embedded_rooms plan section 3b.
+
 ### Polar / Circular Mazes
 **Implemented (v1):** Circular topology is available via the "Maze Topology" control (Rectangular / Circular). Polar mazes use concentric rings and radial passages; generation is Prim's on a polar grid; start at center, finish at outer ring. See DECISIONS D-016.
 

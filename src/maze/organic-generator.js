@@ -6,8 +6,9 @@
 
 import { createRng, generateSeed } from '../utils/rng.js';
 import { getDifficultyPreset } from '../utils/constants.js';
-import { packCircles, computeNeighbors, ensureConnected, fillVoids } from './circle-packing.js';
+import { packCircles, computeNeighbors, ensureConnected, generateCorridorFillers } from './circle-packing.js';
 import { buildOrganicGraph } from './organic-graph.js';
+import { computeCorridorWidth } from '../pdf/drawers/organic-geometry.js';
 import { PRINTABLE_WIDTH, PRINTABLE_HEIGHT, FOOTER_HEIGHT } from '../pdf/layout.js';
 
 const MAZE_TOP_MARGIN = 20;
@@ -63,15 +64,18 @@ export function generateOrganicMaze(config) {
     nodePositions.set(node.id, { x: node.x, y: node.y });
   }
 
-  // Pass 2: decorative filler corridors in void regions
-  const fillerSeed = seed + 99999;
-  const { circles: fillerCircles } = fillVoids(circles, boundsWidth, boundsHeight, fillerSeed);
+  // Pass 2: decorative filler corridors alongside carved edges
   let fillerGraph = null;
-  if (fillerCircles.length > 0) {
-    const fillerNeighborMap = computeNeighbors(fillerCircles);
-    fillerGraph = buildOrganicGraph(fillerCircles, fillerNeighborMap);
-    const fillerRng = createRng(fillerSeed + 1);
-    carveFillerPaths(fillerGraph, fillerRng);
+  if (preset.organicFill) {
+    const { halfW } = computeCorridorWidth(graph);
+    const fillerSeed = seed + 99999;
+    const { circles: fillerCircles, neighborMap: fillerNeighborMap } =
+      generateCorridorFillers(graph, circles, boundsWidth, boundsHeight, halfW, fillerSeed);
+    if (fillerCircles.length > 0) {
+      fillerGraph = buildOrganicGraph(fillerCircles, fillerNeighborMap);
+      const fillerRng = createRng(fillerSeed + 1);
+      carveFillerPaths(fillerGraph, fillerRng);
+    }
   }
 
   return {

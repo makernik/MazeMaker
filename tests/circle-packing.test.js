@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { packCircles, computeNeighbors } from '../src/maze/circle-packing.js';
+import { packCircles, computeNeighbors, generateCorridorFillers } from '../src/maze/circle-packing.js';
+import { buildOrganicGraph } from '../src/maze/organic-graph.js';
+import { computeCorridorWidth } from '../src/pdf/drawers/organic-geometry.js';
+import { createRng } from '../src/utils/rng.js';
 
 describe('Circle packing', () => {
   it('returns deterministic layout for same seed', () => {
@@ -70,5 +73,93 @@ describe('Circle packing', () => {
     n1.forEach(list => { total1 += list.length; });
     n2.forEach(list => { total2 += list.length; });
     expect(total1).toBe(total2);
+  });
+});
+
+// Helper: build a carved organic graph from packed circles
+function buildCarvedGraph(width, height, targetCount, seed) {
+  const { circles } = packCircles({ width, height, targetCount, seed });
+  const neighborMap = computeNeighbors(circles);
+  const graph = buildOrganicGraph(circles, neighborMap);
+  const rng = createRng(seed);
+  const visited = new Set();
+  const stack = [graph.nodes[rng.randomInt(0, graph.nodes.length - 1)].id];
+  visited.add(stack[0]);
+  while (stack.length > 0) {
+    const current = stack[stack.length - 1];
+    const neighbors = graph.getNeighbors(current).filter(nid => !visited.has(nid));
+    if (neighbors.length === 0) { stack.pop(); continue; }
+    rng.shuffle(neighbors);
+    graph.removeWall(current, neighbors[0]);
+    visited.add(neighbors[0]);
+    stack.push(neighbors[0]);
+  }
+  return { graph, circles };
+}
+
+describe('generateCorridorFillers', () => {
+  it('returns deterministic filler for same seed', () => {
+    const { graph, circles } = buildCarvedGraph(300, 400, 40, 12345);
+    const { halfW } = computeCorridorWidth(graph);
+    const a = generateCorridorFillers(graph, circles, 300, 400, halfW, 99999);
+    const b = generateCorridorFillers(graph, circles, 300, 400, halfW, 99999);
+    expect(a.circles.length).toBe(b.circles.length);
+    for (let i = 0; i < a.circles.length; i++) {
+      expect(a.circles[i].x).toBe(b.circles[i].x);
+      expect(a.circles[i].y).toBe(b.circles[i].y);
+    }
+  });
+
+  it('returns different filler for different seed', () => {
+    const { graph, circles } = buildCarvedGraph(300, 400, 40, 12345);
+    const { halfW } = computeCorridorWidth(graph);
+    const a = generateCorridorFillers(graph, circles, 300, 400, halfW, 99999);
+    const b = generateCorridorFillers(graph, circles, 300, 400, halfW, 88888);
+    expect(a.circles.length).toBe(b.circles.length);
+  });
+
+  it('produces filler circles within bounds', () => {
+    const w = 300, h = 400;
+    const { graph, circles } = buildCarvedGraph(w, h, 40, 42);
+    const { halfW } = computeCorridorWidth(graph);
+    const result = generateCorridorFillers(graph, circles, w, h, halfW, 99999);
+    for (const c of result.circles) {
+      expect(c.x - c.r).toBeGreaterThanOrEqual(0);
+      expect(c.x + c.r).toBeLessThanOrEqual(w);
+      expect(c.y - c.r).toBeGreaterThanOrEqual(0);
+      expect(c.y + c.r).toBeLessThanOrEqual(h);
+    }
+  });
+
+  it('produces filler that does not overlap main circles', () => {
+    const { graph, circles } = buildCarvedGraph(300, 400, 40, 777);
+    const { halfW } = computeCorridorWidth(graph);
+    const result = generateCorridorFillers(graph, circles, 300, 400, halfW, 99999);
+    for (const f of result.circles) {
+      for (const c of circles) {
+        const dx = f.x - c.x;
+        const dy = f.y - c.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        expect(dist).toBeGreaterThan(c.r + f.r);
+      }
+    }
+  });
+
+  it('neighbor map is symmetric', () => {
+    const { graph, circles } = buildCarvedGraph(300, 400, 40, 555);
+    const { halfW } = computeCorridorWidth(graph);
+    const result = generateCorridorFillers(graph, circles, 300, 400, halfW, 99999);
+    for (const [id, neighbors] of result.neighborMap) {
+      for (const nid of neighbors) {
+        expect(result.neighborMap.get(nid)).toContain(id);
+      }
+    }
+  });
+
+  it('produces some filler circles for a maze with void space', () => {
+    const { graph, circles } = buildCarvedGraph(500, 700, 60, 333);
+    const { halfW } = computeCorridorWidth(graph);
+    const result = generateCorridorFillers(graph, circles, 500, 700, halfW, 99999);
+    expect(result.circles.length).toBeGreaterThan(0);
   });
 });

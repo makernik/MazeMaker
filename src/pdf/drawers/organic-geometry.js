@@ -222,6 +222,36 @@ export function enhanceDeadEndThreads(threads, nodePassages, posMap, halfW) {
 }
 
 /**
+ * Compute corridor width and halfW from the average edge distance in a graph.
+ * Shared by drawers and the organic generator (for filler placement).
+ *
+ * @param {{ nodes: Array, getNode: Function }} graph
+ * @param {number} [lineThickness=1.5] - wall stroke thickness (from layout; default is safe for generation-time callers)
+ * @returns {{ corridorWidth: number, halfW: number, avgDist: number }}
+ */
+export function computeCorridorWidth(graph, lineThickness = 1.5) {
+  let totalDist = 0;
+  let edgeCount = 0;
+  for (const node of graph.nodes) {
+    for (const nid of node.neighbors) {
+      if (nid > node.id) {
+        const other = graph.getNode(nid);
+        if (!other) continue;
+        const dx = other.x - node.x;
+        const dy = other.y - node.y;
+        totalDist += Math.sqrt(dx * dx + dy * dy);
+        edgeCount++;
+      }
+    }
+  }
+  const avgDist = edgeCount > 0 ? totalDist / edgeCount : 30;
+  const maxCorridorW = avgDist * 0.35;
+  const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
+  const halfW = corridorWidth / 2;
+  return { corridorWidth, halfW, avgDist };
+}
+
+/**
  * Compute passage directions and per-wall miter trims for every node in a
  * graph.  Shared by jagged and curvy drawers.
  *

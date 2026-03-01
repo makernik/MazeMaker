@@ -223,7 +223,10 @@ roomOuterSize: N,    // outer grid cells per side of room (room = N×N cell bloc
 | 15–17 | 6         | 7           | 2             |
 | 18+   | 8         | 8           | 2             |
 
+
 When **roomOuterSize === 1** (current): room = one cell; existing "maze first, then select 2-passage cells" flow applies. When **roomOuterSize > 1**: use **rooms-first** flow (section 3b).
+
+**Preserve rooms-second:** When implementing rooms-first (C5b), do **not** remove the current "maze first → select 2-passage cells → 1×1 rooms" path. Keep it either as the roomOuterSize === 1 branch of Squares, or for a future **Labyrinth**-type style (same algorithm, different style name). That way the "rooms second" approach remains available and is not overwritten.
 
 ---
 
@@ -252,11 +255,11 @@ This section sketches the data structures and order of operations so that a room
 ### Generator changes
 
 - **rooms-generator.js (rooms-first path):**  
-  1. Compute grid dimensions (with cellSize ≥ 28pt if needed).  
-  2. Place room blocks: choose roomCount non-overlapping roomOuterSize×roomOuterSize blocks (e.g. random top-left positions with collision check, or fixed grid of slots). Build occupancy grid.  
-  3. Build outer graph (passage cells + room nodes, edges as above).  
-  4. Run spanning-tree algorithm on that graph, with constraint that each room node gets degree 2.  
-  5. Map result back to walls: passage–passage edges that are not in the tree become walls; passage–room edges not in the tree are walls; the two passage–room edges that are in the tree for each room become that room’s openings.  
+  1. Compute grid dimensions (with cellSize ≥ 28pt if needed).
+  2. Place room blocks: choose roomCount non-overlapping roomOuterSize×roomOuterSize blocks (e.g. random top-left positions with collision check, or fixed grid of slots). Build occupancy grid.
+  3. Build outer graph (passage cells + room nodes, edges as above).
+  4. Run spanning-tree algorithm on that graph, with constraint that each room node gets degree 2.
+  5. Map result back to walls: passage–passage edges that are not in the tree become walls; passage–room edges not in the tree are walls; the two passage–room edges that are in the tree for each room become that room’s openings.
   6. For each room, generate sub-maze (roomSubSize×roomSubSize), align openings, solve, store subSolutionPath.
 
 ### Solver changes
@@ -271,7 +274,7 @@ This section sketches the data structures and order of operations so that a room
 
 ### Checkpoint for rooms-first
 
-- **C5b (optional, before C6):** Add `roomOuterSize` to presets (default 1). Implement rooms-first path when roomOuterSize > 1: layout room blocks → outer graph → carve → sub-mazes. Keep existing 1×1 path when roomOuterSize === 1. Solver and drawer support both (room = one cell or room = one block). Tests: determinism, room count, solvability, draw smoke.
+- **C5b (optional, before C6):** Add `roomOuterSize` to presets (default 1). Implement rooms-first path when roomOuterSize > 1: layout room blocks → outer graph → carve → sub-mazes. **Keep existing rooms-second (1×1) path** when roomOuterSize === 1; do not remove it (it may be reused for a future Labyrinth-style variant). Solver and drawer support both (room = one cell or room = one block). Tests: determinism, room count, solvability, draw smoke.
 
 ---
 
@@ -413,6 +416,7 @@ generation, RoomsGrid assembly; determinism, solvability, fallback tests. **Done
 - **C4**: `solver-adapters.js` — `squaresAdapter`; solver finds outer path;
 `isPerfectMaze` works. Wire `main.js` squares branch. **Done.** Layout squares branch, draw-rooms (minimal), registry, formatStyleLabel, debug panel. Validation: `tests/rooms-adapter.test.js` + layout squares test; full suite 185 passed.
 - **C5**: `draw-rooms.js` — `drawWalls` (room border with gaps at openings; sub-maze scaled, round caps, thickness); smoke test on canvas and PDF backend. **Done.** Validation: `tests/draw-rooms.test.js` 2 passed; full suite 187 passed.
+- **C5b** (optional, before C6): **Rooms-first** — Add `roomOuterSize` to presets (default 1). When roomOuterSize > 1, use rooms-first flow (section 3b): layout room blocks → outer graph → carve → sub-mazes. Solver/drawer support room = block. Keeps 1×1 path when roomOuterSize === 1.
 - **C6**: `draw-rooms.js` — `drawSolutionOverlay`.
 - **C7**: Layout and registry wiring; full PDF render smoke across all five
 styles.
@@ -423,24 +427,24 @@ styles.
 ## File change list
 
 
-| File                                    | Change                                                                  |
-| --------------------------------------- | ----------------------------------------------------------------------- |
-| `src/index.html`                        | Remove Topology fieldset; five-option Style picker                      |
-| `src/main.js`                           | Remove topology reads; route circular via mazeStyle; add squares branch |
-| `src/utils/constants.js`                | Add `roomCount`, `roomSubSize` per preset                               |
-| **New** `src/maze/roomsGrid.js`         | RoomCell, RoomsGrid, openPassageCount                                   |
-| **New** `src/maze/rooms-generator.js`   | Outer maze + room selection + sub-maze generation                       |
-| `src/maze/solver-adapters.js`           | Add squaresAdapter; wire getAdapterForMaze                              |
-| **New** `src/pdf/drawers/draw-rooms.js` | drawWalls, drawLabels, drawSolutionOverlay                              |
-| `src/pdf/drawers/index.js`              | Register squares drawer; getDrawerKey squares branch                    |
-| `src/pdf/layout.js`                     | Add squares layout branch                                               |
-| `src/pdf/renderer.js`                   | formatStyleLabel for all five styles                                    |
-| `docs/DECISIONS.md`                     | Style consolidation; Squares style decisions                            |
-| `docs/DEFERRED_IDEAS.md`                | showDeadEndRooms; organic/polar rooms; locked rooms distinction         |
-| **New** `tests/roomsGrid.test.js`       | RoomCell, RoomsGrid, openPassageCount (C2)                              |
-| **New** `tests/rooms-generator.test.js` | Determinism, room count, solvability, fallback                          |
-| **New** `tests/rooms-adapter.test.js`   | Solver outer path; isPerfectMaze                                        |
-| **New** `tests/draw-rooms.test.js`      | drawWalls smoke (canvas + PDF backend) (C5)                             |
+| File                                    | Change                                                                                             |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `src/index.html`                        | Remove Topology fieldset; five-option Style picker                                                 |
+| `src/main.js`                           | Remove topology reads; route circular via mazeStyle; add squares branch                            |
+| `src/utils/constants.js`                | Add `roomCount`, `roomSubSize`, `roomOuterSize` per preset (C5b: use roomOuterSize in rooms-first) |
+| **New** `src/maze/roomsGrid.js`         | RoomCell, RoomsGrid, openPassageCount                                                              |
+| **New** `src/maze/rooms-generator.js`   | Outer maze + room selection + sub-maze generation                                                  |
+| `src/maze/solver-adapters.js`           | Add squaresAdapter; wire getAdapterForMaze                                                         |
+| **New** `src/pdf/drawers/draw-rooms.js` | drawWalls, drawLabels, drawSolutionOverlay                                                         |
+| `src/pdf/drawers/index.js`              | Register squares drawer; getDrawerKey squares branch                                               |
+| `src/pdf/layout.js`                     | Add squares layout branch                                                                          |
+| `src/pdf/renderer.js`                   | formatStyleLabel for all five styles                                                               |
+| `docs/DECISIONS.md`                     | Style consolidation; Squares style decisions                                                       |
+| `docs/DEFERRED_IDEAS.md`                | showDeadEndRooms; organic/polar rooms; locked rooms distinction                                    |
+| **New** `tests/roomsGrid.test.js`       | RoomCell, RoomsGrid, openPassageCount (C2)                                                         |
+| **New** `tests/rooms-generator.test.js` | Determinism, room count, solvability, fallback                                                     |
+| **New** `tests/rooms-adapter.test.js`   | Solver outer path; isPerfectMaze                                                                   |
+| **New** `tests/draw-rooms.test.js`      | drawWalls smoke (canvas + PDF backend) (C5)                                                        |
 
 
 ---
