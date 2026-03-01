@@ -40,7 +40,11 @@ function drawWall(backend, x1, y1, x2, y2, thickness, isRounded) {
   backend.line(startX, startY, endX, endY);
 }
 
-/** Gap as fraction of cell size for room opening (match outer corridor). */
+/**
+ * Gap as fraction of that wall segment's length (not cell size).
+ * Used in drawBorderSegment: gapLen = len * ROOM_OPENING_FRAC, so one centered gap per opening side.
+ * Effect: 1×1 room → gap = 0.5×cellSize; K×1 side → gap = 0.5×K×cellSize. Plan said "match outer corridor" (≈1 cell); this scales with room size.
+ */
 const ROOM_OPENING_FRAC = 0.5;
 
 /**

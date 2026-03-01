@@ -116,7 +116,9 @@ describe('generateCorridorFillers', () => {
     const { halfW } = computeCorridorWidth(graph);
     const a = generateCorridorFillers(graph, circles, 300, 400, halfW, 99999);
     const b = generateCorridorFillers(graph, circles, 300, 400, halfW, 88888);
-    expect(a.circles.length).toBe(b.circles.length);
+    const samePositions = a.circles.length === b.circles.length &&
+      a.circles.every((c, i) => c.x === b.circles[i].x && c.y === b.circles[i].y);
+    expect(samePositions).toBe(false);
   });
 
   it('produces filler circles within bounds', () => {

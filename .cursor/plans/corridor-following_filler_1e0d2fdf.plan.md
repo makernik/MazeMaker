@@ -27,25 +27,18 @@ isProject: false
 
 Replace grid-based void-filling with a strategy that places filler nodes at perpendicular offsets from each **carved** main maze edge. The filler graph edges connect sequential nodes along each corridor's offset path, so filler corridors naturally run parallel to nearby main corridors.
 
-### Algorithm sketch (v2 — long single-edge filler)
+### Algorithm sketch (v3 — corridor-masked organic fill)
 
-The v1 approach (multi-node strips with junction cross-connections) produced short chunky stubs. v2 simplifies: each filler corridor is a **single long edge** spanning most of its parent corridor's length.
+v1 (multi-node strips with junction cross-connections) produced chunky blobs. v2 (single long edges) produced isolated parallel dashes. v3 fills the void space organically:
 
-For each carved edge A-B in the main graph:
+1. Collect all carved edge segments as a corridor mask
+2. Pack circles (`packCircles`) at ~1.5x main density into the full bounds
+3. Filter: remove any circle whose center is within `2*halfW + 2` of any carved edge centerline
+4. Re-ID survivors to avoid main graph ID collisions
+5. `computeNeighbors` on survivors — organic adjacency emerges from void geometry
+6. Caller runs `buildOrganicGraph` then `carveFillerPaths` (DFS) producing flowing filler corridors
 
-- Compute perpendicular direction `p`
-- For each side (left, right):
-  - Offset distance = `halfW * 3` (one halfW for main wall, one for gap, one for filler wall center)
-  - Place two nodes: one at `t = 0.15`, one at `t = 0.85` along the offset path
-  - If both nodes are within bounds and don't overlap any OTHER corridor, create the pair + one edge
-- No junction cross-connections (they caused crossing stubs)
-- DFS opens the single wall on each 2-node component, producing a clean parallel corridor with round end caps
-
-Parameters are derived from `halfW` (visual corridor width), not from circle topology radius:
-
-- `fillerR = max(2, halfW)` — node radius for the graph
-- `offset = halfW * 3` — centerline-to-centerline distance
-- `corridorClearance = halfW * 2 + 1` — collision check radius
+In narrow channels between parallel main corridors, filler circles are constrained to a strip and corridors naturally follow the main direction. In open void regions, filler spreads organically. No special junction logic, no cross-connection rules.
 - `minEdgeLen = halfW * 8` — skip short edges where filler would be a blob
 
 ### Per-level filler flag (`organicFill`)

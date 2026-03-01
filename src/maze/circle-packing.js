@@ -287,7 +287,7 @@ function findComponents(circles, neighbors) {
 }
 
 // ---------------------------------------------------------------------------
-// Corridor-following filler (pass 2 — decorative filler parallel to corridors)
+// Void-fill filler (pass 2 — organic pack into corridor-masked void space)
 // ---------------------------------------------------------------------------
 
 /** Squared distance from point (px,py) to line segment (ax,ay)-(bx,by). */
@@ -309,9 +309,11 @@ function pointToSegDistSq(px, py, ax, ay, bx, by) {
 }
 
 /**
- * Place filler corridors as long parallel segments alongside carved main-maze
- * corridors.  Each filler is a single edge (2 nodes) that spans most of the
- * parent corridor's length, producing a clean parallel line with end caps.
+ * Pack filler circles into the void space between carved corridors.
+ * Uses the corridor visual footprint as an exclusion mask:
+ * circles whose centers are too close to any carved edge centerline are removed.
+ * Survivors form an organic graph via computeNeighbors; DFS carving (by caller)
+ * produces flowing filler corridors that naturally follow void-space geometry.
  *
  * @param {{ nodes: Array, hasWall: Function, getNode: Function }} mainGraph
  * @param {Array<{ id: number, x: number, y: number, r: number }>} circles
@@ -322,15 +324,7 @@ function pointToSegDistSq(px, py, ax, ay, bx, by) {
  * @returns {{ circles: Array<{ id: number, x: number, y: number, r: number }>, neighborMap: Map<number, number[]> }}
  */
 export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, halfW, seed) {
-  const fillerR = Math.max(2, halfW);
-  const offset = halfW * 3;
-  const corridorClearance = halfW * 2 + 1;
-
-  const tStart = 0.15;
-  const tEnd = 0.85;
-  const minEdgeLen = halfW * 4;
-
-  // Pre-collect carved edge segments for corridor-aware collision
+  // Collect carved edge segments for corridor mask
   const carvedEdges = [];
   for (const node of mainGraph.nodes) {
     for (const nid of node.neighbors) {
@@ -340,70 +334,49 @@ export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsH
       }
     }
   }
+  if (carvedEdges.length === 0) return { circles: [], neighborMap: new Map() };
 
+  // Filler node center must be > clearance from any corridor centerline
+  // so that the filler corridor walls (at ±halfW) don't overlap main corridor walls
+  const clearance = 2 * halfW + 2;
+  const clearanceSq = clearance * clearance;
+
+  // Pack at similar density to main graph
+  const targetCount = Math.floor(circles.length * 1.5);
+  const { circles: rawFillers } = packCircles({
+    width: boundsWidth,
+    height: boundsHeight,
+    targetCount,
+    seed,
+  });
+
+  // Filter: keep only circles outside the corridor mask
+  const fillerCircles = [];
+  for (const fc of rawFillers) {
+    let masked = false;
+    for (let e = 0; e < carvedEdges.length; e++) {
+      const seg = carvedEdges[e];
+      if (pointToSegDistSq(fc.x, fc.y, seg.ax, seg.ay, seg.bx, seg.by) < clearanceSq) {
+        masked = true;
+        break;
+      }
+    }
+    if (!masked) fillerCircles.push(fc);
+  }
+
+  if (fillerCircles.length === 0) return { circles: [], neighborMap: new Map() };
+
+  // Re-ID to avoid collisions with main graph node ids
   let nextId = 0;
   for (const c of circles) {
     if (c.id >= nextId) nextId = c.id + 1;
   }
   nextId += 10000;
-
-  const fillerCircles = [];
-  const neighborMap = new Map();
-  const visitedEdges = new Set();
-
-  for (const node of mainGraph.nodes) {
-    for (const nid of node.neighbors) {
-      const key = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
-      if (visitedEdges.has(key) || mainGraph.hasWall(node.id, nid)) continue;
-      visitedEdges.add(key);
-
-      const other = mainGraph.getNode(nid);
-      if (!other) continue;
-
-      const dx = other.x - node.x;
-      const dy = other.y - node.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      if (dist < minEdgeLen) continue;
-
-      const ux = dx / dist;
-      const uy = dy / dist;
-      const px = -uy;
-      const py = ux;
-
-      for (const side of [1, -1]) {
-        const sx = node.x + ux * (tStart * dist) + px * offset * side;
-        const sy = node.y + uy * (tStart * dist) + py * offset * side;
-        const ex = node.x + ux * (tEnd * dist) + px * offset * side;
-        const ey = node.y + uy * (tEnd * dist) + py * offset * side;
-
-        if (sx < fillerR || sx > boundsWidth - fillerR - 1 ||
-            sy < fillerR || sy > boundsHeight - fillerR - 1 ||
-            ex < fillerR || ex > boundsWidth - fillerR - 1 ||
-            ey < fillerR || ey > boundsHeight - fillerR - 1) continue;
-
-        // Check both endpoints don't overlap any OTHER corridor
-        let overlaps = false;
-        for (let e = 0; e < carvedEdges.length; e++) {
-          const seg = carvedEdges[e];
-          if (Math.abs(seg.ax - node.x) < 0.01 && Math.abs(seg.ay - node.y) < 0.01 &&
-              Math.abs(seg.bx - other.x) < 0.01 && Math.abs(seg.by - other.y) < 0.01) continue;
-          if (pointToSegDistSq(sx, sy, seg.ax, seg.ay, seg.bx, seg.by) < corridorClearance * corridorClearance ||
-              pointToSegDistSq(ex, ey, seg.ax, seg.ay, seg.bx, seg.by) < corridorClearance * corridorClearance) {
-            overlaps = true;
-            break;
-          }
-        }
-        if (overlaps) continue;
-
-        const idA = nextId++;
-        const idB = nextId++;
-        fillerCircles.push({ id: idA, x: sx, y: sy, r: fillerR });
-        fillerCircles.push({ id: idB, x: ex, y: ey, r: fillerR });
-        neighborMap.set(idA, [idB]);
-        neighborMap.set(idB, [idA]);
-      }
-    }
+  for (const fc of fillerCircles) {
+    fc.id = nextId++;
   }
+
+  const neighborMap = computeNeighbors(fillerCircles);
 
   return { circles: fillerCircles, neighborMap };
 }
