@@ -72,6 +72,13 @@ If the outer maze's `cellSize` from preset is below **28pt**, coerce to 28pt
 minimum and recompute grid dimensions to fit the printable area. Below this
 threshold a sub-maze of even 3×3 cells would be illegible in print.
 
+### Room size: outer vs inner
+
+- **roomOuterSize** (new): number of **outer grid cells** per side of the room. A room occupies a **roomOuterSize × roomOuterSize** block of the outer grid (so the room is a larger square on the page). Example: 2 → room is 2×2 cells.
+- **roomSubSize** (existing): number of **interior** sub-maze cells per side (the puzzle inside the room). Unchanged.
+
+To support roomOuterSize > 1, the **rooms-first** order of operations is required (see section 3b).
+
 ---
 
 ## 1. UI: single Style picker, Topology removed
@@ -121,26 +128,31 @@ threshold a sub-maze of even 3×3 cells would be illegible in print.
 
 **New file:** `src/maze/roomsGrid.js`
 
+**Current (1×1 rooms):** Each room occupies one outer cell. Key = `'row,col'`.
+
+**After rooms-first (roomOuterSize ≥ 1):** Each room occupies a **roomOuterSize × roomOuterSize** block. Top-left of block is `(outerRow, outerCol)`; key can remain `'outerRow,outerCol'` (one room per block).
+
 ```js
 class RoomCell {
-  outerRow;        // row in outer grid
-  outerCol;        // col in outer grid
-  openings;        // DIRECTIONS[] — the 2 open passages in the outer maze
-  subGrid;         // MazeGrid — the room's interior maze
+  outerRow;        // row of top-left of room block in outer grid
+  outerCol;        // col of top-left of room block in outer grid
+  outerSize;       // roomOuterSize — room spans outerSize×outerSize cells (default 1)
+  openings;        // DIRECTIONS[] — the 2 open passages (on block boundary)
+  subGrid;         // MazeGrid — the room's interior maze (roomSubSize×roomSubSize)
   subStart;        // { row, col } in subGrid — aligned with openings[0]
   subFinish;       // { row, col } in subGrid — aligned with openings[1]
   subSolutionPath; // { row, col }[] — BFS path through sub-maze (stored at gen time)
 }
 
 class RoomsGrid {
-  outerGrid;       // MazeGrid — unmodified outer maze
-  roomCells;       // Map<'row,col', RoomCell>
-  roomSubSize;     // cells per side in each sub-maze
+  outerGrid;       // MazeGrid — unmodified outer maze (or region graph after rooms-first)
+  roomCells;       // Map<'row,col', RoomCell>  (key = top-left of block)
+  roomSubSize;     // cells per side inside each sub-maze (interior only)
+  roomOuterSize;   // cells per side of room block on outer grid (1 = current behaviour)
 }
 ```
 
-Methods: `isRoomCell(row, col)`, `getRoomCell(row, col)`,
-`openPassageCount(row, col)` (counts open walls in outer grid cell).
+Methods: `isRoomCell(row, col)` (true if (row,col) lies in any room block), `getRoomCell(row, col)` (returns RoomCell whose block contains (row,col), or by top-left key), `openPassageCount(row, col)` (for 1×1: counts open walls; for blocks: N/A on interior, defined on boundary only in rooms-first).
 
 ---
 
@@ -195,21 +207,71 @@ For each selected room cell:
 ### Preset additions (`src/utils/constants.js`)
 
 ```js
-roomCount: N,      // target number of embedded rooms
-roomSubSize: N,    // sub-maze cells per side
+roomCount: N,        // target number of embedded rooms
+roomSubSize: N,      // sub-maze cells per side (interior puzzle)
+roomOuterSize: N,    // outer grid cells per side of room (room = N×N cell block on page)
 ```
 
 
-| Age   | roomCount | roomSubSize |
-| ----- | --------- | ----------- |
-| 3     | 1         | 3           |
-| 4–5   | 2         | 3           |
-| 6–8   | 3         | 4           |
-| 9–11  | 4         | 5           |
-| 12–14 | 5         | 6           |
-| 15–17 | 6         | 7           |
-| 18+   | 8         | 8           |
+| Age   | roomCount | roomSubSize | roomOuterSize |
+| ----- | --------- | ----------- | ------------- |
+| 3     | 1         | 3           | 1 (or 2)      |
+| 4–5   | 2         | 3           | 1 (or 2)      |
+| 6–8   | 3         | 4           | 1 or 2        |
+| 9–11  | 4         | 5           | 1 or 2        |
+| 12–14 | 5         | 6           | 2             |
+| 15–17 | 6         | 7           | 2             |
+| 18+   | 8         | 8           | 2             |
 
+When **roomOuterSize === 1** (current): room = one cell; existing "maze first, then select 2-passage cells" flow applies. When **roomOuterSize > 1**: use **rooms-first** flow (section 3b).
+
+---
+
+## 3b. Rooms-first redesign (implement before C6 when roomOuterSize > 1)
+
+This section sketches the data structures and order of operations so that a room can occupy a **roomOuterSize × roomOuterSize** block of outer grid cells (room takes up more space on the page). Implement when resuming after the current pause.
+
+### Order of operations
+
+1. **Layout with room blocks** — Before any maze generation, decide the logical grid and which rectangles are rooms.
+2. **Outer graph** — Build a graph where each node is either a **normal cell** or a **room** (one node per room block). Edges connect adjacent normal cells and connect normal cells to room boundaries (at the two openings).
+3. **Generate outer maze** — Run Prim/Kruskal/DFS on this graph so the outer maze is a spanning tree over normal cells + room nodes. Rooms have exactly two connections (two openings).
+4. **Sub-mazes** — For each room block, generate a roomSubSize×roomSubSize sub-maze; align subStart/subFinish to the two outer openings.
+
+### Data structures (sketch)
+
+- **Region grid / occupancy:** A grid of the same logical size as the page layout. Each cell is either `'passage'` (normal) or `'room'` with a room id. Room blocks are non-overlapping roomOuterSize×roomOuterSize squares; their top-left positions are chosen (e.g. randomly or on a coarse grid) so they don’t overlap and fit in the grid.
+- **Outer graph for generation:**  
+  - **Nodes:** One per passage cell (key e.g. `row,col`) plus one per room (key e.g. `room,id` or `row,col` of top-left).  
+  - **Edges:** Between adjacent passage cells (if both passage); between a passage cell and a room node if that passage cell is on the room block’s boundary (and will become an opening if the edge is carved).  
+  - Carve a spanning tree on this graph. Each room node must end up with degree 2 (two openings). Constraint: when carving, ensure each room has exactly two carved edges (e.g. during Prim/Kruskal, treat “room” as a single vertex; or post-process to guarantee two openings per room).
+- **Outer maze representation for solver/drawing:**  
+  - **Option A:** Keep a full cell grid; mark cells that belong to a room block as “inside room R”. Solver: when at a passage cell, neighbors as today; when “entering” a room (crossing from passage into a room block), the neighbor is the room node (one hop to “exit” the room at the other opening). So the solver sees rooms as single nodes.  
+  - **Option B:** Store an explicit graph (nodes = passage cells + room nodes, edges from carving). Solver and drawer both use this graph. Drawing: passage cells draw normal walls; each room node draws one big square (roomOuterSize×cellSize) with two gaps and the sub-maze inside.
+
+### Generator changes
+
+- **rooms-generator.js (rooms-first path):**  
+  1. Compute grid dimensions (with cellSize ≥ 28pt if needed).  
+  2. Place room blocks: choose roomCount non-overlapping roomOuterSize×roomOuterSize blocks (e.g. random top-left positions with collision check, or fixed grid of slots). Build occupancy grid.  
+  3. Build outer graph (passage cells + room nodes, edges as above).  
+  4. Run spanning-tree algorithm on that graph, with constraint that each room node gets degree 2.  
+  5. Map result back to walls: passage–passage edges that are not in the tree become walls; passage–room edges not in the tree are walls; the two passage–room edges that are in the tree for each room become that room’s openings.  
+  6. For each room, generate sub-maze (roomSubSize×roomSubSize), align openings, solve, store subSolutionPath.
+
+### Solver changes
+
+- **squaresAdapter:** If using Option A (full grid + “room” flags), getNeighbors for a passage cell: same as now. For a cell that is on the boundary of a room: one neighbor is “the room” (single state per room); from “the room” the neighbors are the two boundary cells that are openings. So the solver path is a list of states that can be passage cells or room ids.  
+- If using Option B (explicit graph), getStart/getFinish/getNeighbors/key all work on the graph (passage cells + room nodes).
+
+### Layout / drawer changes
+
+- **Layout:** For squares with roomOuterSize > 1, cell size and offsets unchanged; layout can expose roomOuterSize so the drawer knows the room’s physical size (roomOuterSize × cellSize per side).  
+- **draw-rooms.js:** For each room, bounding box is (outerRow, outerCol) to (outerRow + roomOuterSize, outerCol + roomOuterSize) in cell units; draw one border around that full rectangle with two gaps at the openings; draw sub-maze scaled to fill the rectangle (subCellSize = (roomOuterSize * cellSize) / roomSubSize).
+
+### Checkpoint for rooms-first
+
+- **C5b (optional, before C6):** Add `roomOuterSize` to presets (default 1). Implement rooms-first path when roomOuterSize > 1: layout room blocks → outer graph → carve → sub-mazes. Keep existing 1×1 path when roomOuterSize === 1. Solver and drawer support both (room = one cell or room = one block). Tests: determinism, room count, solvability, draw smoke.
 
 ---
 
