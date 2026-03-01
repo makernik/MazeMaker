@@ -164,6 +164,13 @@
           <p class="debug-panel__option-hint">Draw solver path on PDF (prove capabilities). Uncheck to test difficulty without solution.</p>
         </div>
         <div class="debug-panel__option">
+          <label>
+            <input type="checkbox" id="debug-show-node-labels" name="debug-show-node-labels" />
+            <span>Show node labels on preview</span>
+          </label>
+          <p class="debug-panel__option-hint">Draw node IDs and neighbor counts on organic/jagged preview (noisy).</p>
+        </div>
+        <div class="debug-panel__option">
           <label for="debug-preview-seed">Preview seed</label>
           <input type="text" id="debug-preview-seed" inputmode="numeric" placeholder="e.g. 12345" title="Seed for preview; edit to preview a specific maze (e.g. from PDF footer)" />
           <p class="debug-panel__option-hint">Populated with current preview seed. Change to preview that maze (e.g. paste seed from PDF footer).</p>

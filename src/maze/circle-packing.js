@@ -338,7 +338,7 @@ export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsH
 
   // Filler node center must be > clearance from any corridor centerline
   // so that the filler corridor walls (at ±halfW) don't overlap main corridor walls
-  const clearance = 2 * halfW + 2;
+  const clearance = 2 * halfW + 5;
   const clearanceSq = clearance * clearance;
 
   // Pack at similar density to main graph

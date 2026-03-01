@@ -4,7 +4,7 @@
  * C5/C6: full room borders, sub-maze walls, and per-room solution overlay.
  */
 
-import { DIRECTIONS } from '../../maze/grid.js';
+import { DIRECTIONS, DIRECTION_OFFSETS } from '../../maze/grid.js';
 
 function drawArrow(backend, x1, y1, x2, y2, headSize) {
   backend.setStroke('#000', 2, 'butt');
@@ -59,31 +59,53 @@ const ROOM_OPENING_FRAC = 0.5;
 function openingsFromCells(or, oc, K, openingCells) {
   if (!openingCells || openingCells.length === 0) return [];
   const out = [];
-  for (const { row: r, col: c } of openingCells) {
-    if (r === or - 1) out.push(DIRECTIONS.TOP);
-    else if (r === or + K) out.push(DIRECTIONS.BOTTOM);
-    else if (c === oc - 1) out.push(DIRECTIONS.LEFT);
-    else if (c === oc + K) out.push(DIRECTIONS.RIGHT);
+  const oR = Number(or);
+  const oC = Number(oc);
+  const k = Number(K);
+  for (const cell of openingCells) {
+    const r = Number(cell.row);
+    const c = Number(cell.col);
+    if (Number.isNaN(r) || Number.isNaN(c)) continue;
+    if (r === oR - 1) out.push(DIRECTIONS.TOP);
+    else if (r === oR + k) out.push(DIRECTIONS.BOTTOM);
+    else if (c === oC - 1) out.push(DIRECTIONS.LEFT);
+    else if (c === oC + k) out.push(DIRECTIONS.RIGHT);
   }
   return out;
 }
 
 /**
- * Resolve which opening directions to use for drawing gaps. Prefer roomCell.openings; fall back to deriving from openingCells.
+ * Resolve which opening directions to use for drawing gaps.
+ * 1) Prefer roomCell.openings; 2) derive from roomCell.openingCells; 3) for 1×1 only, read from outerGrid.
+ * @param {import('../../maze/roomsGrid.js').RoomCell} roomCell
+ * @param {import('../../maze/grid.js').MazeGrid} [outerGrid] - used when openings/openingCells are missing (1×1 only)
  */
-function getOpeningDirections(roomCell) {
+function getOpeningDirections(roomCell, outerGrid) {
   const fromOpenings = roomCell.openings;
   if (fromOpenings != null && fromOpenings.length > 0) return fromOpenings;
-  return openingsFromCells(
+  const fromCells = openingsFromCells(
     roomCell.outerRow,
     roomCell.outerCol,
     roomCell.outerSize ?? 1,
     roomCell.openingCells
   );
+  if (fromCells.length > 0) return fromCells;
+  if (outerGrid && (roomCell.outerSize ?? 1) === 1) {
+    const cell = outerGrid.getCell(roomCell.outerRow, roomCell.outerCol);
+    if (cell) {
+      const dirs = [];
+      for (const d of Object.values(DIRECTIONS)) {
+        if (!cell.hasWall(d)) dirs.push(d);
+      }
+      return dirs;
+    }
+  }
+  return [];
 }
 
 /**
  * Draw one segment of room border, optionally with a centered gap (for openings).
+ * Used for 1×1 rooms; for K>1 use drawRoomBorderSideWithGaps.
  */
 function drawBorderSegment(backend, x1, y1, x2, y2, thickness, isRounded, gapFrac) {
   if (gapFrac == null || gapFrac <= 0) {
@@ -103,28 +125,95 @@ function drawBorderSegment(backend, x1, y1, x2, y2, thickness, isRounded, gapFra
 }
 
 /**
- * Draw one room: solid border with gaps at openings, then sub-maze walls inside (round caps).
- * @param {number} blockSize - width/height of the room in points (cellSize for 1×1, roomOuterSize*cellSize for blocks)
+ * Return set of segment indices (0..K-1) that have an opening on the given side.
+ * Block is [or, or+K) x [oc, oc+K]. TOP = row or-1; BOTTOM = or+K; LEFT = col oc-1; RIGHT = oc+K.
  */
-function drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness, style, roomSubSize) {
-  const isRounded = style === 'classic';
-  const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
-  const openingDirs = getOpeningDirections(roomCell);
-  const openings = new Set(openingDirs);
-  const gapFrac = ROOM_OPENING_FRAC;
+function getOpeningIndicesForSide(or, oc, K, openingCells, side) {
+  const indices = new Set();
+  if (!openingCells) return indices;
+  const oR = Number(or);
+  const oC = Number(oc);
+  const k = Number(K);
+  for (const cell of openingCells) {
+    const r = Number(cell.row);
+    const c = Number(cell.col);
+    if (Number.isNaN(r) || Number.isNaN(c)) continue;
+    if (side === DIRECTIONS.TOP && r === oR - 1) indices.add(c - oC);
+    else if (side === DIRECTIONS.BOTTOM && r === oR + k) indices.add(c - oC);
+    else if (side === DIRECTIONS.LEFT && c === oC - 1) indices.add(r - oR);
+    else if (side === DIRECTIONS.RIGHT && c === oC + k) indices.add(r - oR);
+  }
+  return indices;
+}
 
+/**
+ * Draw one side of the room as K segments; skip segments that are openings (cell-aligned gaps).
+ */
+function drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, side, openingIndices, thickness, isRounded) {
+  const segLen = blockSize / K;
   const top = roomY + blockSize;
   const bottom = roomY;
   const left = roomX;
   const right = roomX + blockSize;
-  drawBorderSegment(backend, left, top, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.TOP) ? gapFrac : 0);
-  drawBorderSegment(backend, left, bottom, right, bottom, effectiveThickness, isRounded, openings.has(DIRECTIONS.BOTTOM) ? gapFrac : 0);
-  drawBorderSegment(backend, left, bottom, left, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.LEFT) ? gapFrac : 0);
-  drawBorderSegment(backend, right, bottom, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.RIGHT) ? gapFrac : 0);
+  for (let i = 0; i < K; i++) {
+    if (openingIndices.has(i)) continue;
+    if (side === DIRECTIONS.TOP) {
+      drawWall(backend, left + i * segLen, top, left + (i + 1) * segLen, top, thickness, isRounded);
+    } else if (side === DIRECTIONS.BOTTOM) {
+      drawWall(backend, left + i * segLen, bottom, left + (i + 1) * segLen, bottom, thickness, isRounded);
+    } else if (side === DIRECTIONS.LEFT) {
+      drawWall(backend, left, bottom + i * segLen, left, bottom + (i + 1) * segLen, thickness, isRounded);
+    } else {
+      drawWall(backend, right, bottom + i * segLen, right, bottom + (i + 1) * segLen, thickness, isRounded);
+    }
+  }
+}
+
+/**
+ * Draw one room: solid border with gaps at openings, then sub-maze walls inside (round caps).
+ * @param {number} blockSize - width/height of the room in points (cellSize for 1×1, roomOuterSize*cellSize for blocks)
+ * @param {import('../../maze/grid.js').MazeGrid} [outerGrid] - optional, for fallback opening directions (1×1)
+ */
+function drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness, style, roomSubSize, outerGrid) {
+  const isRounded = style === 'classic';
+  const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
+  const openingDirs = getOpeningDirections(roomCell, outerGrid);
+  const openings = new Set(openingDirs);
+  const gapFrac = ROOM_OPENING_FRAC;
+  const K = roomCell.outerSize ?? 1;
+  const or = roomCell.outerRow;
+  const oc = roomCell.outerCol;
+  const top = roomY + blockSize;
+  const bottom = roomY;
+  const left = roomX;
+  const right = roomX + blockSize;
+
+  backend.setStroke('#000', effectiveThickness, isRounded ? 'round' : 'butt');
+  if (K > 1 && roomCell.openingCells?.length) {
+    const openingIndicesTop = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.TOP);
+    const openingIndicesBottom = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.BOTTOM);
+    const openingIndicesLeft = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.LEFT);
+    const openingIndicesRight = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.RIGHT);
+    drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.TOP, openingIndicesTop, effectiveThickness, isRounded);
+    drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.BOTTOM, openingIndicesBottom, effectiveThickness, isRounded);
+    drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.LEFT, openingIndicesLeft, effectiveThickness, isRounded);
+    drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.RIGHT, openingIndicesRight, effectiveThickness, isRounded);
+  } else {
+    drawBorderSegment(backend, left, top, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.TOP) ? gapFrac : 0);
+    drawBorderSegment(backend, left, bottom, right, bottom, effectiveThickness, isRounded, openings.has(DIRECTIONS.BOTTOM) ? gapFrac : 0);
+    drawBorderSegment(backend, left, bottom, left, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.LEFT) ? gapFrac : 0);
+    drawBorderSegment(backend, right, bottom, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.RIGHT) ? gapFrac : 0);
+  }
 
   const subCellSize = blockSize / roomSubSize;
   const subThickness = Math.max(0.5, lineThickness * 0.4);
   const subGrid = roomCell.subGrid;
+  /** Do not draw sub-maze walls on the room perimeter; the thick room border defines it. */
+  const onRoomTop = (sr) => sr === 0;
+  const onRoomBottom = (sr) => sr === roomSubSize - 1;
+  const onRoomLeft = (sc) => sc === 0;
+  const onRoomRight = (sc) => sc === roomSubSize - 1;
+
   backend.save();
   backend.setStroke('#000', subThickness, 'round');
   for (let sr = 0; sr < subGrid.rows; sr++) {
@@ -132,16 +221,16 @@ function drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness,
       const cell = subGrid.getCell(sr, sc);
       const sx = roomX + sc * subCellSize;
       const sy = roomY + (roomSubSize - 1 - sr) * subCellSize;
-      if (cell.hasWall(DIRECTIONS.TOP)) {
+      if (cell.hasWall(DIRECTIONS.TOP) && !onRoomTop(sr)) {
         backend.line(sx, sy + subCellSize, sx + subCellSize, sy + subCellSize);
       }
-      if (cell.hasWall(DIRECTIONS.BOTTOM)) {
+      if (cell.hasWall(DIRECTIONS.BOTTOM) && !onRoomBottom(sr)) {
         backend.line(sx, sy, sx + subCellSize, sy);
       }
-      if (cell.hasWall(DIRECTIONS.LEFT)) {
+      if (cell.hasWall(DIRECTIONS.LEFT) && !onRoomLeft(sc)) {
         backend.line(sx, sy, sx, sy + subCellSize);
       }
-      if (cell.hasWall(DIRECTIONS.RIGHT)) {
+      if (cell.hasWall(DIRECTIONS.RIGHT) && !onRoomRight(sc)) {
         backend.line(sx + subCellSize, sy, sx + subCellSize, sy + subCellSize);
       }
     }
@@ -175,19 +264,25 @@ export function drawWalls(backend, maze, layoutResult) {
       const x = offsetX + col * cellSize;
       const y = offsetY + (rows - 1 - row) * cellSize;
       if (roomCell) {
-        drawRoomCell(backend, roomCell, x, y, cellSize, lineThickness, style, roomSubSize ?? roomCell.subGrid.rows);
+        drawRoomCell(backend, roomCell, x, y, cellSize, lineThickness, style, roomSubSize ?? roomCell.subGrid.rows, grid);
       } else {
         const cell = grid.getCell(row, col);
-        if (cell.hasWall(DIRECTIONS.TOP)) {
+        const skipWall = (dir) => {
+          const [dr, dc] = DIRECTION_OFFSETS[dir];
+          const nr = row + dr;
+          const nc = col + dc;
+          return grid.isValidPosition(nr, nc) && roomsGrid?.isRoomCell(nr, nc);
+        };
+        if (cell.hasWall(DIRECTIONS.TOP) && !skipWall(DIRECTIONS.TOP)) {
           drawWall(backend, x, y + cellSize, x + cellSize, y + cellSize, effectiveThickness, isRounded);
         }
-        if (cell.hasWall(DIRECTIONS.BOTTOM)) {
+        if (cell.hasWall(DIRECTIONS.BOTTOM) && !skipWall(DIRECTIONS.BOTTOM)) {
           drawWall(backend, x, y, x + cellSize, y, effectiveThickness, isRounded);
         }
-        if (cell.hasWall(DIRECTIONS.LEFT)) {
+        if (cell.hasWall(DIRECTIONS.LEFT) && !skipWall(DIRECTIONS.LEFT)) {
           drawWall(backend, x, y, x, y + cellSize, effectiveThickness, isRounded);
         }
-        if (cell.hasWall(DIRECTIONS.RIGHT)) {
+        if (cell.hasWall(DIRECTIONS.RIGHT) && !skipWall(DIRECTIONS.RIGHT)) {
           drawWall(backend, x + cellSize, y, x + cellSize, y + cellSize, effectiveThickness, isRounded);
         }
       }
@@ -199,7 +294,7 @@ export function drawWalls(backend, maze, layoutResult) {
     for (const roomCell of roomsGrid.roomCells.values()) {
       const roomX = offsetX + roomCell.outerCol * cellSize;
       const roomY = offsetY + (rows - roomCell.outerRow - roomCell.outerSize) * cellSize;
-      drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness, style, roomSubSize ?? roomCell.subGrid.rows);
+      drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness, style, roomSubSize ?? roomCell.subGrid.rows, grid);
     }
   }
 }
@@ -268,10 +363,22 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   backend.setDash([4, 4]);
   backend.setOpacity(0.7);
 
-  // Outer path
+  const isOpeningPair = (a, b) => {
+    if (!roomsGrid?.roomCells) return false;
+    for (const room of roomsGrid.roomCells.values()) {
+      const oc = room.openingCells;
+      if (!oc || oc.length < 2) continue;
+      const match = (oc[0].row === a.row && oc[0].col === a.col && oc[1].row === b.row && oc[1].col === b.col) ||
+        (oc[0].row === b.row && oc[0].col === b.col && oc[1].row === a.row && oc[1].col === a.col);
+      if (match) return true;
+    }
+    return false;
+  };
+
   for (let i = 1; i < path.length; i++) {
     const prev = path[i - 1];
     const curr = path[i];
+    if (isOpeningPair(prev, curr)) continue;
     const x1 = offsetX + (prev.col + 0.5) * cellSize;
     const y1 = offsetY + (rows - 1 - prev.row + 0.5) * cellSize;
     const x2 = offsetX + (curr.col + 0.5) * cellSize;

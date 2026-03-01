@@ -39,6 +39,7 @@ v1 (multi-node strips with junction cross-connections) produced chunky blobs. v2
 6. Caller runs `buildOrganicGraph` then `carveFillerPaths` (DFS) producing flowing filler corridors
 
 In narrow channels between parallel main corridors, filler circles are constrained to a strip and corridors naturally follow the main direction. In open void regions, filler spreads organically. No special junction logic, no cross-connection rules.
+
 - `minEdgeLen = halfW * 8` — skip short edges where filler would be a blob
 
 ### Per-level filler flag (`organicFill`)
@@ -74,7 +75,7 @@ Simpler mazes (Medium and below) have fewer, larger circles with more void space
 - `**[src/maze/circle-packing.js](src/maze/circle-packing.js)`**: Replace `fillVoids()` with new `generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, corridorHalfW, seed)` function
 - `**[src/maze/organic-generator.js](src/maze/organic-generator.js)`**: Gate filler generation on `preset.organicFill`; import `computeCorridorWidth` from `organic-geometry.js` to get `halfW`
 - `**[src/pdf/drawers/draw-organic.js](src/pdf/drawers/draw-organic.js)`**: Replace inline avgDist/halfW block with `computeCorridorWidth(graph, lineThickness)` call
-- `**[src/pdf/drawers/draw-curvy.js](src/pdf/drawers/draw-curvy.js)**`: Same inline block replacement
+- `**[src/pdf/drawers/draw-curvy.js](src/pdf/drawers/draw-curvy.js)`**: Same inline block replacement
 - `**[src/pdf/drawers/draw-organic-canvas.js](src/pdf/drawers/draw-organic-canvas.js)**`: Same inline block replacement
 - `**[src/pdf/drawers/draw-curvy-canvas.js](src/pdf/drawers/draw-curvy-canvas.js)**`: Same inline block replacement
 - `**[tests/circle-packing.test.js](tests/circle-packing.test.js)**`: Update/add tests for new filler function

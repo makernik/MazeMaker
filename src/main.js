@@ -30,6 +30,7 @@ const debugLineThicknessEl = document.getElementById('debug-line-thickness');
 const debugOneOfEachCheckbox = document.getElementById('debug-one-of-each');
 const debugOneOfEachAlgoCheckbox = document.getElementById('debug-one-of-each-algo');
 const debugShowSolutionCheckbox = document.getElementById('debug-show-solution');
+const debugShowNodeLabelsCheckbox = document.getElementById('debug-show-node-labels');
 const debugPreviewSeedInput = document.getElementById('debug-preview-seed');
 const samplePreviewCanvas = document.getElementById('sample-preview-canvas');
 const mazeStyleFieldset = document.getElementById('maze-style-fieldset');
@@ -240,16 +241,17 @@ function updatePreviewCanvas() {
   }
 
   if (debugMode) {
-    drawPreviewDebugOverlay(ctx, maze, layoutResult, h);
+    drawPreviewDebugOverlay(ctx, maze, layoutResult, h, debugShowNodeLabelsCheckbox?.checked ?? false);
   }
   ctx.restore();
 }
 
 /**
- * Debug overlay on preview canvas: node IDs, neighbor counts, start/finish (organic).
+ * Debug overlay on preview canvas: optional node IDs/neighbor counts, start/finish (organic).
  * Draw in screen space (y-down) so text and circles are right-side up.
+ * @param {boolean} showNodeLabels - When true, draw node id and n:count per node (noisy).
  */
-function drawPreviewDebugOverlay(ctx, maze, layoutResult, canvasHeight) {
+function drawPreviewDebugOverlay(ctx, maze, layoutResult, canvasHeight, showNodeLabels = false) {
   if (maze.layout === 'organic' && maze.graph && layoutResult.transform) {
     const { transform } = layoutResult;
     const toScreen = (x, y) => {
@@ -259,11 +261,13 @@ function drawPreviewDebugOverlay(ctx, maze, layoutResult, canvasHeight) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.font = '10px Inter, sans-serif';
-    ctx.fillStyle = '#64748b';
-    for (const node of maze.graph.nodes) {
-      const s = toScreen(node.x, node.y);
-      ctx.fillText(String(node.id), s.x - 4, s.y + 4);
-      ctx.fillText(`n:${node.neighbors.length}`, s.x - 6, s.y - 6);
+    if (showNodeLabels) {
+      ctx.fillStyle = '#64748b';
+      for (const node of maze.graph.nodes) {
+        const s = toScreen(node.x, node.y);
+        ctx.fillText(String(node.id), s.x - 4, s.y + 4);
+        ctx.fillText(`n:${node.neighbors.length}`, s.x - 6, s.y - 6);
+      }
     }
     const startPos = maze.nodePositions.get(maze.startId);
     const finishPos = maze.nodePositions.get(maze.finishId);
@@ -314,6 +318,9 @@ form.addEventListener('change', (e) => {
 
 if (debugShowSolutionCheckbox) {
   debugShowSolutionCheckbox.addEventListener('change', () => updatePreviewCanvas());
+}
+if (debugShowNodeLabelsCheckbox) {
+  debugShowNodeLabelsCheckbox.addEventListener('change', () => updatePreviewCanvas());
 }
 
 /**
