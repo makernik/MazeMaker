@@ -84,7 +84,7 @@ Simpler mazes (Medium and below) have fewer, larger circles with more void space
 - `**[src/utils/constants.js](src/utils/constants.js)`**: Add `organicFill` to each preset in `DIFFICULTY_PRESETS`. `0` for 3, 4-5, 6-8; `1` for 9-11, 12-14, 15-17, 18+.
 - `**[src/pdf/drawers/organic-geometry.js](src/pdf/drawers/organic-geometry.js)`**: New exported `computeCorridorWidth(graph, lineThickness?)` function. Extracts the avgDist + halfW computation duplicated across all 4 drawers. Returns `{ corridorWidth, halfW, avgDist }`. `lineThickness` defaults to `1.5` so callers without a layout get a reasonable value.
 - `**[src/maze/circle-packing.js](src/maze/circle-packing.js)`**: Replace `fillVoids()` with new `generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, corridorHalfW, seed)` function
-- `**[src/maze/organic-generator.js](src/maze/organic-generator.js)**`: Gate filler generation on `preset.organicFill`; import `computeCorridorWidth` from `organic-geometry.js` to get `halfW`
+- `**[src/maze/organic-generator.js](src/maze/organic-generator.js)`**: Gate filler generation on `preset.organicFill`; import `computeCorridorWidth` from `organic-geometry.js` to get `halfW`
 - `**[src/pdf/drawers/draw-organic.js](src/pdf/drawers/draw-organic.js)**`: Replace inline avgDist/halfW block with `computeCorridorWidth(graph, lineThickness)` call
 - `**[src/pdf/drawers/draw-curvy.js](src/pdf/drawers/draw-curvy.js)**`: Same inline block replacement
 - `**[src/pdf/drawers/draw-organic-canvas.js](src/pdf/drawers/draw-organic-canvas.js)**`: Same inline block replacement
