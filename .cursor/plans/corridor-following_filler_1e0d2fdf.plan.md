@@ -9,7 +9,7 @@ todos:
     content: "C1: Implement generateCorridorFillers() in circle-packing.js -- place filler nodes at perpendicular offsets from carved main edges, collision-check against main circles, connect sequential nodes"
     status: pending
   - id: c2-integrate-generator
-    content: "C2: Integrate into organic-generator.js -- replace fillVoids() call, import computeCorridorWidth for halfW"
+    content: "C2: Add organicFill to constants.js presets (0 for medium and below, 1 for hard and up); gate filler in organic-generator.js on preset.organicFill; use computeCorridorWidth for halfW"
     status: pending
   - id: c3-test-validate
     content: "C3: Update tests, run all tests, visual validation with jagged and curvy styles"
@@ -82,8 +82,8 @@ Simpler mazes (Medium and below) have fewer, larger circles with more void space
 ## Files Changed
 
 - `**[src/utils/constants.js](src/utils/constants.js)`**: Add `organicFill` to each preset in `DIFFICULTY_PRESETS`. `0` for 3, 4-5, 6-8; `1` for 9-11, 12-14, 15-17, 18+.
-- `**[src/pdf/drawers/organic-geometry.js](src/pdf/drawers/organic-geometry.js)**`: New exported `computeCorridorWidth(graph, lineThickness?)` function. Extracts the avgDist + halfW computation duplicated across all 4 drawers. Returns `{ corridorWidth, halfW, avgDist }`. `lineThickness` defaults to `1.5` so callers without a layout get a reasonable value.
-- `**[src/maze/circle-packing.js](src/maze/circle-packing.js)**`: Replace `fillVoids()` with new `generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, corridorHalfW, seed)` function
+- `**[src/pdf/drawers/organic-geometry.js](src/pdf/drawers/organic-geometry.js)`**: New exported `computeCorridorWidth(graph, lineThickness?)` function. Extracts the avgDist + halfW computation duplicated across all 4 drawers. Returns `{ corridorWidth, halfW, avgDist }`. `lineThickness` defaults to `1.5` so callers without a layout get a reasonable value.
+- `**[src/maze/circle-packing.js](src/maze/circle-packing.js)`**: Replace `fillVoids()` with new `generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, corridorHalfW, seed)` function
 - `**[src/maze/organic-generator.js](src/maze/organic-generator.js)**`: Gate filler generation on `preset.organicFill`; import `computeCorridorWidth` from `organic-geometry.js` to get `halfW`
 - `**[src/pdf/drawers/draw-organic.js](src/pdf/drawers/draw-organic.js)**`: Replace inline avgDist/halfW block with `computeCorridorWidth(graph, lineThickness)` call
 - `**[src/pdf/drawers/draw-curvy.js](src/pdf/drawers/draw-curvy.js)**`: Same inline block replacement
