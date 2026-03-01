@@ -47,6 +47,9 @@ function drawWall(backend, x1, y1, x2, y2, thickness, isRounded) {
  */
 const ROOM_OPENING_FRAC = 0.5;
 
+/** When false, room outer boundary is drawn as thin line (sub-maze perimeter with gaps). When true, drawn as heavy line like corridors. */
+const ROOM_OUTER_BORDER_HEAVY = false;
+
 /**
  * Derive opening directions from openingCells when openings is missing/empty.
  * Direction from block (or, oc) with size K to passage cell (r, c): which side of the block (r,c) is on.
@@ -188,27 +191,45 @@ function drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness,
   const left = roomX;
   const right = roomX + blockSize;
 
-  backend.setStroke('#000', effectiveThickness, isRounded ? 'round' : 'butt');
-  if (K > 1 && roomCell.openingCells?.length) {
-    const openingIndicesTop = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.TOP);
-    const openingIndicesBottom = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.BOTTOM);
-    const openingIndicesLeft = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.LEFT);
-    const openingIndicesRight = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.RIGHT);
-    drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.TOP, openingIndicesTop, effectiveThickness, isRounded);
-    drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.BOTTOM, openingIndicesBottom, effectiveThickness, isRounded);
-    drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.LEFT, openingIndicesLeft, effectiveThickness, isRounded);
-    drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.RIGHT, openingIndicesRight, effectiveThickness, isRounded);
-  } else {
-    drawBorderSegment(backend, left, top, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.TOP) ? gapFrac : 0);
-    drawBorderSegment(backend, left, bottom, right, bottom, effectiveThickness, isRounded, openings.has(DIRECTIONS.BOTTOM) ? gapFrac : 0);
-    drawBorderSegment(backend, left, bottom, left, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.LEFT) ? gapFrac : 0);
-    drawBorderSegment(backend, right, bottom, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.RIGHT) ? gapFrac : 0);
+  if (ROOM_OUTER_BORDER_HEAVY) {
+    backend.setStroke('#000', effectiveThickness, isRounded ? 'round' : 'butt');
+    if (K > 1 && roomCell.openingCells?.length) {
+      const openingIndicesTop = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.TOP);
+      const openingIndicesBottom = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.BOTTOM);
+      const openingIndicesLeft = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.LEFT);
+      const openingIndicesRight = getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.RIGHT);
+      drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.TOP, openingIndicesTop, effectiveThickness, isRounded);
+      drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.BOTTOM, openingIndicesBottom, effectiveThickness, isRounded);
+      drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.LEFT, openingIndicesLeft, effectiveThickness, isRounded);
+      drawRoomBorderSideWithGaps(backend, roomX, roomY, blockSize, K, DIRECTIONS.RIGHT, openingIndicesRight, effectiveThickness, isRounded);
+    } else {
+      drawBorderSegment(backend, left, top, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.TOP) ? gapFrac : 0);
+      drawBorderSegment(backend, left, bottom, right, bottom, effectiveThickness, isRounded, openings.has(DIRECTIONS.BOTTOM) ? gapFrac : 0);
+      drawBorderSegment(backend, left, bottom, left, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.LEFT) ? gapFrac : 0);
+      drawBorderSegment(backend, right, bottom, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.RIGHT) ? gapFrac : 0);
+    }
   }
 
   const subCellSize = blockSize / roomSubSize;
   const subThickness = Math.max(0.5, lineThickness * 0.4);
   const subGrid = roomCell.subGrid;
-  /** Do not draw sub-maze walls on the room perimeter; the thick room border defines it. */
+  const openingIndicesTop = K > 1 && roomCell.openingCells?.length ? getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.TOP) : new Set();
+  const openingIndicesBottom = K > 1 && roomCell.openingCells?.length ? getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.BOTTOM) : new Set();
+  const openingIndicesLeft = K > 1 && roomCell.openingCells?.length ? getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.LEFT) : new Set();
+  const openingIndicesRight = K > 1 && roomCell.openingCells?.length ? getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.RIGHT) : new Set();
+  /** Sub-cell span [subIdx/N, (subIdx+1)/N); segment i [i/K, (i+1)/K). Skip perimeter segment if it overlaps any opening. */
+  const skipSubBoundary = (subIdx, openingIndices) => {
+    if (K <= 1 || openingIndices.size === 0) return false;
+    const subStart = subIdx / roomSubSize;
+    const subEnd = (subIdx + 1) / roomSubSize;
+    for (const i of openingIndices) {
+      const segStart = i / K;
+      const segEnd = (i + 1) / K;
+      if (subStart < segEnd && subEnd > segStart) return true;
+    }
+    return false;
+  };
+
   const onRoomTop = (sr) => sr === 0;
   const onRoomBottom = (sr) => sr === roomSubSize - 1;
   const onRoomLeft = (sc) => sc === 0;
@@ -221,17 +242,21 @@ function drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness,
       const cell = subGrid.getCell(sr, sc);
       const sx = roomX + sc * subCellSize;
       const sy = roomY + (roomSubSize - 1 - sr) * subCellSize;
-      if (cell.hasWall(DIRECTIONS.TOP) && !onRoomTop(sr)) {
-        backend.line(sx, sy + subCellSize, sx + subCellSize, sy + subCellSize);
+      if (cell.hasWall(DIRECTIONS.TOP)) {
+        if (onRoomTop(sr)) { if (!ROOM_OUTER_BORDER_HEAVY && !skipSubBoundary(sc, openingIndicesTop)) backend.line(sx, sy + subCellSize, sx + subCellSize, sy + subCellSize); }
+        else backend.line(sx, sy + subCellSize, sx + subCellSize, sy + subCellSize);
       }
-      if (cell.hasWall(DIRECTIONS.BOTTOM) && !onRoomBottom(sr)) {
-        backend.line(sx, sy, sx + subCellSize, sy);
+      if (cell.hasWall(DIRECTIONS.BOTTOM)) {
+        if (onRoomBottom(sr)) { if (!ROOM_OUTER_BORDER_HEAVY && !skipSubBoundary(sc, openingIndicesBottom)) backend.line(sx, sy, sx + subCellSize, sy); }
+        else backend.line(sx, sy, sx + subCellSize, sy);
       }
-      if (cell.hasWall(DIRECTIONS.LEFT) && !onRoomLeft(sc)) {
-        backend.line(sx, sy, sx, sy + subCellSize);
+      if (cell.hasWall(DIRECTIONS.LEFT)) {
+        if (onRoomLeft(sc)) { if (!ROOM_OUTER_BORDER_HEAVY && !skipSubBoundary(sr, openingIndicesLeft)) backend.line(sx, sy, sx, sy + subCellSize); }
+        else backend.line(sx, sy, sx, sy + subCellSize);
       }
-      if (cell.hasWall(DIRECTIONS.RIGHT) && !onRoomRight(sc)) {
-        backend.line(sx + subCellSize, sy, sx + subCellSize, sy + subCellSize);
+      if (cell.hasWall(DIRECTIONS.RIGHT)) {
+        if (onRoomRight(sc)) { if (!ROOM_OUTER_BORDER_HEAVY && !skipSubBoundary(sr, openingIndicesRight)) backend.line(sx + subCellSize, sy, sx + subCellSize, sy + subCellSize); }
+        else backend.line(sx + subCellSize, sy, sx + subCellSize, sy + subCellSize);
       }
     }
   }

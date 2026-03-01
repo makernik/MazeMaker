@@ -118,7 +118,7 @@ export const DIFFICULTY_PRESETS = {
     polarBaseWedges: 8,
     polarWedgeMultiplier: 2,
     roomCount: 5,
-    roomSubSize: 6,
+    roomSubSize: 10,
     roomOuterSize: 5,
   },
   '15-17': {
