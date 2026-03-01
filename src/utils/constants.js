@@ -6,7 +6,12 @@
  * - Cell size (larger = easier to trace)
  * - Line thickness (thicker = easier to see)
  * - algorithm: which maze generator to use ('prim' | 'recursive-backtracker' | 'kruskal'; more can be added in generator.js)
+ * - roomCount, roomSubSize: for Squares style (embedded rooms); see rooms-generator.js.
+ *
+ * Squares style: if preset cellSize < MIN_CELL_SIZE_SQUARES_PT, it is coerced to that minimum and
+ * grid dimensions are recomputed so sub-mazes remain legible in print.
  */
+export const MIN_CELL_SIZE_SQUARES_PT = 28;
 
 /** Supported algorithm ids (generator.js branches on these) */
 export const ALGORITHMS = {
@@ -47,6 +52,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 4,
     polarBaseWedges: 5,
     polarWedgeMultiplier: 2,
+    roomCount: 1,
+    roomSubSize: 3,
   },
   '4-5': {
     gridWidth: 7,
@@ -59,6 +66,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 5,
     polarBaseWedges: 6,
     polarWedgeMultiplier: 2,
+    roomCount: 2,
+    roomSubSize: 3,
   },
   '6-8': {
     gridWidth: 10,
@@ -71,6 +80,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 6,
     polarBaseWedges: 6,
     polarWedgeMultiplier: 2,
+    roomCount: 3,
+    roomSubSize: 4,
   },
   '9-11': {
     gridWidth: 12,
@@ -83,6 +94,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 9,
     polarBaseWedges: 6,
     polarWedgeMultiplier: 2,
+    roomCount: 4,
+    roomSubSize: 5,
   },
   '12-14': {
     gridWidth: 14,
@@ -95,6 +108,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 12,
     polarBaseWedges: 8,
     polarWedgeMultiplier: 2,
+    roomCount: 5,
+    roomSubSize: 6,
   },
   '15-17': {
     gridWidth: 24,
@@ -107,6 +122,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 14,
     polarBaseWedges: 8,
     polarWedgeMultiplier: 2,
+    roomCount: 6,
+    roomSubSize: 7,
   },
   '18+': {
     gridWidth: 36,
@@ -119,6 +136,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 18,
     polarBaseWedges: 8,
     polarWedgeMultiplier: 5,
+    roomCount: 8,
+    roomSubSize: 8,
   },
 };
 

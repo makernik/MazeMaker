@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { generateMaze, generateMazes } from '../src/maze/generator.js';
 import { MazeGrid, DIRECTIONS } from '../src/maze/grid.js';
 import { validateMaze } from '../src/maze/solver.js';
-import { DIFFICULTY_PRESETS } from '../src/utils/constants.js';
+import { DIFFICULTY_PRESETS, MIN_CELL_SIZE_SQUARES_PT } from '../src/utils/constants.js';
 
 describe('MazeGrid', () => {
   it('creates a grid with correct dimensions', () => {
@@ -321,5 +321,20 @@ describe('Kruskal algorithm', () => {
         expect(c1.walls).toEqual(c2.walls);
       }
     }
+  });
+});
+
+describe('Constants (Squares style)', () => {
+  it('every preset has roomCount and roomSubSize', () => {
+    for (const preset of Object.values(DIFFICULTY_PRESETS)) {
+      expect(preset.roomCount).toBeDefined();
+      expect(typeof preset.roomCount).toBe('number');
+      expect(preset.roomSubSize).toBeDefined();
+      expect(typeof preset.roomSubSize).toBe('number');
+    }
+  });
+
+  it('MIN_CELL_SIZE_SQUARES_PT is 28', () => {
+    expect(MIN_CELL_SIZE_SQUARES_PT).toBe(28);
   });
 });

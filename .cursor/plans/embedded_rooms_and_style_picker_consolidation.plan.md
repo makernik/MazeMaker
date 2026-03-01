@@ -10,7 +10,7 @@ isProject: false
 
 **Status:** executing
 
-**C0:** UI — Topology removed; five-option Style picker (`name="maze-style"`); `main.js` routes by `mazeStyle`; Squares shows "not yet available" until C4.
+**C0:** UI — Topology removed; five-option Style picker (`name="maze-style"`); `main.js` routes by `mazeStyle`; Squares shows "not yet available" until C4. Default style in layout/renderer switched to `classic`.
 
 ---
 
@@ -344,8 +344,7 @@ locked rooms are a rendering overlay; embedded rooms are structural.
 ## Checkpoints
 
 - **C0**: UI — remove Topology fieldset; five-option Style picker (`name="maze-style"`); `main.js` routes by `mazeStyle`; Squares shows "not yet available" until C4; `syncMazeStyleVisibility` keeps fieldset visible; `GRID_ALGORITHM_IDS` fix. **Done.** Validation: `npm run test` 160 passed.
-- **C1**: Constants — `roomCount`, `roomSubSize` on all presets; 28pt minimum
-cell size coercion documented.
+- **C1**: Constants — `roomCount`, `roomSubSize` on all presets; `MIN_CELL_SIZE_SQUARES_PT` (28) and coercion documented in constants.js. **Done.** Validation: `npm run test` 162 passed (includes constants tests in maze.test.js).
 - **C2**: `roomsGrid.js` — RoomCell, RoomsGrid, openPassageCount; unit tests.
 - **C3**: `rooms-generator.js` — outer maze, room selection, sub-maze
 generation, RoomsGrid assembly; determinism, solvability, fallback tests.

@@ -45,7 +45,7 @@ function getThemesBase() {
  * @returns {Promise<Uint8Array>} PDF document as bytes
  */
 export async function renderMazesToPdf(config) {
-  const { mazes, style = 'square', ageRange = '9-11', theme = 'none', debugMode = false, showSolution = false } = config;
+  const { mazes, style = 'classic', ageRange = '9-11', theme = 'none', debugMode = false, showSolution = false } = config;
   
   // Create PDF document
   const pdfDoc = await PDFDocument.create();
@@ -242,7 +242,7 @@ export function downloadPdf(pdfBytes, filename = 'mazes.pdf') {
  * Render a single maze and return PDF bytes
  * Convenience function for debugging
  */
-export async function renderSingleMaze(maze, style = 'square') {
+export async function renderSingleMaze(maze, style = 'classic') {
   return renderMazesToPdf({
     mazes: [maze],
     style,

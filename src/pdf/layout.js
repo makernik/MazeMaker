@@ -39,7 +39,7 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
   const printableH = pageH - 2 * margin;
   const mazeWidth = pageOptions.mazeWidth ?? printableW;
   const mazeHeight = pageOptions.mazeHeight ?? (printableH - FOOTER_HEIGHT - MAZE_TOP_MARGIN);
-  const style = pageOptions.style ?? 'square';
+  const style = pageOptions.style ?? 'classic';
   const lineThickness = maze.preset?.lineThickness ?? 2;
 
   if (maze.layout === 'polar') {
