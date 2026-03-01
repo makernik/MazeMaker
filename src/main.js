@@ -6,11 +6,13 @@
 
 import { generateMaze, generateMazes } from './maze/generator.js';
 import { generateOrganicMaze } from './maze/organic-generator.js';
-import { validateMaze } from './maze/solver.js';
+import { generatePolarMaze, generatePolarMazes } from './maze/polarGenerator.js';
+import { validateMaze, solveMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
 import { getLayoutForMaze } from './pdf/layout.js';
-import { getCanvasDrawer } from './pdf/drawers/index.js';
-import { getDifficultyPreset, DIFFICULTY_PRESETS, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
+import { getDrawer, getDrawerKey } from './pdf/drawers/index.js';
+import { createCanvasBackend } from './pdf/drawers/draw-backend.js';
+import { getDifficultyPreset, DIFFICULTY_PRESETS, GRID_ALGORITHM_IDS, POLAR_ALGORITHM_IDS, ORGANIC_ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
 
 // DOM elements
@@ -25,9 +27,16 @@ const debugGridEl = document.getElementById('debug-grid');
 const debugCellSizeEl = document.getElementById('debug-cell-size');
 const debugLineThicknessEl = document.getElementById('debug-line-thickness');
 const debugOneOfEachCheckbox = document.getElementById('debug-one-of-each');
+const debugOneOfEachAlgoCheckbox = document.getElementById('debug-one-of-each-algo');
 const debugShowSolutionCheckbox = document.getElementById('debug-show-solution');
 const debugPreviewSeedInput = document.getElementById('debug-preview-seed');
 const samplePreviewCanvas = document.getElementById('sample-preview-canvas');
+const mazeStyleFieldset = document.getElementById('maze-style-fieldset');
+
+/** Styles that use organic (circle-packing) topology. */
+function isOrganicStyle(style) {
+  return style === 'jagged' || style === 'curvy';
+}
 
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
 let debugMode = false;
@@ -85,11 +94,13 @@ document.addEventListener('keydown', (e) => {
 function getFormValues() {
   const ageRangeEl = form && form.querySelector('input[name="age-range"]:checked');
   const mazeStyleEl = form && form.querySelector('input[name="maze-style"]:checked');
+  const topologyEl = form && form.querySelector('input[name="topology"]:checked');
   const themeEl = form && form.querySelector('input[name="theme"]:checked');
   const quantityEl = form && form.querySelector('#quantity');
   return {
     ageRange: ageRangeEl ? ageRangeEl.value : null,
     mazeStyle: mazeStyleEl ? mazeStyleEl.value : null,
+    topology: topologyEl ? topologyEl.value : 'rectangular',
     theme: themeEl ? themeEl.value : null,
     quantity: quantityEl ? parseInt(quantityEl.value, 10) : 1,
   };
@@ -108,7 +119,11 @@ function updateDebugPanel(mazes, baseSeed) {
     debugSeedEl.textContent += ` (base: ${baseSeed}, +0…${mazes.length - 1})`;
   }
   if (maze.layout === 'organic') {
-    debugGridEl.textContent = `organic, ${maze.graph.nodes.length} cells`;
+    const currentStyle = getFormValues().mazeStyle || 'jagged';
+    debugGridEl.textContent = `${currentStyle}, ${maze.graph.nodes.length} cells`;
+  } else if (maze.layout === 'polar') {
+    const g = maze.polarGrid;
+    debugGridEl.textContent = `polar, ${g.rings} rings × ${g.wedges} wedges`;
   } else {
     debugGridEl.textContent = `${maze.cols} × ${maze.rows}`;
   }
@@ -129,10 +144,11 @@ function setStatus(message, type = 'info') {
   }
 }
 
-/** Deterministic preview seed per level + style (no debug). */
-function previewSeedFor(ageRange, mazeStyle) {
+/** Deterministic preview seed per level + style/topology (no debug). */
+function previewSeedFor(ageRange, mazeStyle, topology) {
+  const styleKey = topology === 'circular' ? 'polar' : (mazeStyle || '');
   let h = 0;
-  const s = (ageRange || '') + '-' + (mazeStyle || '');
+  const s = (ageRange || '') + '-' + styleKey;
   for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i) | 0;
   return Math.abs(h) || 1;
 }
@@ -147,7 +163,7 @@ function getPreviewSeed(values) {
     const n = parseInt(debugPreviewSeedInput.value.trim(), 10);
     if (!Number.isNaN(n) && n >= 0) return n;
   }
-  return previewSeedFor(values.ageRange, values.mazeStyle);
+  return previewSeedFor(values.ageRange, values.mazeStyle, values.topology);
 }
 
 /**
@@ -161,14 +177,16 @@ function updatePreviewCanvas() {
   if (debugMode && debugPreviewSeedInput) {
     debugPreviewSeedInput.value = String(seed);
   }
-  const isOrganic = values.mazeStyle === 'organic';
-  const layoutType = isOrganic ? 'organic' : 'grid';
-  const style = values.mazeStyle;
+  const isCircular = values.topology === 'circular';
+  const isOrganic = !isCircular && isOrganicStyle(values.mazeStyle);
+  const style = isCircular ? 'classic' : values.mazeStyle;
   const ageRange = values.ageRange;
 
   let maze;
   try {
-    if (isOrganic) {
+    if (isCircular) {
+      maze = generatePolarMaze({ ageRange, seed });
+    } else if (isOrganic) {
       maze = generateOrganicMaze({ ageRange, seed });
     } else {
       const preset = getDifficultyPreset(ageRange);
@@ -198,10 +216,24 @@ function updatePreviewCanvas() {
   ctx.save();
   ctx.setTransform(1, 0, 0, -1, 0, h);
 
-  const canvasDrawer = getCanvasDrawer(layoutResult.layoutType);
+  const drawerKey = getDrawerKey(maze, style);
+  const drawer = getDrawer(drawerKey);
+  const backend = createCanvasBackend(ctx);
   const useArrows = ageRange === '3' || ageRange === '4-5' || ageRange === '6-8';
-  canvasDrawer.drawWalls(ctx, maze, layoutResult);
-  canvasDrawer.drawLabels(ctx, maze, layoutResult, { useArrows, canvasHeight: h });
+  drawer.drawWalls(backend, maze, layoutResult);
+  drawer.drawLabels(backend, maze, layoutResult, { useArrows, canvasHeight: h });
+
+  if (debugMode && debugShowSolutionCheckbox && debugShowSolutionCheckbox.checked) {
+    const solution = solveMaze(maze);
+    // #region agent log
+    if (maze.layout === 'polar') {
+      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:preview solveMaze', message: 'Polar solution (preview) (H1,H2,H4)', data: { solved: solution?.solved ?? false, pathLength: solution?.path?.length ?? 0, pathStart: solution?.path?.[0], pathEnd: solution?.path?.[solution?.path?.length - 1] }, timestamp: Date.now(), hypothesisId: 'H1,H2,H4' }) }).catch(() => {});
+    }
+    // #endregion
+    if (solution && solution.path.length > 1) {
+      drawer.drawSolutionOverlay(backend, maze, solution.path, layoutResult);
+    }
+  }
 
   if (debugMode) {
     drawPreviewDebugOverlay(ctx, maze, layoutResult, h);
@@ -260,14 +292,36 @@ quantitySlider.addEventListener('input', () => {
   quantityDisplay.textContent = quantitySlider.value;
 });
 
+/** Show/hide maze style fieldset based on topology (circular = style disabled). */
+function syncMazeStyleVisibility() {
+  if (!mazeStyleFieldset) return;
+  const values = getFormValues();
+  if (values.topology === 'circular') {
+    mazeStyleFieldset.classList.add('topology-disabled');
+    mazeStyleFieldset.setAttribute('aria-hidden', 'true');
+  } else {
+    mazeStyleFieldset.classList.remove('topology-disabled');
+    mazeStyleFieldset.removeAttribute('aria-hidden');
+  }
+}
+
 /**
- * Sample preview: update when level or maze style changes
+ * Sample preview: update when level, maze style, or topology changes
  */
 form.addEventListener('change', (e) => {
+  if (e.target.name === 'topology') {
+    syncMazeStyleVisibility();
+    updatePreviewCanvas();
+    return;
+  }
   if (e.target.name === 'age-range' || e.target.name === 'maze-style') {
     updatePreviewCanvas();
   }
 });
+
+if (debugShowSolutionCheckbox) {
+  debugShowSolutionCheckbox.addEventListener('change', () => updatePreviewCanvas());
+}
 
 /**
  * Generate mazes and create PDF
@@ -292,27 +346,67 @@ async function generateAndDownload(event) {
     let result;
     let styleForPdf = values.mazeStyle;
     let filename;
-    const oneOfEach = debugMode && debugOneOfEachCheckbox && debugOneOfEachCheckbox.checked;
+    const oneOfEachLevel = debugMode && debugOneOfEachCheckbox && debugOneOfEachCheckbox.checked;
+    const oneOfEachAlgo = debugMode && debugOneOfEachAlgoCheckbox && debugOneOfEachAlgoCheckbox.checked;
 
-    if (oneOfEach) {
+    const isCircular = values.topology === 'circular';
+
+    if (oneOfEachAlgo && !isCircular) {
+      const mazes = [];
+      for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+        if (isOrganicStyle(values.mazeStyle)) {
+          mazes.push(generateOrganicMaze({
+            ageRange: values.ageRange,
+            seed: baseSeed + a,
+            algorithm: ALGORITHM_IDS[a],
+          }));
+        } else {
+          mazes.push(generateMaze({
+            ageRange: values.ageRange,
+            seed: baseSeed + a,
+            algorithm: ALGORITHM_IDS[a],
+          }));
+        }
+      }
+      styleForPdf = values.mazeStyle;
+      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
+      filename = `mazes-each-algo-${values.mazeStyle}-${values.ageRange}.pdf`;
+    } else if (oneOfEachAlgo && isCircular) {
+      const mazes = [];
+      for (let a = 0; a < POLAR_ALGORITHM_IDS.length; a++) {
+        mazes.push(generatePolarMaze({
+          ageRange: values.ageRange,
+          seed: baseSeed + a,
+          algorithm: POLAR_ALGORITHM_IDS[a],
+        }));
+      }
+      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
+      styleForPdf = 'classic';
+      filename = `mazes-polar-each-algo-${values.ageRange}.pdf`;
+    } else if (oneOfEachLevel) {
       const ageRangeKeys = Object.keys(DIFFICULTY_PRESETS);
       const mazes = [];
-      if (values.mazeStyle === 'organic') {
+      if (isCircular) {
+        for (let l = 0; l < ageRangeKeys.length; l++) {
+          mazes.push(generatePolarMaze({ ageRange: ageRangeKeys[l], seed: baseSeed + l }));
+        }
+        styleForPdf = 'classic';
+      } else if (isOrganicStyle(values.mazeStyle)) {
         for (let l = 0; l < ageRangeKeys.length; l++) {
           mazes.push(generateOrganicMaze({
             ageRange: ageRangeKeys[l],
             seed: baseSeed + l,
           }));
         }
-        styleForPdf = 'organic';
+        styleForPdf = values.mazeStyle;
       } else {
-        for (let a = 0; a < ALGORITHM_IDS.length; a++) {
+        for (let a = 0; a < GRID_ALGORITHM_IDS.length; a++) {
           for (let l = 0; l < ageRangeKeys.length; l++) {
             const ageRange = ageRangeKeys[l];
             const maze = generateMaze({
               ageRange,
               seed: baseSeed + a * 100 + l,
-              algorithm: ALGORITHM_IDS[a],
+              algorithm: GRID_ALGORITHM_IDS[a],
             });
             mazes.push(maze);
           }
@@ -320,8 +414,20 @@ async function generateAndDownload(event) {
         styleForPdf = values.mazeStyle;
       }
       result = { mazes, baseSeed, ageRange: null, quantity: mazes.length };
-      filename = `mazes-one-of-each-${values.mazeStyle}.pdf`;
-    } else if (values.mazeStyle === 'organic') {
+      filename = isCircular ? 'mazes-each-level-polar.pdf' : `mazes-each-level-${values.mazeStyle}.pdf`;
+    } else if (isCircular) {
+      const preset = getDifficultyPreset(values.ageRange);
+      const mazes = generatePolarMazes({
+        ageRange: values.ageRange,
+        quantity: values.quantity,
+        baseSeed,
+        algorithm: preset.algorithm,
+        useAlgorithmRandomizerForOlderAges: OLDER_AGE_RANGES_FOR_RANDOMIZER.includes(values.ageRange),
+      });
+      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
+      styleForPdf = 'classic';
+      filename = `mazes-circular-${values.ageRange}-${mazes.length}pk.pdf`;
+    } else if (isOrganicStyle(values.mazeStyle)) {
       const mazes = [];
       for (let i = 0; i < values.quantity; i++) {
         mazes.push(generateOrganicMaze({
@@ -330,9 +436,8 @@ async function generateAndDownload(event) {
         }));
       }
       result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
-      styleForPdf = 'organic';
-      filename = `mazes-organic-${values.ageRange}-${mazes.length}pk.pdf`;
-      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:branch',message:'branch taken',data:{branch:'organic'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      styleForPdf = values.mazeStyle;
+      filename = `mazes-${values.mazeStyle}-${values.ageRange}-${mazes.length}pk.pdf`;
     } else {
       const preset = getDifficultyPreset(values.ageRange);
       result = generateMazes({
@@ -373,7 +478,7 @@ async function generateAndDownload(event) {
     const pdfBytes = await renderMazesToPdf({
       mazes: result.mazes,
       style: styleForPdf,
-      ageRange: oneOfEach ? undefined : values.ageRange,
+      ageRange: (oneOfEachLevel || oneOfEachAlgo) ? undefined : values.ageRange,
       theme: values.theme,
       debugMode: isDebugMode(),
       showSolution: debugMode && debugShowSolutionCheckbox ? debugShowSolutionCheckbox.checked : false,
@@ -404,7 +509,8 @@ async function generateAndDownload(event) {
 
 form.addEventListener('submit', generateAndDownload);
 
-// Initialize: restore debug from URL, then live preview
+// Initialize: restore debug from URL, sync topology→style visibility, then live preview
 initDebugFromUrl();
+syncMazeStyleVisibility();
 updatePreviewCanvas();
 console.log('MakerNik Maze Generator loaded');

@@ -13,10 +13,20 @@ export const ALGORITHMS = {
   PRIM: 'prim',
   RECURSIVE_BACKTRACKER: 'recursive-backtracker',
   KRUSKAL: 'kruskal',
+  WILSON: 'wilson',
 };
 
-/** Ordered list of all algorithm ids (for randomizer and debug "1 of each") */
+/** Ordered list of all algorithm ids (for footer label and any "all algorithms" reference). */
 export const ALGORITHM_IDS = Object.values(ALGORITHMS);
+
+/** Algorithm ids for grid randomizer and "1 of each algorithm" (includes Wilson's). */
+export const GRID_ALGORITHM_IDS = ['prim', 'recursive-backtracker', 'kruskal', 'wilson'];
+
+/** Algorithm ids for polar randomizer and "1 of each" (Prim excluded; polar coerces prim to recursive-backtracker). */
+export const POLAR_ALGORITHM_IDS = ['recursive-backtracker', 'kruskal', 'wilson'];
+
+/** Algorithm ids for organic randomizer and "1 of each" (Wilson's excluded). */
+export const ORGANIC_ALGORITHM_IDS = ['recursive-backtracker', 'prim', 'kruskal'];
 
 /** Age ranges that use algorithm randomizer for additional mazes (quantity > 1). First maze always uses preset.algorithm. */
 export const OLDER_AGE_RANGES_FOR_RANDOMIZER = ['12-14', '15-17', '18+'];
@@ -34,6 +44,9 @@ export const DIFFICULTY_PRESETS = {
     label: 'Intro',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
     organicNodeCount: 30,
+    polarRings: 4,
+    polarBaseWedges: 5,
+    polarWedgeMultiplier: 2,
   },
   '4-5': {
     gridWidth: 7,
@@ -43,6 +56,9 @@ export const DIFFICULTY_PRESETS = {
     label: 'Easy',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
     organicNodeCount: 80,
+    polarRings: 5,
+    polarBaseWedges: 6,
+    polarWedgeMultiplier: 2,
   },
   '6-8': {
     gridWidth: 10,
@@ -52,6 +68,9 @@ export const DIFFICULTY_PRESETS = {
     label: 'Medium',
     algorithm: ALGORITHMS.RECURSIVE_BACKTRACKER,
     organicNodeCount: 120,
+    polarRings: 6,
+    polarBaseWedges: 6,
+    polarWedgeMultiplier: 2,
   },
   '9-11': {
     gridWidth: 12,
@@ -61,6 +80,9 @@ export const DIFFICULTY_PRESETS = {
     label: 'Hard',
     algorithm: ALGORITHMS.PRIM,
     organicNodeCount: 400,
+    polarRings: 9,
+    polarBaseWedges: 6,
+    polarWedgeMultiplier: 2,
   },
   '12-14': {
     gridWidth: 14,
@@ -70,6 +92,9 @@ export const DIFFICULTY_PRESETS = {
     label: 'Challenging',
     algorithm: ALGORITHMS.PRIM,
     organicNodeCount: 800,
+    polarRings: 12,
+    polarBaseWedges: 8,
+    polarWedgeMultiplier: 2,
   },
   '15-17': {
     gridWidth: 24,
@@ -79,6 +104,9 @@ export const DIFFICULTY_PRESETS = {
     label: 'Difficult',
     algorithm: ALGORITHMS.PRIM,
     organicNodeCount: 1200,
+    polarRings: 14,
+    polarBaseWedges: 8,
+    polarWedgeMultiplier: 2,
   },
   '18+': {
     gridWidth: 36,
@@ -88,6 +116,9 @@ export const DIFFICULTY_PRESETS = {
     label: 'Epic Adventure',
     algorithm: ALGORITHMS.PRIM,
     organicNodeCount: 1900,
+    polarRings: 18,
+    polarBaseWedges: 8,
+    polarWedgeMultiplier: 5,
   },
 };
 

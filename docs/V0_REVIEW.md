@@ -14,7 +14,7 @@
 | C0 — Scaffold + smoke test | ✅ Done | Vite, vanilla JS, app loads |
 | C1 — Seeded maze generation | ✅ Done | PRNG (Mulberry32), grid, Prim's, 3-5 / 9-13 presets (6-8→3-5, 14-17→9-13) |
 | C2 — Maze solver + validation | ✅ Done | BFS solver, single-solution check, regenerate on invalid |
-| C3 — PDF rendering | ✅ Done | pdf-lib, vector paths, US Letter, square/rounded corners, start/finish labels (arrows 3-8, text 9+), footer |
+| C3 — PDF rendering | ✅ Done | pdf-lib, vector paths, US Letter, square/classic corners, start/finish labels (arrows 3-8, text 9+), footer |
 | C4 — UI controls + styling | ✅ Done | Age, style, quantity, Generate; UI per ui_rules (Fraunces/Inter, asymmetrical layout, muted palette) |
 | C5 — Debug mode | ✅ Done | Ctrl+Shift+D and ?debug=1, seed/grid/cell/line display, solver overlay on PDF, quantity default 1 (user can change) |
 | C6 — Error handling | ✅ Done | Single inline message, first vs repeated failure text, no stack in UI, console.error only |
@@ -38,7 +38,7 @@
 | Perfect mazes, single solution | ✅ Solver validates |
 | No AI, no cloud | ✅ |
 | Age ranges 3-5, 6-8, 9-13, 14-17 (mapped to 2 presets) | ✅ |
-| Maze style: Square / Rounded (corners) | ✅ |
+| Maze style: Square / Classic (corners) | ✅ |
 | Theme: None / Shapes / Animals | ✅ Implemented; UI hidden this iteration |
 | Start/finish: arrows (young), “Start”/“Finish” (older) | ✅ |
 | Start/finish fixed (top-left / bottom-right) | ✅ |
@@ -79,7 +79,7 @@
 - **C10 plan status:** Plan still shows C10 as “pending.” Recommendation: mark C10 completed after you’re satisfied with E2E and build.
 - **Theme images:** When theme is re-enabled, users must add images under `public/themes/shapes/` and `public/themes/animals/` (see `public/themes/README.md`). No risk to current build.
 - **Browser coverage:** Plan calls out testing on Chrome, Firefox, Safari; only Playwright/Chromium is automated. Manual check on other browsers is advisable for print/PDF.
-- **Rounded corner radius:** Previously tuned for visibility; no further change unless you request it.
+- **Classic (rounded) corner radius:** Previously tuned for visibility; no further change unless you request it.
 
 ---
 

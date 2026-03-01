@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { renderMazesToPdf, renderSingleMaze } from '../src/pdf/renderer.js';
 import { generateMaze, generateMazes } from '../src/maze/generator.js';
 import { generateOrganicMaze } from '../src/maze/organic-generator.js';
+import { generatePolarMaze } from '../src/maze/polarGenerator.js';
 
 describe('PDF Renderer', () => {
   it('generates a valid PDF document', async () => {
@@ -43,9 +44,9 @@ describe('PDF Renderer', () => {
     expect(pdfBytes.length).toBeGreaterThan(1000); // Should have content
   });
   
-  it('renders maze with grid (rounded) style', async () => {
+  it('renders maze with classic style', async () => {
     const maze = generateMaze({ ageRange: '4-5', seed: 22222 });
-    const pdfBytes = await renderSingleMaze(maze, 'rounded');
+    const pdfBytes = await renderSingleMaze(maze, 'classic');
     
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
     expect(pdfBytes.length).toBeGreaterThan(1000);
@@ -97,9 +98,9 @@ describe('PDF Renderer', () => {
     expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
   });
 
-  it('renders organic maze', async () => {
+  it('renders organic maze with jagged style', async () => {
     const maze = generateOrganicMaze({ ageRange: '4-5', seed: 88880 });
-    const pdfBytes = await renderSingleMaze(maze, 'square');
+    const pdfBytes = await renderSingleMaze(maze, 'jagged');
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
     expect(pdfBytes.length).toBeGreaterThan(1000);
     const header = String.fromCharCode(...pdfBytes.slice(0, 5));
@@ -109,12 +110,82 @@ describe('PDF Renderer', () => {
   it('produces deterministic PDF for same organic maze', async () => {
     const maze1 = generateOrganicMaze({ ageRange: '4-5', seed: 88881 });
     const maze2 = generateOrganicMaze({ ageRange: '4-5', seed: 88881 });
-    const pdf1 = await renderSingleMaze(maze1, 'square');
-    const pdf2 = await renderSingleMaze(maze2, 'square');
+    const pdf1 = await renderSingleMaze(maze1, 'jagged');
+    const pdf2 = await renderSingleMaze(maze2, 'jagged');
     expect(pdf1.length).toBe(pdf2.length);
     expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
   });
-  
+
+  it('renders organic maze with curvy style', async () => {
+    const maze = generateOrganicMaze({ ageRange: '4-5', seed: 88882 });
+    const pdfBytes = await renderSingleMaze(maze, 'curvy');
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.length).toBeGreaterThan(1000);
+    const header = String.fromCharCode(...pdfBytes.slice(0, 5));
+    expect(header).toBe('%PDF-');
+  });
+
+  it('produces deterministic PDF for same curvy maze', async () => {
+    const maze1 = generateOrganicMaze({ ageRange: '4-5', seed: 88883 });
+    const maze2 = generateOrganicMaze({ ageRange: '4-5', seed: 88883 });
+    const pdf1 = await renderSingleMaze(maze1, 'curvy');
+    const pdf2 = await renderSingleMaze(maze2, 'curvy');
+    expect(pdf1.length).toBe(pdf2.length);
+    expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
+  });
+
+  it('renders polar maze to PDF', async () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 70000 });
+    const pdfBytes = await renderSingleMaze(maze, 'classic');
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.length).toBeGreaterThan(1000);
+    const header = String.fromCharCode(...pdfBytes.slice(0, 5));
+    expect(header).toBe('%PDF-');
+  });
+
+  it('produces deterministic PDF for same polar maze', async () => {
+    const maze1 = generatePolarMaze({ ageRange: '4-5', seed: 70001 });
+    const maze2 = generatePolarMaze({ ageRange: '4-5', seed: 70001 });
+    const pdf1 = await renderSingleMaze(maze1, 'classic');
+    const pdf2 = await renderSingleMaze(maze2, 'classic');
+    expect(pdf1.length).toBe(pdf2.length);
+    expect(Array.from(pdf1)).toEqual(Array.from(pdf2));
+  });
+
+  it('renders polar maze to PDF with debug mode and showSolution', async () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 70002 });
+    const pdfBytes = await renderMazesToPdf({
+      mazes: [maze],
+      style: 'classic',
+      ageRange: '4-5',
+      debugMode: true,
+      showSolution: true,
+    });
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    expect(pdfBytes.length).toBeGreaterThan(1000);
+    expect(String.fromCharCode(...pdfBytes.slice(0, 5))).toBe('%PDF-');
+  });
+
+  it('renders polar solution overlay for medium and hard levels', async () => {
+    const { solveMaze } = await import('../src/maze/solver.js');
+    for (const ageRange of ['6-8', '9-11']) {
+      const maze = generatePolarMaze({ ageRange, seed: 80000 });
+      const solution = solveMaze(maze);
+      expect(solution).not.toBeNull();
+      expect(solution.solved).toBe(true);
+      expect(solution.path.length).toBeGreaterThan(1);
+      const pdfBytes = await renderMazesToPdf({
+        mazes: [maze],
+        style: 'classic',
+        ageRange,
+        debugMode: true,
+        showSolution: true,
+      });
+      expect(pdfBytes).toBeInstanceOf(Uint8Array);
+      expect(pdfBytes.length).toBeGreaterThan(1000);
+    }
+  });
+
   it('generates different PDFs for different mazes', async () => {
     const maze1 = generateMaze({ ageRange: '4-5', seed: 77777 });
     const maze2 = generateMaze({ ageRange: '4-5', seed: 88888 });

@@ -42,6 +42,34 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
   const style = pageOptions.style ?? 'square';
   const lineThickness = maze.preset?.lineThickness ?? 2;
 
+  if (maze.layout === 'polar') {
+    const grid = maze.polarGrid;
+    if (!grid || typeof grid.maxRing !== 'number') {
+      throw new Error('Polar maze layout: polarGrid is missing or invalid.');
+    }
+    const labelClearance = 24;
+    const maxRadius = Math.min(mazeWidth, mazeHeight) / 2 - labelClearance;
+    const offsetX = margin + (printableW - mazeWidth) / 2;
+    const offsetY = pageH - margin - mazeHeight;
+    const centerX = offsetX + mazeWidth / 2;
+    const centerY = offsetY + mazeHeight / 2;
+    // Center room: radius = 1.5 × ring thickness (ring thickness = maxRadius / maxRing)
+    const maxRing = grid.maxRing;
+    const ringThickness = maxRadius / maxRing;
+    const ROOM_FACTOR = 1;
+    const roomRadius = ringThickness * ROOM_FACTOR;
+    return {
+      layoutType: 'polar',
+      lineThickness,
+      centerX,
+      centerY,
+      maxRadius,
+      roomRadius,
+      rings: grid.rings,
+      wedges: grid.wedges,
+    };
+  }
+
   if (maze.layout === 'organic') {
     const { boundsWidth, boundsHeight } = maze;
     const scale = Math.min(mazeWidth / boundsWidth, mazeHeight / boundsHeight);

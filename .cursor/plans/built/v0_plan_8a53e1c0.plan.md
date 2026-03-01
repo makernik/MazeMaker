@@ -40,7 +40,7 @@ isProject: false
 
 # v0 Implementation Plan — Printable Maze Generator
 
-**Status:** approved  
+**Status:** built  
 **Last updated:** 2026-02-02  
 **Owner:** Agent  
 **Related:** [v0_spec.md](.cursor/plans/v0_spec.md)

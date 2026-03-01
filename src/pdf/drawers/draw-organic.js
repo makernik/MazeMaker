@@ -1,31 +1,105 @@
 /**
- * Organic maze drawer: corridor walls, labels, solution overlay.
- * Shared interface: drawWalls (returns stats for footer), drawLabels, drawSolutionOverlay.
+ * Organic (jagged) maze drawer (unified): corridor walls, junction arcs,
+ * labels, solution overlay.  All rendering goes through a DrawBackend.
+ * Shared interface: drawWalls, drawLabels, drawSolutionOverlay.
  */
 
-import { rgb } from 'pdf-lib';
+import { computeNodeTrims, prepareGraphData } from './organic-geometry.js';
 
-function drawArrow(page, x1, y1, x2, y2, headSize) {
-  page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 2, color: rgb(0, 0, 0) });
+function drawArrow(backend, x1, y1, x2, y2, headSize) {
+  backend.setStroke('#000', 2, 'butt');
+  backend.line(x1, y1, x2, y2);
   const angle = Math.atan2(y2 - y1, x2 - x1);
   const headAngle = Math.PI / 6;
   const head1X = x2 - headSize * Math.cos(angle - headAngle);
   const head1Y = y2 - headSize * Math.sin(angle - headAngle);
   const head2X = x2 - headSize * Math.cos(angle + headAngle);
   const head2Y = y2 - headSize * Math.sin(angle + headAngle);
-  page.drawLine({ start: { x: x2, y: y2 }, end: { x: head1X, y: head1Y }, thickness: 2, color: rgb(0, 0, 0) });
-  page.drawLine({ start: { x: x2, y: y2 }, end: { x: head2X, y: head2Y }, thickness: 2, color: rgb(0, 0, 0) });
+  backend.line(x2, y2, head1X, head1Y);
+  backend.line(x2, y2, head2X, head2Y);
+}
+
+/**
+ * Draw corridor walls and junction arcs for a graph (main or filler).
+ */
+function drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, params) {
+  const { transform, wallThickness, halfW, scale } = params;
+  const drawnEdges = new Set();
+
+  backend.setStroke('#000', wallThickness, 'round');
+
+  for (const node of graph.nodes) {
+    for (const nid of node.neighbors) {
+      const key = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
+      if (drawnEdges.has(key) || graph.hasWall(node.id, nid)) continue;
+      drawnEdges.add(key);
+      const other = graph.getNode(nid);
+      if (!other) continue;
+      const dx = other.x - node.x;
+      const dy = other.y - node.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ux = dx / dist;
+      const uy = dy / dist;
+      const px = -uy;
+      const py = ux;
+      const trimsA = allNodeTrims.get(node.id);
+      const trimsB = allNodeTrims.get(nid);
+      const aTrim = trimsA ? trimsA.get(nid) : null;
+      const bTrim = trimsB ? trimsB.get(node.id) : null;
+      const cap = dist * 0.45;
+      const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
+      const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
+      const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
+      const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
+
+      const s1 = transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW);
+      const e1 = transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW);
+      backend.line(s1.x, s1.y, e1.x, e1.y);
+
+      const s2 = transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW);
+      const e2 = transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW);
+      backend.line(s2.x, s2.y, e2.x, e2.y);
+    }
+  }
+
+  for (const node of graph.nodes) {
+    const passages = nodePassages.get(node.id);
+    if (!passages || passages.length === 0) continue;
+    const cx = node.x;
+    const cy = node.y;
+    const n = passages.length;
+    for (let i = 0; i < n; i++) {
+      const curr = passages[i];
+      const next = passages[(i + 1) % n];
+      let gap = next.angle - curr.angle;
+      if (i === n - 1) gap += 2 * Math.PI;
+      if (gap < 0) gap += 2 * Math.PI;
+      if (gap <= Math.PI) continue;
+
+      const arcStart = curr.angle + Math.PI / 2;
+      let arcEnd = next.angle - Math.PI / 2;
+      if (i === n - 1) arcEnd += 2 * Math.PI;
+      const span = arcEnd - arcStart;
+      if (span < 0.02) continue;
+
+      const center = transform(cx, cy);
+      const r = halfW * scale;
+      backend.beginPath();
+      backend.arc(center.x, center.y, r, arcStart, arcEnd);
+      backend.stroke();
+    }
+  }
 }
 
 /**
  * Draw organic maze (corridors, junctions, boundary). Returns stats for footer.
  *
- * @param {import('pdf-lib').PDFPage} page
- * @param {object} maze - Organic maze with graph, nodePositions, startId, finishId, boundsWidth, boundsHeight
+ * @param {object} backend - DrawBackend (pdf or canvas)
+ * @param {object} maze
  * @param {object} layoutResult - { transform, lineThickness, scale }
  * @returns {{ corridorWidth: number, avgDist: number }|undefined}
  */
-export function drawWalls(page, maze, layoutResult) {
+export function drawWalls(backend, maze, layoutResult) {
   const { transform, lineThickness, scale } = layoutResult;
   const { graph } = maze;
   const wallThickness = lineThickness * scale;
@@ -48,23 +122,8 @@ export function drawWalls(page, maze, layoutResult) {
   const maxCorridorW = avgDist * 0.35;
   const corridorWidth = Math.max(lineThickness * 2, Math.min(Math.max(lineThickness * 3, 8), maxCorridorW));
   const halfW = corridorWidth / 2;
-  const junctionR = halfW * 1.05;
-  const halfOpenAngle = Math.asin(Math.min(halfW / junctionR, 1));
-  const geometricTrim = Math.sqrt(junctionR * junctionR - halfW * halfW);
-  const drawnEdges = new Set();
 
-  const nodePassages = new Map();
-  for (const node of graph.nodes) {
-    const passages = [];
-    for (const nid of node.neighbors) {
-      if (graph.hasWall(node.id, nid)) continue;
-      const other = graph.getNode(nid);
-      if (!other) continue;
-      passages.push({ nid, angle: Math.atan2(other.y - node.y, other.x - node.x) });
-    }
-    passages.sort((a, b) => a.angle - b.angle);
-    nodePassages.set(node.id, passages);
-  }
+  const { nodePassages, allNodeTrims } = prepareGraphData(graph, halfW);
   const startPassages = nodePassages.get(maze.startId);
   if (startPassages) {
     startPassages.push({ nid: -1, angle: Math.PI / 2 });
@@ -75,152 +134,109 @@ export function drawWalls(page, maze, layoutResult) {
     finishPassages.push({ nid: -2, angle: -Math.PI / 2 });
     finishPassages.sort((a, b) => a.angle - b.angle);
   }
-
-  for (const node of graph.nodes) {
-    for (const nid of node.neighbors) {
-      const key = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
-      if (drawnEdges.has(key) || graph.hasWall(node.id, nid)) continue;
-      drawnEdges.add(key);
-      const other = graph.getNode(nid);
-      if (!other) continue;
-      const dx = other.x - node.x;
-      const dy = other.y - node.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const ux = dx / dist;
-      const uy = dy / dist;
-      const px = -uy;
-      const py = ux;
-      const trimA = Math.min(geometricTrim, dist * 0.45);
-      const trimB = Math.min(geometricTrim, dist * 0.45);
-      const ax = node.x + ux * trimA;
-      const ay = node.y + uy * trimA;
-      const bx = other.x - ux * trimB;
-      const by = other.y - uy * trimB;
-      page.drawLine({
-        start: transform(ax + px * halfW, ay + py * halfW),
-        end: transform(bx + px * halfW, by + py * halfW),
-        thickness: wallThickness,
-        color: rgb(0, 0, 0),
-        lineCap: 1,
-      });
-      page.drawLine({
-        start: transform(ax - px * halfW, ay - py * halfW),
-        end: transform(bx - px * halfW, by - py * halfW),
-        thickness: wallThickness,
-        color: rgb(0, 0, 0),
-        lineCap: 1,
-      });
-    }
+  if (startPassages && startPassages.length > 0) {
+    allNodeTrims.set(maze.startId, computeNodeTrims(startPassages, halfW));
+  }
+  if (finishPassages && finishPassages.length > 0) {
+    allNodeTrims.set(maze.finishId, computeNodeTrims(finishPassages, halfW));
   }
 
-  for (const node of graph.nodes) {
-    const passages = nodePassages.get(node.id);
-    if (!passages || passages.length === 0) continue;
-    const cx = node.x;
-    const cy = node.y;
-    const n = passages.length;
-    for (let i = 0; i < n; i++) {
-      const curr = passages[i];
-      const next = passages[(i + 1) % n];
-      const startAngle = curr.angle + halfOpenAngle;
-      let endAngle = next.angle - halfOpenAngle;
-      if (i === n - 1) endAngle += 2 * Math.PI;
-      const span = endAngle - startAngle;
-      if (span < 0.02) continue;
-      if (span < 0) {
-        const t1 = geometricTrim;
-        const rx = cx + Math.cos(curr.angle) * t1 + Math.sin(curr.angle) * halfW;
-        const ry = cy + Math.sin(curr.angle) * t1 - Math.cos(curr.angle) * halfW;
-        const t2 = geometricTrim;
-        const lx = cx + Math.cos(next.angle) * t2 - Math.sin(next.angle) * halfW;
-        const ly = cy + Math.sin(next.angle) * t2 + Math.cos(next.angle) * halfW;
-        page.drawLine({
-          start: transform(rx, ry),
-          end: transform(lx, ly),
-          thickness: wallThickness,
-          color: rgb(0, 0, 0),
-          lineCap: 1,
-        });
-      } else if (Math.abs(span - Math.PI) < 0.01) {
-        const midAngle = (startAngle + endAngle) / 2;
-        const p1 = transform(cx + junctionR * Math.cos(startAngle), cy + junctionR * Math.sin(startAngle));
-        const pm = transform(cx + junctionR * Math.cos(midAngle), cy + junctionR * Math.sin(midAngle));
-        const p2 = transform(cx + junctionR * Math.cos(endAngle), cy + junctionR * Math.sin(endAngle));
-        const r = junctionR * scale;
-        const arcOpts = { borderColor: rgb(0, 0, 0), borderWidth: wallThickness, borderLineCap: 1 };
-        page.drawSvgPath(`M ${p1.x} ${-p1.y} A ${r} ${r} 0 0 0 ${pm.x} ${-pm.y}`, arcOpts);
-        page.drawSvgPath(`M ${pm.x} ${-pm.y} A ${r} ${r} 0 0 0 ${p2.x} ${-p2.y}`, arcOpts);
-      } else {
-        const p1 = transform(cx + junctionR * Math.cos(startAngle), cy + junctionR * Math.sin(startAngle));
-        const p2 = transform(cx + junctionR * Math.cos(endAngle), cy + junctionR * Math.sin(endAngle));
-        const r = junctionR * scale;
-        const largeArc = span > Math.PI ? 1 : 0;
-        page.drawSvgPath(`M ${p1.x} ${-p1.y} A ${r} ${r} 0 ${largeArc} 0 ${p2.x} ${-p2.y}`, {
-          borderColor: rgb(0, 0, 0),
-          borderWidth: wallThickness,
-          borderLineCap: 1,
-        });
-      }
-    }
+  const drawParams = { transform, wallThickness, halfW, scale };
+  drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, drawParams);
+
+  if (maze.fillerGraph) {
+    const fillerData = prepareGraphData(maze.fillerGraph, halfW);
+    drawGraphCorridors(backend, maze.fillerGraph, fillerData.nodePassages, fillerData.allNodeTrims, drawParams);
   }
+
+  backend.setStroke('#000', wallThickness, 'round');
 
   const bw = maze.boundsWidth;
   const bh = maze.boundsHeight;
   const startPos = maze.nodePositions.get(maze.startId);
   const finishPos = maze.nodePositions.get(maze.finishId);
-  const lineOpts = { thickness: wallThickness, color: rgb(0, 0, 0), lineCap: 1 };
   const halfThick = lineThickness / 2;
-  page.drawLine({ start: transform(startPos.x - halfW, bh + halfThick), end: transform(startPos.x - halfW, startPos.y + geometricTrim - halfThick), ...lineOpts });
-  page.drawLine({ start: transform(startPos.x + halfW, bh + halfThick), end: transform(startPos.x + halfW, startPos.y + geometricTrim - halfThick), ...lineOpts });
-  page.drawLine({ start: transform(finishPos.x - halfW, 0 - halfThick), end: transform(finishPos.x - halfW, finishPos.y - geometricTrim + halfThick), ...lineOpts });
-  page.drawLine({ start: transform(finishPos.x + halfW, 0 - halfThick), end: transform(finishPos.x + halfW, finishPos.y - geometricTrim + halfThick), ...lineOpts });
+
+  const line = (x1, y1, x2, y2) => {
+    const a = transform(x1, y1);
+    const b = transform(x2, y2);
+    backend.line(a.x, a.y, b.x, b.y);
+  };
+
+  const startTrims = allNodeTrims.get(maze.startId);
+  const startVT = startTrims ? startTrims.get(-1) : { leftTrim: 0, rightTrim: 0 };
+  const finishTrims = allNodeTrims.get(maze.finishId);
+  const finishVT = finishTrims ? finishTrims.get(-2) : { leftTrim: 0, rightTrim: 0 };
+  line(startPos.x - halfW, bh + halfThick, startPos.x - halfW, startPos.y + startVT.leftTrim - halfThick);
+  line(startPos.x + halfW, bh + halfThick, startPos.x + halfW, startPos.y + startVT.rightTrim - halfThick);
+  line(finishPos.x - halfW, 0 - halfThick, finishPos.x - halfW, finishPos.y - finishVT.rightTrim + halfThick);
+  line(finishPos.x + halfW, 0 - halfThick, finishPos.x + halfW, finishPos.y - finishVT.leftTrim + halfThick);
   const gapHalf = halfW;
-  page.drawLine({ start: transform(0, bh), end: transform(startPos.x - gapHalf, bh), ...lineOpts });
-  page.drawLine({ start: transform(startPos.x + gapHalf, bh), end: transform(bw, bh), ...lineOpts });
-  page.drawLine({ start: transform(0, 0), end: transform(finishPos.x - gapHalf, 0), ...lineOpts });
-  page.drawLine({ start: transform(finishPos.x + gapHalf, 0), end: transform(bw, 0), ...lineOpts });
-  page.drawLine({ start: transform(0, 0), end: transform(0, bh), ...lineOpts });
-  page.drawLine({ start: transform(bw, 0), end: transform(bw, bh), ...lineOpts });
+  line(0, bh, startPos.x - gapHalf, bh);
+  line(startPos.x + gapHalf, bh, bw, bh);
+  line(0, 0, finishPos.x - gapHalf, 0);
+  line(finishPos.x + gapHalf, 0, bw, 0);
+  line(0, 0, 0, bh);
+  line(bw, 0, bw, bh);
 
   return { corridorWidth, avgDist };
 }
 
 /**
- * @param {import('pdf-lib').PDFPage} page
+ * @param {object} backend - DrawBackend (pdf or canvas)
  * @param {object} maze - Organic maze
  * @param {object} layoutResult - { transform, boundsWidth, boundsHeight }
- * @param {object} options - { useArrows, font, boldFont }
+ * @param {object} options - { useArrows, canvasHeight? }
  */
-export function drawLabels(page, maze, layoutResult, options) {
-  const { transform, boundsWidth, boundsHeight } = layoutResult;
-  const boundaryTop = transform(0, boundsHeight).y;
-  const boundaryBottom = transform(0, 0).y;
-  const { useArrows, font, boldFont } = options;
+export function drawLabels(backend, maze, layoutResult, options = {}) {
+  const { transform, boundsHeight } = layoutResult;
+  const bTopLayout = transform(0, boundsHeight).y;
+  const bBottomLayout = transform(0, 0).y;
+  const useArrows = options.useArrows ?? false;
+  const canvasHeight = options.canvasHeight;
+  const isCanvas = canvasHeight != null;
+  const toY = isCanvas ? (y) => canvasHeight - y : (y) => y;
+  const yDir = isCanvas ? -1 : 1;
+
   const startPos = maze.nodePositions.get(maze.startId);
   const finishPos = maze.nodePositions.get(maze.finishId);
   if (!startPos || !finishPos) return;
   const startX = transform(startPos.x, startPos.y).x;
   const finishX = transform(finishPos.x, finishPos.y).x;
+
+  const topY = toY(bTopLayout);
+  const bottomY = toY(bBottomLayout);
   const gap = 4;
-  if (useArrows) {
-    drawArrow(page, startX, boundaryTop + gap + 15, startX, boundaryTop + gap, 8);
-    drawArrow(page, finishX, boundaryBottom - gap, finishX, boundaryBottom - gap - 15, 8);
+  const fontSize = 10;
+
+  const render = () => {
+    if (useArrows) {
+      drawArrow(backend, startX, topY + yDir * (gap + 15), startX, topY + yDir * gap, 8);
+      drawArrow(backend, finishX, bottomY - yDir * gap, finishX, bottomY - yDir * (gap + 15), 8);
+    } else {
+      const startText = 'Start';
+      const startW = backend.measureText(startText, { bold: true, fontSize });
+      backend.drawText(startText, startX - startW / 2, topY + yDir * gap, { bold: true, fontSize });
+      const finishText = 'Finish';
+      const finishW = backend.measureText(finishText, { bold: true, fontSize });
+      backend.drawText(finishText, finishX - finishW / 2, bottomY - yDir * (fontSize + gap), { bold: true, fontSize });
+    }
+  };
+
+  if (isCanvas) {
+    backend.withScreenTransform(render);
   } else {
-    const fontSize = 10;
-    const startText = 'Start';
-    page.drawText(startText, { x: startX - boldFont.widthOfTextAtSize(startText, fontSize) / 2, y: boundaryTop + gap, size: fontSize, font: boldFont, color: rgb(0, 0, 0) });
-    const finishText = 'Finish';
-    page.drawText(finishText, { x: finishX - boldFont.widthOfTextAtSize(finishText, fontSize) / 2, y: boundaryBottom - fontSize - gap, size: fontSize, font: boldFont, color: rgb(0, 0, 0) });
+    render();
   }
 }
 
 /**
- * @param {import('pdf-lib').PDFPage} page
+ * @param {object} backend - DrawBackend (pdf or canvas)
  * @param {object} maze - Organic maze with nodePositions
  * @param {number[]} path - Node ids
  * @param {object} layoutResult - { transform }
  */
-export function drawSolutionOverlay(page, maze, path, layoutResult) {
+export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   const { transform } = layoutResult;
   const points = [];
   for (let i = 0; i < path.length; i++) {
@@ -229,22 +245,22 @@ export function drawSolutionOverlay(page, maze, path, layoutResult) {
     points.push(transform(pos.x, pos.y));
   }
   if (points.length < 2) return;
-  const lineOpts = { thickness: 1.5, color: rgb(0.4, 0.4, 0.4), opacity: 0.7, dashArray: [4, 4] };
+
+  backend.save();
+  backend.setStroke('#666', 1.5, 'butt');
+  backend.setDash([4, 4]);
+  backend.setOpacity(0.7);
+
   if (points.length === 2) {
-    page.drawLine({ start: points[0], end: points[1], ...lineOpts });
-    return;
+    backend.line(points[0].x, points[0].y, points[1].x, points[1].y);
+  } else {
+    backend.beginPath();
+    backend.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      backend.quadraticCurveTo(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
+    }
+    backend.stroke();
   }
-  const toSvg = (p) => `${p.x} ${-p.y}`;
-  const parts = [`M ${toSvg(points[0])}`];
-  for (let i = 1; i < points.length - 1; i++) {
-    parts.push(`Q ${toSvg(points[i])} ${toSvg(points[i + 1])}`);
-  }
-  page.drawSvgPath(parts.join(' '), {
-    x: 0,
-    y: 0,
-    borderColor: rgb(0.4, 0.4, 0.4),
-    borderWidth: 1.5,
-    borderDashArray: [4, 4],
-    opacity: 0.7,
-  });
+
+  backend.restore();
 }

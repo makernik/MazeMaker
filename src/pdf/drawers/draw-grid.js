@@ -1,12 +1,12 @@
 /**
- * Grid maze drawer: walls (square/rounded), labels, solution overlay.
+ * Grid maze drawer (unified): walls (square/classic), labels, solution overlay.
+ * All drawing goes through a DrawBackend (pdf or canvas).
  * Shared interface: drawWalls, drawLabels, drawSolutionOverlay.
  */
 
-import { rgb } from 'pdf-lib';
 import { DIRECTIONS } from '../../maze/grid.js';
 
-function drawWall(page, x1, y1, x2, y2, thickness, isRounded) {
+function drawWall(backend, x1, y1, x2, y2, thickness, isRounded) {
   let startX = x1;
   let startY = y1;
   let endX = x2;
@@ -23,41 +23,32 @@ function drawWall(page, x1, y1, x2, y2, thickness, isRounded) {
     endX = x2 + ux * half;
     endY = y2 + uy * half;
   }
-  page.drawLine({
-    start: { x: startX, y: startY },
-    end: { x: endX, y: endY },
-    thickness,
-    color: rgb(0, 0, 0),
-    lineCap: isRounded ? 1 : 0,
-  });
+  backend.setStroke('#000', thickness, isRounded ? 'round' : 'butt');
+  backend.line(startX, startY, endX, endY);
 }
 
-function drawArrow(page, x1, y1, x2, y2, headSize) {
-  page.drawLine({
-    start: { x: x1, y: y1 },
-    end: { x: x2, y: y2 },
-    thickness: 2,
-    color: rgb(0, 0, 0),
-  });
+function drawArrow(backend, x1, y1, x2, y2, headSize) {
+  backend.setStroke('#000', 2, 'butt');
+  backend.line(x1, y1, x2, y2);
   const angle = Math.atan2(y2 - y1, x2 - x1);
   const headAngle = Math.PI / 6;
   const head1X = x2 - headSize * Math.cos(angle - headAngle);
   const head1Y = y2 - headSize * Math.sin(angle - headAngle);
   const head2X = x2 - headSize * Math.cos(angle + headAngle);
   const head2Y = y2 - headSize * Math.sin(angle + headAngle);
-  page.drawLine({ start: { x: x2, y: y2 }, end: { x: head1X, y: head1Y }, thickness: 2, color: rgb(0, 0, 0) });
-  page.drawLine({ start: { x: x2, y: y2 }, end: { x: head2X, y: head2Y }, thickness: 2, color: rgb(0, 0, 0) });
+  backend.line(x2, y2, head1X, head1Y);
+  backend.line(x2, y2, head2X, head2Y);
 }
 
 /**
- * @param {import('pdf-lib').PDFPage} page
+ * @param {object} backend - DrawBackend (pdf or canvas)
  * @param {object} maze - Maze with .grid
  * @param {object} layoutResult - { offsetX, offsetY, cellSize, lineThickness, style }
  */
-export function drawWalls(page, maze, layoutResult) {
+export function drawWalls(backend, maze, layoutResult) {
   const grid = maze.grid;
   const { offsetX, offsetY, cellSize, lineThickness, style } = layoutResult;
-  const isRounded = style === 'rounded';
+  const isRounded = style === 'classic';
   const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
 
   for (let row = 0; row < grid.rows; row++) {
@@ -66,61 +57,78 @@ export function drawWalls(page, maze, layoutResult) {
       const x = offsetX + col * cellSize;
       const y = offsetY + (grid.rows - 1 - row) * cellSize;
       if (cell.hasWall(DIRECTIONS.TOP)) {
-        drawWall(page, x, y + cellSize, x + cellSize, y + cellSize, effectiveThickness, isRounded);
+        drawWall(backend, x, y + cellSize, x + cellSize, y + cellSize, effectiveThickness, isRounded);
       }
       if (cell.hasWall(DIRECTIONS.BOTTOM)) {
-        drawWall(page, x, y, x + cellSize, y, effectiveThickness, isRounded);
+        drawWall(backend, x, y, x + cellSize, y, effectiveThickness, isRounded);
       }
       if (cell.hasWall(DIRECTIONS.LEFT)) {
-        drawWall(page, x, y, x, y + cellSize, effectiveThickness, isRounded);
+        drawWall(backend, x, y, x, y + cellSize, effectiveThickness, isRounded);
       }
       if (cell.hasWall(DIRECTIONS.RIGHT)) {
-        drawWall(page, x + cellSize, y, x + cellSize, y + cellSize, effectiveThickness, isRounded);
+        drawWall(backend, x + cellSize, y, x + cellSize, y + cellSize, effectiveThickness, isRounded);
       }
     }
   }
 }
 
 /**
- * @param {import('pdf-lib').PDFPage} page
+ * @param {object} backend - DrawBackend (pdf or canvas)
  * @param {object} maze - Maze with .grid
  * @param {object} layoutResult - { offsetX, offsetY, cellSize }
- * @param {object} options - { useArrows, font, boldFont }
+ * @param {object} options - { useArrows, canvasHeight? }
  */
-export function drawLabels(page, maze, layoutResult, options) {
+export function drawLabels(backend, maze, layoutResult, options = {}) {
   const grid = maze.grid;
   const { offsetX, offsetY, cellSize } = layoutResult;
-  const { useArrows, font, boldFont } = options;
+  const useArrows = options.useArrows ?? false;
+  const canvasHeight = options.canvasHeight;
+  const isCanvas = canvasHeight != null;
+  const toY = isCanvas ? (y) => canvasHeight - y : (y) => y;
+  const yDir = isCanvas ? -1 : 1;
 
   const startX = offsetX + cellSize / 2;
-  const startY = offsetY + (grid.rows - 1) * cellSize + cellSize + 5;
+  const startY = toY(offsetY + (grid.rows - 1) * cellSize + cellSize + 5);
   const finishX = offsetX + (grid.cols - 1) * cellSize + cellSize / 2;
-  const finishY = offsetY - 5;
+  const finishY = toY(offsetY - 5);
+  const fontSize = 10;
 
-  if (useArrows) {
-    drawArrow(page, startX, startY + 15, startX, startY, 8);
-    drawArrow(page, finishX, finishY, finishX, finishY - 15, 8);
+  const render = () => {
+    if (useArrows) {
+      drawArrow(backend, startX, startY + yDir * 15, startX, startY, 8);
+      drawArrow(backend, finishX, finishY, finishX, finishY - yDir * 15, 8);
+    } else {
+      const startText = 'Start';
+      const startW = backend.measureText(startText, { bold: true, fontSize });
+      backend.drawText(startText, startX - startW / 2, startY + yDir * 5, { bold: true, fontSize });
+      const finishText = 'Finish';
+      const finishW = backend.measureText(finishText, { bold: true, fontSize });
+      backend.drawText(finishText, finishX - finishW / 2, finishY - yDir * (fontSize + 5), { bold: true, fontSize });
+    }
+  };
+
+  if (isCanvas) {
+    backend.withScreenTransform(render);
   } else {
-    const fontSize = 10;
-    const startText = 'Start';
-    const startTextWidth = boldFont.widthOfTextAtSize(startText, fontSize);
-    page.drawText(startText, { x: startX - startTextWidth / 2, y: startY + 5, size: fontSize, font: boldFont, color: rgb(0, 0, 0) });
-    const finishText = 'Finish';
-    const finishTextWidth = boldFont.widthOfTextAtSize(finishText, fontSize);
-    page.drawText(finishText, { x: finishX - finishTextWidth / 2, y: finishY - fontSize - 5, size: fontSize, font: boldFont, color: rgb(0, 0, 0) });
+    render();
   }
 }
 
 /**
- * @param {import('pdf-lib').PDFPage} page
+ * @param {object} backend - DrawBackend (pdf or canvas)
  * @param {object} maze - Maze with .grid
  * @param {object[]} path - Array of { row, col }
  * @param {object} layoutResult - { offsetX, offsetY, cellSize }
  */
-export function drawSolutionOverlay(page, maze, path, layoutResult) {
+export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   const grid = maze.grid;
   const { offsetX, offsetY, cellSize } = layoutResult;
   const rows = grid.rows;
+
+  backend.save();
+  backend.setStroke('#666', 1.5, 'butt');
+  backend.setDash([4, 4]);
+  backend.setOpacity(0.7);
 
   for (let i = 1; i < path.length; i++) {
     const prev = path[i - 1];
@@ -129,13 +137,8 @@ export function drawSolutionOverlay(page, maze, path, layoutResult) {
     const y1 = offsetY + (rows - 1 - prev.row + 0.5) * cellSize;
     const x2 = offsetX + (curr.col + 0.5) * cellSize;
     const y2 = offsetY + (rows - 1 - curr.row + 0.5) * cellSize;
-    page.drawLine({
-      start: { x: x1, y: y1 },
-      end: { x: x2, y: y2 },
-      thickness: 1.5,
-      color: rgb(0.4, 0.4, 0.4),
-      opacity: 0.7,
-      dashArray: [4, 4],
-    });
+    backend.line(x1, y1, x2, y2);
   }
+
+  backend.restore();
 }

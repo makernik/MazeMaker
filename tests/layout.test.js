@@ -6,16 +6,17 @@ import { describe, it, expect } from 'vitest';
 import { getLayoutForMaze } from '../src/pdf/layout.js';
 import { generateMaze } from '../src/maze/generator.js';
 import { generateOrganicMaze } from '../src/maze/organic-generator.js';
+import { generatePolarMaze } from '../src/maze/polarGenerator.js';
 
 describe('getLayoutForMaze', () => {
   it('returns grid layout with default page dimensions', () => {
     const maze = generateMaze({ ageRange: '4-5', seed: 1 });
-    const layout = getLayoutForMaze(maze, { style: 'rounded' });
+    const layout = getLayoutForMaze(maze, { style: 'classic' });
     expect(layout.layoutType).toBe('grid');
     expect(layout.offsetX).toBeGreaterThanOrEqual(0);
     expect(layout.offsetY).toBeGreaterThanOrEqual(0);
     expect(layout.cellSize).toBeGreaterThan(0);
-    expect(layout.style).toBe('rounded');
+    expect(layout.style).toBe('classic');
   });
 
   it('returns organic layout with default page dimensions', () => {
@@ -40,7 +41,7 @@ describe('getLayoutForMaze', () => {
       margin,
       mazeWidth: pageWidth,
       mazeHeight: pageHeight,
-      style: 'organic',
+      style: 'jagged',
     });
     expect(layout.layoutType).toBe('organic');
     const { boundsWidth, boundsHeight, transform } = layout;
@@ -76,5 +77,18 @@ describe('getLayoutForMaze', () => {
     expect(layout.offsetX + layout.cellSize * maze.cols).toBeLessThanOrEqual(pageWidth + 1);
     expect(layout.offsetY).toBeGreaterThanOrEqual(0);
     expect(layout.offsetY + layout.cellSize * maze.rows).toBeLessThanOrEqual(pageHeight + 1);
+  });
+
+  it('returns polar layout with centerX, centerY, maxRadius, roomRadius', () => {
+    const maze = generatePolarMaze({ ageRange: '4-5', seed: 100 });
+    const layout = getLayoutForMaze(maze);
+    expect(layout.layoutType).toBe('polar');
+    expect(layout.centerX).toBeGreaterThanOrEqual(0);
+    expect(layout.centerY).toBeGreaterThanOrEqual(0);
+    expect(layout.maxRadius).toBeGreaterThan(0);
+    expect(layout.roomRadius).toBeGreaterThan(0);
+    expect(layout.roomRadius).toBeLessThan(layout.maxRadius);
+    expect(layout.rings).toBe(maze.polarGrid.rings);
+    expect(layout.wedges).toBe(maze.polarGrid.wedges);
   });
 });

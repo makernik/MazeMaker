@@ -20,8 +20,8 @@ export function sampleTokenForAgeRange(ageRange) {
  * Sample image path (no leading slash) for given level and maze style.
  * Used as img src with base so Vite serves from public/samples/.
  * @param {string} ageRange - Form value
- * @param {string} mazeStyle - Form value: rounded, organic, square
- * @returns {string} Path like "samples/4-5-rounded.png" or "samples/18plus-organic.png"
+ * @param {string} mazeStyle - Form value: classic, organic, square
+ * @returns {string} Path like "samples/4-5-classic.png" or "samples/18plus-organic.png"
  */
 export function getSampleImagePath(ageRange, mazeStyle) {
   const token = sampleTokenForAgeRange(ageRange);

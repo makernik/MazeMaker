@@ -279,6 +279,18 @@ describe('Recursive Backtracker algorithm', () => {
   });
 });
 
+describe("Wilson's algorithm", () => {
+  it('produces a valid (solvable) maze with fixed seed', () => {
+    const maze = generateMaze({
+      ageRange: '4-5',
+      seed: 12345,
+      algorithm: 'wilson',
+    });
+    expect(maze.algorithm).toBe('wilson');
+    expect(validateMaze(maze.grid)).toBe(true);
+  });
+});
+
 describe('Kruskal algorithm', () => {
   it('produces a valid (solvable) maze with fixed seed', () => {
     const maze = generateMaze({

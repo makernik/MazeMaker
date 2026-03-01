@@ -30,7 +30,45 @@
 
 import { MazeGrid, DIRECTIONS, DIRECTION_OFFSETS, OPPOSITE } from './grid.js';
 import { createRng, generateSeed } from '../utils/rng.js';
-import { getDifficultyPreset, ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from '../utils/constants.js';
+import { getDifficultyPreset, GRID_ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from '../utils/constants.js';
+import { runWilsons } from './wilsons.js';
+
+/**
+ * Wilson's adapter for MazeGrid: key = "row,col".
+ */
+function makeGridWilsonAdapter(grid) {
+  return {
+    getAllKeys() {
+      const out = [];
+      for (let row = 0; row < grid.rows; row++) {
+        for (let col = 0; col < grid.cols; col++) out.push(`${row},${col}`);
+      }
+      return out;
+    },
+    getAdjacentKeys(key) {
+      const [row, col] = key.split(',').map(Number);
+      const out = [];
+      for (const dir of Object.values(DIRECTIONS)) {
+        const n = grid.getNeighbor(row, col, dir);
+        if (n) out.push(`${n.row},${n.col}`);
+      }
+      return out;
+    },
+    removeWallBetween(k1, k2) {
+      const [r1, c1] = k1.split(',').map(Number);
+      const [r2, c2] = k2.split(',').map(Number);
+      grid.removeWallBetween(grid.getCell(r1, c1), grid.getCell(r2, c2));
+    },
+    markVisited(key) {
+      const [r, c] = key.split(',').map(Number);
+      grid.getCell(r, c).markVisited();
+    },
+    isVisited(key) {
+      const [r, c] = key.split(',').map(Number);
+      return grid.getCell(r, c).isVisited();
+    },
+  };
+}
 
 /**
  * Wall entry for Prim's algorithm
@@ -69,6 +107,9 @@ export function generateMaze(config) {
     recursiveBacktrackerGenerate(grid, rng);
   } else if (algorithm === 'kruskal') {
     kruskalGenerate(grid, rng);
+  } else if (algorithm === 'wilson') {
+    const gridAdapter = makeGridWilsonAdapter(grid);
+    runWilsons(gridAdapter, rng);
   } else {
     primGenerate(grid, rng);
   }
@@ -281,8 +322,8 @@ export function generateMazes(config) {
     let algo = preset.algorithm ?? algorithm;
     if (useRandomizer && i > 0) {
       const rng = createRng(baseSeed + i);
-      const idx = rng.randomInt(0, ALGORITHM_IDS.length - 1);
-      algo = ALGORITHM_IDS[idx];
+      const idx = rng.randomInt(0, GRID_ALGORITHM_IDS.length - 1);
+      algo = GRID_ALGORITHM_IDS[idx];
     }
     const maze = generateMaze({
       ageRange,

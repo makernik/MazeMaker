@@ -2,7 +2,7 @@
  * PDF Renderer
  * 
  * Renders mazes to PDF using pdf-lib with vector paths.
- * Supports square, grid (rounded corners), and organic styles.
+ * Supports square, classic (rounded corners), and organic styles.
  */
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
@@ -18,7 +18,8 @@ import {
   FOOTER_HEIGHT,
   getLayoutForMaze,
 } from './layout.js';
-import { getDrawer } from './drawers/index.js';
+import { getDrawer, getDrawerKey } from './drawers/index.js';
+import { createPdfBackend } from './drawers/draw-backend.js';
 import { shapeImageFiles } from '../themes/shapes.js';
 import { animalImageFiles } from '../themes/animals.js';
 
@@ -36,7 +37,7 @@ function getThemesBase() {
  * 
  * @param {object} config - Rendering configuration
  * @param {object[]} config.mazes - Array of maze objects from generator
- * @param {string} config.style - 'square', 'rounded' (Grid), or 'organic'
+ * @param {string} config.style - 'square', 'classic', 'jagged', or 'curvy'
  * @param {string} config.ageRange - Age range for label style
  * @param {string} [config.theme] - 'none', 'shapes', or 'animals' (corner decorations only)
  * @param {boolean} [config.debugMode] - If true, footer shows difficulty/age; solution drawn when showSolution is true
@@ -60,18 +61,23 @@ export async function renderMazesToPdf(config) {
   const mazeWidth = PRINTABLE_WIDTH;
 
   for (const maze of mazes) {
+    if (maze.layout === 'polar' && (!maze.polarGrid || !maze.start)) {
+      throw new Error('Polar maze missing polarGrid or start; cannot render PDF.');
+    }
     const mazeAgeRange = maze.ageRange ?? ageRange;
     const useArrows = mazeAgeRange === '3' || mazeAgeRange === '4-5' || mazeAgeRange === '6-8';
     const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     const layoutResult = getLayoutForMaze(maze, { mazeWidth, mazeHeight, style });
 
-    const drawer = getDrawer(layoutResult.layoutType);
-    const organicStats = drawer.drawWalls(page, maze, layoutResult);
-    drawer.drawLabels(page, maze, layoutResult, { useArrows, font, boldFont });
+    const drawerKey = getDrawerKey(maze, style);
+    const drawer = getDrawer(drawerKey);
+    const backend = createPdfBackend(page, { font, boldFont });
+    const organicStats = drawer.drawWalls(backend, maze, layoutResult);
+    drawer.drawLabels(backend, maze, layoutResult, { useArrows });
     if (debugMode && showSolution) {
       const solution = solveMaze(maze);
       if (solution && solution.path.length > 1) {
-        drawer.drawSolutionOverlay(page, maze, solution.path, layoutResult);
+        drawer.drawSolutionOverlay(backend, maze, solution.path, layoutResult);
       }
     }
 
@@ -81,12 +87,12 @@ export async function renderMazesToPdf(config) {
       await drawCornerImageDecorations(page, pdfDoc, getThemesBase(), '/themes/animals/', animalImageFiles, imageEmbedCache, DECOR_INSET, DECOR_SIZE);
     }
     drawFooter(page, font, debugMode ? {
-      label: maze.preset.label,
-      ageRange: maze.ageRange,
-      algorithm: maze.algorithm ?? maze.preset.algorithm,
+      label: maze.preset?.label ?? '—',
+      ageRange: maze.ageRange ?? '—',
+      algorithm: maze.algorithm ?? maze.preset?.algorithm ?? '—',
       seed: maze.seed,
-      style: maze.layout === 'organic' ? 'organic' : style,
-      nodeCount: maze.layout === 'organic' ? maze.graph.nodes.length : undefined,
+      style: maze.layout === 'organic' ? style : style,
+      nodeCount: maze.layout === 'organic' ? maze.graph?.nodes?.length : undefined,
       connectedCount: maze.layout === 'organic' ? maze.connectedCount : undefined,
       corridorWidth: organicStats?.corridorWidth,
       avgDist: organicStats?.avgDist,
@@ -177,6 +183,7 @@ function formatAlgorithmLabel(algorithmId) {
   if (algorithmId === 'prim') return 'Prim';
   if (algorithmId === 'recursive-backtracker') return 'Recursive backtracker';
   if (algorithmId === 'kruskal') return 'Kruskal';
+  if (algorithmId === 'wilson') return "Wilson's";
   return algorithmId || 'Prim';
 }
 

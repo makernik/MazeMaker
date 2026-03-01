@@ -57,6 +57,26 @@ export function createRng(seed) {
   function pick(array) {
     return array[randomInt(0, array.length - 1)];
   }
+
+  /**
+   * Pick a random element with probability proportional to weights.
+   * @param {Array} array - Elements to choose from
+   * @param {number[]} weights - Non-negative weights, same length as array
+   * @returns {*} The chosen element
+   * @throws {Error} If array is empty or all weights are zero
+   */
+  function weightedChoice(array, weights) {
+    if (array.length === 0) throw new Error('weightedChoice: array must not be empty');
+    if (weights.length !== array.length) throw new Error('weightedChoice: weights length must equal array length');
+    const sum = weights.reduce((s, w) => s + w, 0);
+    if (sum <= 0) throw new Error('weightedChoice: at least one weight must be positive');
+    let r = random() * sum;
+    for (let i = 0; i < array.length; i++) {
+      r -= weights[i];
+      if (r < 0) return array[i];
+    }
+    return array[array.length - 1];
+  }
   
   /**
    * Get current state (for debugging)
@@ -71,6 +91,7 @@ export function createRng(seed) {
     randomFloat,
     shuffle,
     pick,
+    weightedChoice,
     getState,
   };
 }

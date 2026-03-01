@@ -19,6 +19,8 @@ isProject: false
 
 # Fix Organic Maze Connectivity
 
+**Status:** built
+
 ## Problem
 
 The circle packing in [src/maze/circle-packing.js](src/maze/circle-packing.js) produces disconnected neighbor graphs. The DFS in [src/maze/organic-generator.js](src/maze/organic-generator.js) only carves through one connected component, leaving orphan nodes invisible and the maze sparse. Worst case: Easy level (80 nodes) had only 3 connected.

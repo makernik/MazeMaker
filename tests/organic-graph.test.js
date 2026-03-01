@@ -56,7 +56,7 @@ describe('Organic generator', () => {
     expect(maze.finishId).toBeDefined();
     expect(maze.preset).toBeDefined();
     expect(maze.seed).toBe(100);
-    expect(maze.algorithm).toBe('dfs');
+    expect(maze.algorithm).toBe('recursive-backtracker');
     expect(maze.graph.getNode(maze.startId)).not.toBeNull();
     expect(maze.graph.getNode(maze.finishId)).not.toBeNull();
   });

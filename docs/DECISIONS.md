@@ -4,6 +4,39 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-017 — Polar per-ring carve weights and optional wedge count array (2026-02-27)
+
+**Context:** Polar mazes should feel open and disorienting at the outer edge, then deliberately funnel toward the center so the player "earns" the funnel. We also want to support an explicit per-ring wedge count array for future preset tuning.
+
+**Decision:**
+
+- **Carve weights:** When generating a polar maze with **recursive-backtracker (DFS)**, neighbor choice is **weighted by ring and direction**: outer rings get higher weight for angular moves (CW/CCW), inner rings get higher weight for inward moves. Prim and Kruskal remain uniform; only DFS uses these weights. Implemented via `getCarveWeight(ring, direction, maxRing)` and `directionFromTo(grid, from, to)` in `polarGenerator.js`; DFS uses `rng.weightedChoice(neighbors, weights)`.
+- **Optional wedge count array:** `PolarGrid` accepts an optional 4th argument `wedgeCounts: number[]`. If provided, it must satisfy: length === rings, wedgeCounts[0] === 1, all positive integers, and **each ring's count must be an integer multiple of the prior ring's** (so `outwardIndexFromInner` and related logic remain correct). Invalid arrays **throw** with a clear message; no silent fallback. Presets can stay formula-based; see DEFERRED_IDEAS for validating preset arrays when we add `polarWedgeCounts`.
+
+---
+
+## D-015 — Unified draw backends: one drawer per style (2026-02-25)
+
+**Context:** Every drawing style (grid, jagged, curvy) had two near-identical implementations: one calling pdf-lib (`page.drawLine`, `page.drawSvgPath`) and one calling `CanvasRenderingContext2D` (`ctx.moveTo`, `ctx.lineTo`, `ctx.stroke`). Geometry and algorithms were 90-100% duplicated; only the final draw calls differed.
+
+**Decision:** Introduce a `DrawBackend` interface (`src/pdf/drawers/draw-backend.js`) with two implementations: `createPdfBackend(page, fonts)` wraps a pdf-lib PDFPage and `createCanvasBackend(ctx)` wraps a Canvas2D context. Each drawer (`draw-grid.js`, `draw-organic.js`, `draw-curvy.js`) is written once against the backend contract. Callers (renderer.js for PDF, main.js for canvas preview) create the appropriate backend and pass it. Deleted files: `draw-grid-canvas.js`, `draw-organic-canvas.js`, `draw-curvy-canvas.js`. The registry (`drawers/index.js`) has a single `getDrawer(style)` function; `getCanvasDrawer` is removed.
+
+**Backend interface:** `setStroke`, `line`, `beginPath`, `moveTo`, `lineTo`, `arc`, `bezierCurveTo`, `quadraticCurveTo`, `stroke`, `drawText`, `measureText`, `withScreenTransform`, `save`, `restore`, `setDash`, `setOpacity`.
+
+**Labels:** Unified via a `yDir` multiplier (+1 for PDF y-up, -1 for canvas screen y-down) and `withScreenTransform` (canvas: save/identity/restore; PDF: no-op). Font handling is backend-internal: PdfBackend receives embedded PDFFont objects at creation; CanvasBackend constructs CSS font strings.
+
+**Trade-off:** PdfBackend accumulates SVG path strings internally and emits via `page.drawSvgPath()` on `stroke()`. This matches the existing pdf-lib usage pattern. For `line()`, it calls `page.drawLine()` directly for efficiency and correct line-cap behavior. Arc commands in SVG paths handle the ~π semicircle split internally.
+
+---
+
+## D-016 — Circular (polar) maze topology (2026-02-26)
+
+**Context:** Users should be able to generate circular mazes (concentric rings with radial passages) in addition to rectangular (grid and organic) mazes. Polar mazes use a different data structure and a single visual style; they do not use the "Maze Style" (Classic/Jagged/Curvy/Square) options.
+
+**Decision:** Add a **Maze Topology** control: "Rectangular" (default) and "Circular". When **Circular** is selected, the Maze Style fieldset is visually disabled and not applied (polar has one style). Form value `topology` is read in `main.js`; circular topology uses `generatePolarMaze` / `generatePolarMazes` for preview and PDF. Preview seed is deterministic per (ageRange, topology) so circular uses a distinct key (e.g. `'polar'`) from rectangular styles. Solver and renderer already branch on `maze.layout === 'polar'` (adapter and drawer). Debug panel shows polar info (rings × wedges) when the generated maze is polar. Start at center (ring 0), finish at outer ring (wedge 0). Documented as implemented in v1; see DEFERRED_IDEAS for prior "Polar / Circular Mazes" deferral now closed.
+
+---
+
 ## D-012 — Live canvas preview; shared transform with PDF (2026-02-07)
 
 **Context:** Preview should show a representative maze without maintaining static PNGs for every level×style. Same visual result as PDF for the same maze and layout.
@@ -71,13 +104,25 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
-## D-004 — "Rounded" style means rounded corners (2026-01-31)
+## D-004 — "Classic" style (formerly "Rounded") means rounded corners (2026-01-31, renamed 2026-02-08)
 
-**Context:** The spec lists "Square" and "Rounded" maze styles. Organic/curvy paths and polar/circular mazes were considered but deemed too complex for v0.
+**Context:** The spec listed "Square" and "Rounded" maze styles. Organic/curvy paths and polar/circular mazes were considered but deemed too complex for v0. "Rounded" was renamed to **"Classic"** to avoid vocabulary collision with upcoming curved, circular, and other geometry terms.
 
-**Decision:** "Rounded" in v0 means rounded corners on wall intersections, not organic curves or circular topology.
+**Decision:** "Classic" is a grid-topology maze with rounded corners on wall intersections (round line caps). Internal style value: `'classic'`.
 
 **Alternatives deferred:** Organic curves, polar mazes (see DEFERRED_IDEAS.md).
+
+---
+
+## D-014 — Jagged / Curvy split and Catmull-Rom rendering (2026-02-17)
+
+**Context:** The organic maze style (circle-packing topology) benefits from a visual variant with smooth curves instead of straight-line corridor walls. The name "Organic" was ambiguous; splitting into explicit sub-styles clarifies intent.
+
+**Decision:** The former "Organic" style is renamed **"Jagged"** (straight-line walls with miter-point junctions). A new **"Curvy"** style shares the same generation pipeline (circle packing, organic graph, DFS/Prim's/Kruskal's) but renders corridor walls using **Catmull-Rom splines** (converted to cubic Bezier for pdf-lib SVG paths and canvas). Junction arcs are approximated with cubic Bezier curves. All 3 algorithms are available for both Jagged and Curvy. Internal style values: `'jagged'`, `'curvy'`. Maze layout remains `'organic'`; the drawer registry maps by style name.
+
+**UI:** Four top-level style options: Classic | Jagged | Curvy | Square Corners.
+
+**Curve geometry:** Phantom points for Catmull-Rom are the node center + perpendicular offset (halfW); this reuses the miter-point geometry shared via `organic-geometry.js`.
 
 ---
 
@@ -87,7 +132,7 @@ Architectural and design decisions for the Printable Maze Generator.
 
 **Decision:** "Organic" is a **maze style** that uses a different topology and generation path: circle packing (deterministic, variable radii) produces an arbitrary graph of touching cells; DFS on that graph carves a perfect maze. Solver and renderer support both grid and organic via a unified maze object (layout discriminator). Same seed → same PDF. The previous "Curvy" style (grid + Bezier rendering) has been removed and replaced by Organic.
 
-**Scope:** Grid styles remain Square and Rounded. Organic is the only non-grid style in v0.
+**Scope:** Grid styles remain Square and Classic (formerly Rounded). Organic topology is split into Jagged and Curvy sub-styles (see D-014).
 
 ---
 

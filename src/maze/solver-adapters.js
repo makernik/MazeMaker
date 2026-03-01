@@ -1,10 +1,11 @@
 /**
- * Maze adapters: normalize grid and organic (and future polar) mazes to a single contract
+ * Maze adapters: normalize grid, organic, and polar mazes to a single contract
  * for the solver. Contract: getStart, getFinish, getNeighbors(state), key(state), optional getTotalCells.
  * getNeighbors must return deterministic order (see DEFERRED_IDEAS).
  */
 
 import { DIRECTIONS, DIRECTION_OFFSETS } from './grid.js';
+import { POLAR_DIRECTIONS } from './polarGrid.js';
 
 /**
  * Grid adapter. getNeighbors uses fixed DIRECTIONS order (deterministic).
@@ -84,14 +85,70 @@ export function organicAdapter(maze) {
 }
 
 /**
+ * Polar adapter. getNeighbors returns { ring, wedge } in fixed POLAR_DIRECTIONS order (deterministic).
+ *
+ * @param {object} maze - Maze object with layout 'polar', polarGrid, start, finish
+ * @returns {object} Adapter
+ */
+/**
+ * Normalize polar state so ring/wedge are integers in valid range (getCell can return null for float wedge).
+ */
+function normalizePolarState(grid, state) {
+  const ring = Math.max(0, Math.min(grid.maxRing, Math.floor(Number(state.ring))));
+  const W = grid.wedgesAtRing(ring);
+  const wedge = W <= 1 ? 0 : Math.max(0, Math.min(W - 1, Math.floor(Number(state.wedge))));
+  return { ring, wedge };
+}
+
+export function polarAdapter(maze) {
+  const grid = maze.polarGrid;
+  const start = maze.start ?? grid.start;
+  const finish = maze.finish ?? grid.finish;
+
+  return {
+    getStart() {
+      return { ring: start.ring, wedge: start.wedge };
+    },
+    getFinish() {
+      return { ring: finish.ring, wedge: finish.wedge };
+    },
+    getNeighbors(state) {
+      const { ring, wedge } = normalizePolarState(grid, state);
+      const cell = grid.getCell(ring, wedge);
+      if (!cell) return [];
+      const out = [];
+      for (const dir of Object.values(POLAR_DIRECTIONS)) {
+        const neighbors = grid.getNeighbor(ring, wedge, dir);
+        for (let i = 0; i < neighbors.length; i++) {
+          if (cell.hasWall(dir, i)) continue;
+          const n = neighbors[i];
+          out.push(normalizePolarState(grid, { ring: n.ring, wedge: n.wedge }));
+        }
+      }
+      return out;
+    },
+    key(state) {
+      const { ring, wedge } = normalizePolarState(grid, state);
+      return `${ring},${wedge}`;
+    },
+    getTotalCells() {
+      return grid.getTotalCells();
+    },
+  };
+}
+
+/**
  * Return the adapter for the given maze. Default layout is 'grid'.
  *
- * @param {object} mazeOrGrid - Full maze object (with layout, grid/graph, start/finish) or MazeGrid
+ * @param {object} mazeOrGrid - Full maze object (with layout, grid/graph/polarGrid, start/finish) or MazeGrid
  * @returns {object} Adapter implementing the solver contract
  */
 export function getAdapterForMaze(mazeOrGrid) {
   if (mazeOrGrid.layout === 'organic') {
     return organicAdapter(mazeOrGrid);
+  }
+  if (mazeOrGrid.layout === 'polar') {
+    return polarAdapter(mazeOrGrid);
   }
   return gridAdapter(mazeOrGrid);
 }

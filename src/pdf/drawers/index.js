@@ -1,41 +1,42 @@
 /**
- * Drawer registry by layout type. Each drawer implements drawWalls, drawLabels, drawSolutionOverlay.
- * Canvas drawers (for preview) use same layoutResult; no pdf-lib.
+ * Drawer registry by style. Each drawer implements drawWalls, drawLabels,
+ * drawSolutionOverlay.  All drawers accept a DrawBackend as their first
+ * argument; callers create PdfBackend or CanvasBackend and pass it in.
  */
 
 import * as gridDrawer from './draw-grid.js';
-import * as organicDrawer from './draw-organic.js';
-import * as gridCanvasDrawer from './draw-grid-canvas.js';
-import * as organicCanvasDrawer from './draw-organic-canvas.js';
+import * as jaggedDrawer from './draw-organic.js';
+import * as curvyDrawer from './draw-curvy.js';
+import * as polarDrawer from './draw-polar.js';
 
 const drawers = {
   grid: gridDrawer,
-  organic: organicDrawer,
-};
-
-const canvasDrawers = {
-  grid: gridCanvasDrawer,
-  organic: organicCanvasDrawer,
+  jagged: jaggedDrawer,
+  curvy: curvyDrawer,
+  polar: polarDrawer,
 };
 
 /**
- * Get drawer for layout type. Default 'grid' for unknown or missing layout.
- *
- * @param {string} [layoutType] - 'grid' | 'organic'
- * @returns {object} Drawer with drawWalls, drawLabels, drawSolutionOverlay
+ * Get drawer key for a maze and style (for renderer/preview dispatch).
+ * @param {object} maze - Maze with .layout
+ * @param {string} [style] - Form style: 'classic' | 'square' | 'jagged' | 'curvy'
+ * @returns {string} Drawer key: 'polar' | 'curvy' | 'jagged' | 'grid'
  */
-export function getDrawer(layoutType) {
-  return drawers[layoutType] ?? drawers.grid;
+export function getDrawerKey(maze, style) {
+  if (maze.layout === 'polar') return 'polar';
+  if (maze.layout === 'organic') return style === 'curvy' ? 'curvy' : 'jagged';
+  return 'grid';
 }
 
 /**
- * Get canvas drawer for layout type (preview). Same layoutResult as PDF.
+ * Get drawer for style. Grid styles ('classic', 'square') map to 'grid'.
+ * Organic styles ('jagged', 'curvy') and 'polar' map to their own drawers.
  *
- * @param {string} [layoutType] - 'grid' | 'organic'
- * @returns {object} { drawWalls(ctx, maze, layoutResult), drawLabels(ctx, maze, layoutResult, options?) }
+ * @param {string} [style] - 'grid' | 'jagged' | 'curvy' | 'polar' | 'classic' | 'square'
+ * @returns {object} Drawer with drawWalls, drawLabels, drawSolutionOverlay
  */
-export function getCanvasDrawer(layoutType) {
-  return canvasDrawers[layoutType] ?? canvasDrawers.grid;
+export function getDrawer(style) {
+  return drawers[style] ?? drawers.grid;
 }
 
 export { drawers };
