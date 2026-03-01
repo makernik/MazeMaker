@@ -91,7 +91,7 @@ export async function renderMazesToPdf(config) {
       ageRange: maze.ageRange ?? '—',
       algorithm: maze.algorithm ?? maze.preset?.algorithm ?? '—',
       seed: maze.seed,
-      style: maze.layout === 'organic' ? style : style,
+      style: formatStyleLabel(maze.layout === 'organic' ? style : style),
       nodeCount: maze.layout === 'organic' ? maze.graph?.nodes?.length : undefined,
       connectedCount: maze.layout === 'organic' ? maze.connectedCount : undefined,
       corridorWidth: organicStats?.corridorWidth,
@@ -172,6 +172,22 @@ async function fetchThemeImage(url) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Format style for footer display
+ * @param {string} [style]
+ * @returns {string}
+ */
+function formatStyleLabel(style) {
+  const labels = {
+    classic: 'Classic',
+    jagged: 'Jagged',
+    curvy: 'Curvy',
+    circular: 'Circular',
+    squares: 'Squares',
+  };
+  return labels[style] ?? style ?? '—';
 }
 
 /**

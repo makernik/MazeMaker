@@ -35,9 +35,20 @@ For each carved edge A-B in the main graph:
   - At each sample: `pos = lerp(A, B, t) + p * offset`
   - If pos doesn't overlap any main circle and is within bounds, create a filler node
 - Connect sequential filler nodes along the same edge/side
-- At junctions: connect filler nodes from different edges that are close and roughly co-directional
 
 Then run DFS on the filler graph to carve a spanning tree (preserving dead-ends for visual interest). Since nodes are placed along corridor offsets, even the DFS paths will follow main corridor directions.
+
+### Junction handling (nodes with 3+ carved passages)
+
+**Crowding prevention.** Filler nodes are sampled starting at `t >= 0.25` along each edge, never at the junction node itself (`t=0`). This creates a natural exclusion zone of at least 25% of edge-length around every junction center. No additional exclusion logic is needed.
+
+**Cross-connection rule.** After all filler nodes are placed, attempt to link filler endpoints from different edges that meet at the same main-graph node:
+
+1. **Proximity gate**: two filler endpoints must be within `fillerR * 4` of each other.
+2. **Angle tolerance (45 deg)**: the angle between the two parent-edge directions must be < 45 degrees. This means filler paths from gently-curving corridors connect into continuous parallels, while perpendicular corridors (T-junctions, 90-degree bends) stay separate -- which is correct, since a tiny filler corridor turning a right angle would look jarring.
+3. Eligible pairs get a neighbor connection (with a wall, as usual). DFS carving decides which cross-connections actually become drawn edges.
+
+**Why 45 degrees.** At 30 degrees almost nothing connects, leaving most junctions as disconnected stubs. At 60+ degrees, filler starts wrapping around moderate bends which looks forced at filler scale. 45 degrees is the sweet spot: gentle curves connect, sharp turns don't. DFS carving is a further safety net -- even if a cross-connection is created, it only draws if the spanning tree traverses it.
 
 ### Why this works
 
@@ -49,8 +60,8 @@ Then run DFS on the filler graph to carve a spanning tree (preserving dead-ends 
 ## Files Changed
 
 - `**[src/maze/circle-packing.js](src/maze/circle-packing.js)`**: Replace `fillVoids()` with new `generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, corridorHalfW, seed)` function
-- `**[src/maze/organic-generator.js](src/maze/organic-generator.js)**`: Update lines 62-71 to call the new function; compute `corridorHalfW` from avgDist (same formula as drawers) so filler placement knows where walls are
-- `**[tests/circle-packing.test.js](tests/circle-packing.test.js)**`: Update/add tests for new filler function
+- `**[src/maze/organic-generator.js](src/maze/organic-generator.js)`**: Update lines 62-71 to call the new function; compute `corridorHalfW` from avgDist (same formula as drawers) so filler placement knows where walls are
+- `**[tests/circle-packing.test.js](tests/circle-packing.test.js)`**: Update/add tests for new filler function
 
 ## Files NOT Changed
 
@@ -78,9 +89,11 @@ Then run DFS on the filler graph to carve a spanning tree (preserving dead-ends 
 
 - Implement in `circle-packing.js`
 - For each carved edge, place filler nodes at perpendicular offsets on both sides
+- Sample at t = [0.25, 0.50, 0.75] (exclusion zone near junction centers)
 - Use spatial grid to check overlap with main circles
-- Connect sequential filler nodes and cross-connect at junctions
-- Return filler circles array
+- Connect sequential filler nodes along the same edge/side
+- Cross-connect at junctions: proximity < fillerR*4, angle between parent edges < 45 deg
+- Return filler circles array and a neighbor map
 
 **C1 -- Integrate into organic generator**
 

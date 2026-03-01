@@ -349,7 +349,7 @@ locked rooms are a rendering overlay; embedded rooms are structural.
 - **C3**: `rooms-generator.js` — outer maze, room selection, sub-maze
 generation, RoomsGrid assembly; determinism, solvability, fallback tests. **Done.** Optional gridWidth/gridHeight added to generateMaze. Validation: `tests/rooms-generator.test.js` 8 passed; full suite 181 passed.
 - **C4**: `solver-adapters.js` — `squaresAdapter`; solver finds outer path;
-`isPerfectMaze` works. Wire `main.js` squares branch.
+`isPerfectMaze` works. Wire `main.js` squares branch. **Done.** Layout squares branch, draw-rooms (minimal), registry, formatStyleLabel, debug panel. Validation: `tests/rooms-adapter.test.js` + layout squares test; full suite 185 passed.
 - **C5**: `draw-rooms.js` — `drawWalls`; smoke test on canvas backend.
 - **C6**: `draw-rooms.js` — `drawSolutionOverlay`.
 - **C7**: Layout and registry wiring; full PDF render smoke across all five

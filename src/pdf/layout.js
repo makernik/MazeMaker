@@ -91,6 +91,25 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
     };
   }
 
+  if (maze.layout === 'squares') {
+    const cellWidth = mazeWidth / maze.cols;
+    const cellHeight = mazeHeight / maze.rows;
+    const cellSize = Math.min(cellWidth, cellHeight);
+    const actualMazeWidth = cellSize * maze.cols;
+    const actualMazeHeight = cellSize * maze.rows;
+    const offsetX = margin + (printableW - actualMazeWidth) / 2;
+    const offsetY = pageH - margin - actualMazeHeight;
+    return {
+      layoutType: 'squares',
+      lineThickness,
+      style: style ?? 'classic',
+      offsetX,
+      offsetY,
+      cellSize,
+      roomSubSize: maze.roomsGrid?.roomSubSize ?? 0,
+    };
+  }
+
   const cellWidth = mazeWidth / maze.cols;
   const cellHeight = mazeHeight / maze.rows;
   const cellSize = Math.min(cellWidth, cellHeight);

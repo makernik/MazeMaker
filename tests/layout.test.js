@@ -7,6 +7,7 @@ import { getLayoutForMaze } from '../src/pdf/layout.js';
 import { generateMaze } from '../src/maze/generator.js';
 import { generateOrganicMaze } from '../src/maze/organic-generator.js';
 import { generatePolarMaze } from '../src/maze/polarGenerator.js';
+import { generateSquaresMaze } from '../src/maze/rooms-generator.js';
 
 describe('getLayoutForMaze', () => {
   it('returns grid layout with default page dimensions', () => {
@@ -90,5 +91,15 @@ describe('getLayoutForMaze', () => {
     expect(layout.roomRadius).toBeLessThan(layout.maxRadius);
     expect(layout.rings).toBe(maze.polarGrid.rings);
     expect(layout.wedges).toBe(maze.polarGrid.wedges);
+  });
+
+  it('returns squares layout with grid-like fields and roomSubSize', () => {
+    const maze = generateSquaresMaze({ ageRange: '4-5', seed: 200 });
+    const layout = getLayoutForMaze(maze, { style: 'squares' });
+    expect(layout.layoutType).toBe('squares');
+    expect(layout.offsetX).toBeGreaterThanOrEqual(0);
+    expect(layout.offsetY).toBeGreaterThanOrEqual(0);
+    expect(layout.cellSize).toBeGreaterThan(0);
+    expect(layout.roomSubSize).toBe(maze.roomsGrid.roomSubSize);
   });
 });

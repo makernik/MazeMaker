@@ -7,6 +7,7 @@
 import { generateMaze, generateMazes } from './maze/generator.js';
 import { generateOrganicMaze } from './maze/organic-generator.js';
 import { generatePolarMaze, generatePolarMazes } from './maze/polarGenerator.js';
+import { generateSquaresMaze } from './maze/rooms-generator.js';
 import { validateMaze, solveMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
 import { getLayoutForMaze } from './pdf/layout.js';
@@ -122,6 +123,9 @@ function updateDebugPanel(mazes, baseSeed) {
   } else if (maze.layout === 'polar') {
     const g = maze.polarGrid;
     debugGridEl.textContent = `polar, ${g.rings} rings × ${g.wedges} wedges`;
+  } else if (maze.layout === 'squares') {
+    const rooms = maze.roomsGrid?.roomCells?.size ?? 0;
+    debugGridEl.textContent = `squares, ${maze.cols}×${maze.rows}, ${rooms} rooms`;
   } else {
     debugGridEl.textContent = `${maze.cols} × ${maze.rows}`;
   }
@@ -185,9 +189,7 @@ function updatePreviewCanvas() {
     if (isCircular) {
       maze = generatePolarMaze({ ageRange, seed });
     } else if (values.mazeStyle === 'squares') {
-      // C0: Squares not yet implemented; show classic grid for preview until C4
-      const preset = getDifficultyPreset(ageRange);
-      maze = generateMaze({ ageRange, seed, algorithm: preset.algorithm });
+      maze = generateSquaresMaze({ ageRange, seed });
     } else if (isOrganic) {
       maze = generateOrganicMaze({ ageRange, seed });
     } else {
@@ -323,11 +325,6 @@ async function generateAndDownload(event) {
   const values = getFormValues();
   console.log('Generate clicked with values:', values);
 
-  if (values.mazeStyle === 'squares') {
-    setStatus('Squares style is not yet available. Please choose another style.', 'info');
-    return;
-  }
-
   setStatus('Generating mazes...');
   generateBtn.disabled = true;
   generateBtn.setAttribute('aria-busy', 'true');
@@ -349,14 +346,24 @@ async function generateAndDownload(event) {
 
     if (oneOfEachAlgo && !isCircular) {
       const mazes = [];
-      for (let a = 0; a < GRID_ALGORITHM_IDS.length; a++) {
-        if (isOrganicStyle(values.mazeStyle)) {
+      if (values.mazeStyle === 'squares') {
+        for (let a = 0; a < GRID_ALGORITHM_IDS.length; a++) {
+          mazes.push(generateSquaresMaze({
+            ageRange: values.ageRange,
+            seed: baseSeed + a,
+            algorithm: GRID_ALGORITHM_IDS[a],
+          }));
+        }
+      } else if (isOrganicStyle(values.mazeStyle)) {
+        for (let a = 0; a < GRID_ALGORITHM_IDS.length; a++) {
           mazes.push(generateOrganicMaze({
             ageRange: values.ageRange,
             seed: baseSeed + a,
             algorithm: GRID_ALGORITHM_IDS[a],
           }));
-        } else {
+        }
+      } else {
+        for (let a = 0; a < GRID_ALGORITHM_IDS.length; a++) {
           mazes.push(generateMaze({
             ageRange: values.ageRange,
             seed: baseSeed + a,
@@ -387,6 +394,11 @@ async function generateAndDownload(event) {
           mazes.push(generatePolarMaze({ ageRange: ageRangeKeys[l], seed: baseSeed + l }));
         }
         styleForPdf = 'classic';
+      } else if (values.mazeStyle === 'squares') {
+        for (let l = 0; l < ageRangeKeys.length; l++) {
+          mazes.push(generateSquaresMaze({ ageRange: ageRangeKeys[l], seed: baseSeed + l }));
+        }
+        styleForPdf = 'squares';
       } else if (isOrganicStyle(values.mazeStyle)) {
         for (let l = 0; l < ageRangeKeys.length; l++) {
           mazes.push(generateOrganicMaze({
@@ -423,6 +435,17 @@ async function generateAndDownload(event) {
       result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
       styleForPdf = 'classic';
       filename = `mazes-circular-${values.ageRange}-${mazes.length}pk.pdf`;
+    } else if (values.mazeStyle === 'squares') {
+      const mazes = [];
+      for (let i = 0; i < values.quantity; i++) {
+        mazes.push(generateSquaresMaze({
+          ageRange: values.ageRange,
+          seed: baseSeed + i,
+        }));
+      }
+      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
+      styleForPdf = values.mazeStyle;
+      filename = `mazes-squares-${values.ageRange}-${mazes.length}pk.pdf`;
     } else if (isOrganicStyle(values.mazeStyle)) {
       const mazes = [];
       for (let i = 0; i < values.quantity; i++) {

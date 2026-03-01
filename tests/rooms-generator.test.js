@@ -72,6 +72,11 @@ describe('generateSquaresMaze', () => {
     expect(validateMaze(maze.outerGrid)).toBe(true);
   });
 
+  it('full squares maze is valid via solver adapter', () => {
+    const maze = generateSquaresMaze({ ageRange: '6-8', seed: 501 });
+    expect(validateMaze(maze)).toBe(true);
+  });
+
   it('coerces cellSize to minimum when preset below 28pt', () => {
     const preset = getDifficultyPreset('18+');
     expect(preset.cellSize).toBeLessThan(MIN_CELL_SIZE_SQUARES_PT);

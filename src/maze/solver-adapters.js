@@ -138,6 +138,17 @@ export function polarAdapter(maze) {
 }
 
 /**
+ * Squares adapter. Outer maze only; room cells are passable (neighbors via open walls).
+ * Sub-maze solution paths are on RoomCell at generation time for drawSolutionOverlay.
+ *
+ * @param {object} maze - Maze with layout 'squares', outerGrid (start/finish are outerGrid.start/finish)
+ * @returns {object} Adapter
+ */
+export function squaresAdapter(maze) {
+  return gridAdapter(maze.outerGrid);
+}
+
+/**
  * Return the adapter for the given maze. Default layout is 'grid'.
  *
  * @param {object} mazeOrGrid - Full maze object (with layout, grid/graph/polarGrid, start/finish) or MazeGrid
@@ -149,6 +160,9 @@ export function getAdapterForMaze(mazeOrGrid) {
   }
   if (mazeOrGrid.layout === 'polar') {
     return polarAdapter(mazeOrGrid);
+  }
+  if (mazeOrGrid.layout === 'squares') {
+    return squaresAdapter(mazeOrGrid);
   }
   return gridAdapter(mazeOrGrid);
 }
