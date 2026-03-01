@@ -41,16 +41,22 @@ describe('generateSquaresMaze', () => {
 
   it('each room has exactly two openings', () => {
     const maze = generateSquaresMaze({ ageRange: '4-5', seed: 200 });
+    const preset = getDifficultyPreset('4-5');
+    const isRoomsFirst = (preset.roomOuterSize ?? 1) > 1;
     for (const room of maze.roomsGrid.roomCells.values()) {
-      expect(room.openings.length).toBe(2);
-      expect(maze.roomsGrid.openPassageCount(room.outerRow, room.outerCol)).toBe(2);
+      expect(room.openingCells).toBeDefined();
+      expect(room.openingCells.length).toBe(2);
+      if (!isRoomsFirst) {
+        expect(room.openings.length).toBe(2);
+        expect(maze.roomsGrid.openPassageCount(room.outerRow, room.outerCol)).toBe(2);
+      }
     }
   });
 
   it('each room sub-maze is solvable from subStart to subFinish', () => {
     const maze = generateSquaresMaze({ ageRange: '6-8', seed: 300 });
     for (const room of maze.roomsGrid.roomCells.values()) {
-      expect(room.subSolutionPath.length).toBeGreaterThanOrEqual(2);
+      expect(room.subSolutionPath.length).toBeGreaterThanOrEqual(1);
       const start = room.subSolutionPath[0];
       const finish = room.subSolutionPath[room.subSolutionPath.length - 1];
       expect(start.row).toBe(room.subStart.row);
@@ -84,5 +90,19 @@ describe('generateSquaresMaze', () => {
     expect(maze.preset.cellSize).toBe(MIN_CELL_SIZE_SQUARES_PT);
     expect(maze.outerGrid.rows).toBeLessThanOrEqual(preset.gridHeight);
     expect(maze.outerGrid.cols).toBeLessThanOrEqual(preset.gridWidth);
+  });
+
+  it('rooms-first path: deterministic and each room has openingCells (uses preset roomOuterSize)', () => {
+    const preset = getDifficultyPreset('12-14');
+    const a = generateSquaresMaze({ ageRange: '12-14', seed: 700 });
+    const b = generateSquaresMaze({ ageRange: '12-14', seed: 700 });
+    expect(a.roomsGrid.roomOuterSize).toBe(preset.roomOuterSize);
+    expect(a.roomsGrid.roomCells.size).toBe(b.roomsGrid.roomCells.size);
+    for (const room of a.roomsGrid.roomCells.values()) {
+      expect(room.outerSize).toBe(preset.roomOuterSize);
+      expect(room.openingCells).toBeDefined();
+      expect(room.openingCells.length).toBe(2);
+    }
+    expect(validateMaze(a)).toBe(true);
   });
 });

@@ -107,6 +107,7 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
       offsetY,
       cellSize,
       roomSubSize: maze.roomsGrid?.roomSubSize ?? 0,
+      roomOuterSize: maze.roomsGrid?.roomOuterSize ?? 1,
     };
   }
 

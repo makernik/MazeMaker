@@ -3,7 +3,8 @@
  * Outer maze is a perfect grid maze; room cells are 2-passage cells with interior sub-mazes.
  */
 
-import { DIRECTIONS } from './grid.js';
+import { DIRECTIONS, DIRECTION_OFFSETS } from './grid.js';
+import { MazeGrid } from './grid.js';
 import { generateMaze } from './generator.js';
 import { solveMaze, validateMaze } from './solver.js';
 import { createRng } from '../utils/rng.js';
@@ -44,6 +45,247 @@ function getOpenDirections(grid, row, col) {
 }
 
 /**
+ * Direction from room block (or, oc) with size K to a boundary passage cell (r, c).
+ * Boundary means (r,c) is adjacent to the block (shares one side).
+ */
+function directionFromBlockToCell(or, oc, K, r, c) {
+  if (r === or - 1) return DIRECTIONS.TOP;
+  if (r === or + K) return DIRECTIONS.BOTTOM;
+  if (c === oc - 1) return DIRECTIONS.LEFT;
+  if (c === oc + K) return DIRECTIONS.RIGHT;
+  return null;
+}
+
+/**
+ * Rooms-first path: place room blocks, build graph (passage + room edges), carve spanning tree, then sub-mazes.
+ * @param {object} opts
+ * @returns {object} Maze object same shape as generateSquaresMaze
+ */
+function generateSquaresMazeRoomsFirst(opts) {
+  const {
+    gridWidth: cols,
+    gridHeight: rows,
+    roomOuterSize: K,
+    roomCount: requestedRoomCount,
+    roomSubSize,
+    seed,
+    ageRange,
+    algorithm: algo,
+    effectiveCellSize,
+    preset,
+  } = opts;
+
+  const rng = createRng(seed);
+
+  // 1. Place non-overlapping K×K blocks; avoid (0,0) and (rows-1, cols-1)
+  const blocks = [];
+  const maxAttempts = 500;
+  for (let i = 0; i < requestedRoomCount; i++) {
+    let placed = false;
+    for (let _ = 0; _ < maxAttempts; _++) {
+      const r = rng.randomInt(0, rows - K);
+      const c = rng.randomInt(0, cols - K);
+      const containsStart = r <= 0 && r + K > 0 && c <= 0 && c + K > 0;
+      const containsFinish = r <= rows - 1 && r + K > rows - 1 && c <= cols - 1 && c + K > cols - 1;
+      if (containsStart || containsFinish) continue;
+      const overlap = blocks.some((b) => !(r + K <= b.r || b.r + K <= r || c + K <= b.c || b.c + K <= c));
+      if (overlap) continue;
+      blocks.push({ r, c });
+      placed = true;
+      break;
+    }
+  }
+
+  // 2. Occupancy: null = passage, index = room id
+  /** @type {(number|null)[][]} */
+  const occupancy = [];
+  for (let r = 0; r < rows; r++) {
+    occupancy[r] = [];
+    for (let c = 0; c < cols; c++) occupancy[r][c] = null;
+  }
+  blocks.forEach((b, id) => {
+    for (let i = 0; i < K; i++) {
+      for (let j = 0; j < K; j++) occupancy[b.r + i][b.c + j] = id;
+    }
+  });
+
+  // 3. Boundary passage cells per room
+  /** @type {{ row: number, col: number }[][]} */
+  const boundaryByRoom = blocks.map(() => []);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (occupancy[r][c] !== null) continue;
+      for (const d of Object.values(DIRECTIONS)) {
+        const [dr, dc] = DIRECTION_OFFSETS[d];
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        const roomId = occupancy[nr][nc];
+        if (roomId !== null) boundaryByRoom[roomId].push({ row: r, col: c });
+      }
+    }
+  }
+
+  // 4. For each room, pick 2 boundary cells (openings)
+  /** @type {{ row: number, col: number }[][]} */
+  const openingCellsByRoom = [];
+  for (let id = 0; id < blocks.length; id++) {
+    const boundary = boundaryByRoom[id];
+    rng.shuffle(boundary);
+    const b1 = boundary[0];
+    const b2 = boundary.length > 1 ? boundary[1] : boundary[0];
+    openingCellsByRoom[id] = [b1, b2];
+  }
+
+  // 5. Passage cell list and key -> index
+  /** @type {{ row: number, col: number }[]} */
+  const passageCells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (occupancy[r][c] === null) passageCells.push({ row: r, col: c });
+    }
+  }
+  const keyToIndex = new Map();
+  passageCells.forEach((p, i) => keyToIndex.set(`${p.row},${p.col}`, i));
+  const N = passageCells.length;
+
+  // 6. Edges: passage-passage (adjacent) + one room edge per room (b1, b2)
+  /** @type {{ u: number, v: number }[]} */
+  const edges = [];
+  for (let i = 0; i < passageCells.length; i++) {
+    const { row, col } = passageCells[i];
+    for (const d of [DIRECTIONS.RIGHT, DIRECTIONS.BOTTOM]) {
+      const [dr, dc] = DIRECTION_OFFSETS[d];
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      if (occupancy[nr][nc] !== null) continue;
+      const j = keyToIndex.get(`${nr},${nc}`);
+      if (j != null && j > i) edges.push({ u: i, v: j });
+    }
+  }
+  for (let id = 0; id < blocks.length; id++) {
+    const [b1, b2] = openingCellsByRoom[id];
+    const i = keyToIndex.get(`${b1.row},${b1.col}`);
+    const j = keyToIndex.get(`${b2.row},${b2.col}`);
+    if (i != null && j != null && i !== j) edges.push({ u: i, v: j });
+  }
+
+  // 7. Kruskal
+  rng.shuffle(edges);
+  const parent = Array.from({ length: N }, (_, i) => i);
+  function find(i) {
+    if (parent[i] !== i) parent[i] = find(parent[i]);
+    return parent[i];
+  }
+  function union(i, j) {
+    const pi = find(i);
+    const pj = find(j);
+    if (pi !== pj) parent[pi] = pj;
+  }
+  const treeEdges = new Set();
+  for (const { u, v } of edges) {
+    if (find(u) !== find(v)) {
+      union(u, v);
+      treeEdges.add(`${Math.min(u, v)},${Math.max(u, v)}`);
+    }
+  }
+
+  // 8. Build MazeGrid: passage cells get walls from tree; room cells all walls
+  const outerGrid = new MazeGrid(rows, cols);
+  for (let i = 0; i < passageCells.length; i++) {
+    const { row, col } = passageCells[i];
+    const cell = outerGrid.getCell(row, col);
+    for (const d of Object.values(DIRECTIONS)) {
+      const [dr, dc] = DIRECTION_OFFSETS[d];
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      if (occupancy[nr][nc] !== null) continue;
+      const j = keyToIndex.get(`${nr},${nc}`);
+      if (j == null) continue;
+      const inTree = treeEdges.has(`${Math.min(i, j)},${Math.max(i, j)}`);
+      if (inTree) {
+        const neighbor = outerGrid.getCell(nr, nc);
+        outerGrid.removeWallBetween(cell, neighbor);
+      }
+    }
+  }
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      outerGrid.getCell(r, c).markVisited();
+    }
+  }
+  outerGrid.openEntrance();
+  outerGrid.openExit();
+
+  // 9. RoomsGrid and RoomCells
+  const roomsGrid = new RoomsGrid();
+  roomsGrid.outerGrid = outerGrid;
+  roomsGrid.roomSubSize = roomSubSize;
+  roomsGrid.roomOuterSize = K;
+
+  for (let id = 0; id < blocks.length; id++) {
+    const { r: or, c: oc } = blocks[id];
+    const [b1, b2] = openingCellsByRoom[id];
+    const openingDir1 = directionFromBlockToCell(or, oc, K, b1.row, b1.col);
+    const openingDir2 = directionFromBlockToCell(or, oc, K, b2.row, b2.col);
+    const openings = [openingDir1, openingDir2].filter((x) => x != null);
+
+    const subStart = borderPositionForDirection(openings[0] ?? DIRECTIONS.TOP, roomSubSize);
+    const subFinish = borderPositionForDirection(openings[1] ?? DIRECTIONS.BOTTOM, roomSubSize);
+    const derivedSeed = seed + id * 997;
+    const subMaze = generateMaze({
+      ageRange,
+      seed: derivedSeed,
+      algorithm: 'recursive-backtracker',
+      gridWidth: roomSubSize,
+      gridHeight: roomSubSize,
+    });
+    const subGrid = subMaze.grid;
+    subGrid.getCell(subStart.row, subStart.col).removeWall(openings[0] ?? DIRECTIONS.TOP);
+    subGrid.getCell(subFinish.row, subFinish.col).removeWall(openings[1] ?? DIRECTIONS.BOTTOM);
+
+    const origStart = subGrid.start;
+    const origFinish = subGrid.finish;
+    subGrid.start = subStart;
+    subGrid.finish = subFinish;
+    const solution = solveMaze(subGrid);
+    subGrid.start = origStart;
+    subGrid.finish = origFinish;
+
+    if (!solution || !solution.solved) throw new Error(`Squares rooms-first: sub-maze at ${or},${oc} not solvable`);
+    if (!validateMaze(subGrid)) throw new Error(`Squares rooms-first: sub-maze at ${or},${oc} failed validation`);
+
+    const roomCell = new RoomCell();
+    roomCell.outerRow = or;
+    roomCell.outerCol = oc;
+    roomCell.outerSize = K;
+    roomCell.openings = openings;
+    roomCell.openingCells = [b1, b2];
+    roomCell.subGrid = subGrid;
+    roomCell.subStart = subStart;
+    roomCell.subFinish = subFinish;
+    roomCell.subSolutionPath = solution.path;
+    roomsGrid.roomCells.set(`${or},${oc}`, roomCell);
+  }
+
+  return {
+    layout: 'squares',
+    outerGrid,
+    roomsGrid,
+    start: outerGrid.start,
+    finish: outerGrid.finish,
+    seed,
+    ageRange,
+    preset: { ...preset, cellSize: effectiveCellSize },
+    algorithm: algo,
+    rows: outerGrid.rows,
+    cols: outerGrid.cols,
+  };
+}
+
+/**
  * Generate a Squares-style maze: outer grid + embedded rooms.
  *
  * @param {object} config
@@ -67,6 +309,22 @@ export function generateSquaresMaze(config) {
     gridHeight = Math.max(1, Math.floor(mazeHeight / effectiveCellSize));
   }
 
+  const roomOuterSize = preset.roomOuterSize ?? 1;
+  if (roomOuterSize > 1) {
+    return generateSquaresMazeRoomsFirst({
+      gridWidth,
+      gridHeight,
+      roomOuterSize,
+      roomCount: preset.roomCount,
+      roomSubSize: preset.roomSubSize,
+      seed,
+      ageRange,
+      algorithm: algo,
+      effectiveCellSize,
+      preset,
+    });
+  }
+
   const outerMaze = generateMaze({
     ageRange,
     seed,
@@ -79,6 +337,7 @@ export function generateSquaresMaze(config) {
   const roomsGrid = new RoomsGrid();
   roomsGrid.outerGrid = outerGrid;
   roomsGrid.roomSubSize = roomSubSize;
+  roomsGrid.roomOuterSize = roomOuterSize;
 
   const rng = createRng(seed);
   const candidates = [];
@@ -124,7 +383,13 @@ export function generateSquaresMaze(config) {
     const roomCell = new RoomCell();
     roomCell.outerRow = outerRow;
     roomCell.outerCol = outerCol;
+    roomCell.outerSize = 1;
     roomCell.openings = openings;
+    const [d0, d1] = openings;
+    roomCell.openingCells = [
+      { row: outerRow + DIRECTION_OFFSETS[d0][0], col: outerCol + DIRECTION_OFFSETS[d0][1] },
+      { row: outerRow + DIRECTION_OFFSETS[d1][0], col: outerCol + DIRECTION_OFFSETS[d1][1] },
+    ];
     roomCell.subGrid = subGrid;
     roomCell.subStart = subStart;
     roomCell.subFinish = subFinish;

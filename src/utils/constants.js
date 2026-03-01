@@ -6,7 +6,7 @@
  * - Cell size (larger = easier to trace)
  * - Line thickness (thicker = easier to see)
  * - algorithm: which maze generator to use ('prim' | 'recursive-backtracker' | 'kruskal'; more can be added in generator.js)
- * - roomCount, roomSubSize: for Squares style (embedded rooms); see rooms-generator.js.
+ * - roomCount, roomSubSize, roomOuterSize: for Squares style (embedded rooms); see rooms-generator.js.
  *
  * Squares style: if preset cellSize < MIN_CELL_SIZE_SQUARES_PT, it is coerced to that minimum and
  * grid dimensions are recomputed so sub-mazes remain legible in print.
@@ -55,6 +55,7 @@ export const DIFFICULTY_PRESETS = {
     polarWedgeMultiplier: 2,
     roomCount: 1,
     roomSubSize: 3,
+    roomOuterSize: 3,
   },
   '4-5': {
     gridWidth: 7,
@@ -70,6 +71,7 @@ export const DIFFICULTY_PRESETS = {
     polarWedgeMultiplier: 2,
     roomCount: 2,
     roomSubSize: 3,
+    roomOuterSize: 3,
   },
   '6-8': {
     gridWidth: 10,
@@ -85,6 +87,7 @@ export const DIFFICULTY_PRESETS = {
     polarWedgeMultiplier: 2,
     roomCount: 3,
     roomSubSize: 4,
+    roomOuterSize: 3,
   },
   '9-11': {
     gridWidth: 12,
@@ -100,6 +103,7 @@ export const DIFFICULTY_PRESETS = {
     polarWedgeMultiplier: 2,
     roomCount: 4,
     roomSubSize: 5,
+    roomOuterSize: 3,
   },
   '12-14': {
     gridWidth: 14,
@@ -115,6 +119,7 @@ export const DIFFICULTY_PRESETS = {
     polarWedgeMultiplier: 2,
     roomCount: 5,
     roomSubSize: 6,
+    roomOuterSize: 5,
   },
   '15-17': {
     gridWidth: 24,
@@ -130,6 +135,7 @@ export const DIFFICULTY_PRESETS = {
     polarWedgeMultiplier: 2,
     roomCount: 6,
     roomSubSize: 7,
+    roomOuterSize: 6,
   },
   '18+': {
     gridWidth: 36,
@@ -145,6 +151,7 @@ export const DIFFICULTY_PRESETS = {
     polarWedgeMultiplier: 5,
     roomCount: 8,
     roomSubSize: 8,
+    roomOuterSize: 6,
   },
 };
 

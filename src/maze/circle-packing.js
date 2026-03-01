@@ -328,7 +328,7 @@ export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsH
 
   const tStart = 0.15;
   const tEnd = 0.85;
-  const minEdgeLen = halfW * 8;
+  const minEdgeLen = halfW * 4;
 
   // Pre-collect carved edge segments for corridor-aware collision
   const carvedEdges = [];

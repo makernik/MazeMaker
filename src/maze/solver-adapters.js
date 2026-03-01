@@ -138,14 +138,43 @@ export function polarAdapter(maze) {
 }
 
 /**
- * Squares adapter. Outer maze only; room cells are passable (neighbors via open walls).
+ * Squares adapter. Outer maze only. For roomOuterSize === 1, room cells are passable via open walls.
+ * For roomOuterSize > 1, room blocks are impassable in the grid; at an opening passage cell we add
+ * the room's other opening as a neighbor (opening-to-opening shortcut).
  * Sub-maze solution paths are on RoomCell at generation time for drawSolutionOverlay.
  *
- * @param {object} maze - Maze with layout 'squares', outerGrid (start/finish are outerGrid.start/finish)
+ * @param {object} maze - Maze with layout 'squares', outerGrid, roomsGrid (start/finish are outerGrid.start/finish)
  * @returns {object} Adapter
  */
 export function squaresAdapter(maze) {
-  return gridAdapter(maze.outerGrid);
+  const base = gridAdapter(maze.outerGrid);
+  const roomsGrid = maze.roomsGrid;
+  const roomOuterSize = roomsGrid?.roomOuterSize ?? 1;
+
+  if (roomOuterSize === 1) return base;
+
+  return {
+    getStart: () => base.getStart(),
+    getFinish: () => base.getFinish(),
+    getNeighbors(state) {
+      const fromGrid = base.getNeighbors(state);
+      const added = new Set(fromGrid.map((s) => `${s.row},${s.col}`));
+      for (const room of (roomsGrid?.roomCells?.values() ?? [])) {
+        const [a, b] = room.openingCells || [];
+        if (!a || !b) continue;
+        const atA = state.row === a.row && state.col === a.col;
+        const atB = state.row === b.row && state.col === b.col;
+        const other = atA ? b : atB ? a : null;
+        if (other && !added.has(`${other.row},${other.col}`)) {
+          fromGrid.push(other);
+          added.add(`${other.row},${other.col}`);
+        }
+      }
+      return fromGrid;
+    },
+    key: (state) => base.key(state),
+    getTotalCells: () => base.getTotalCells(),
+  };
 }
 
 /**

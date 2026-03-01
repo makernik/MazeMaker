@@ -42,6 +42,7 @@ For each carved edge A-B in the main graph:
 - DFS opens the single wall on each 2-node component, producing a clean parallel corridor with round end caps
 
 Parameters are derived from `halfW` (visual corridor width), not from circle topology radius:
+
 - `fillerR = max(2, halfW)` — node radius for the graph
 - `offset = halfW * 3` — centerline-to-centerline distance
 - `corridorClearance = halfW * 2 + 1` — collision check radius
@@ -79,7 +80,7 @@ Simpler mazes (Medium and below) have fewer, larger circles with more void space
 - `**[src/pdf/drawers/organic-geometry.js](src/pdf/drawers/organic-geometry.js)`**: New exported `computeCorridorWidth(graph, lineThickness?)` function. Extracts the avgDist + halfW computation duplicated across all 4 drawers. Returns `{ corridorWidth, halfW, avgDist }`. `lineThickness` defaults to `1.5` so callers without a layout get a reasonable value.
 - `**[src/maze/circle-packing.js](src/maze/circle-packing.js)`**: Replace `fillVoids()` with new `generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, corridorHalfW, seed)` function
 - `**[src/maze/organic-generator.js](src/maze/organic-generator.js)`**: Gate filler generation on `preset.organicFill`; import `computeCorridorWidth` from `organic-geometry.js` to get `halfW`
-- `**[src/pdf/drawers/draw-organic.js](src/pdf/drawers/draw-organic.js)**`: Replace inline avgDist/halfW block with `computeCorridorWidth(graph, lineThickness)` call
+- `**[src/pdf/drawers/draw-organic.js](src/pdf/drawers/draw-organic.js)`**: Replace inline avgDist/halfW block with `computeCorridorWidth(graph, lineThickness)` call
 - `**[src/pdf/drawers/draw-curvy.js](src/pdf/drawers/draw-curvy.js)**`: Same inline block replacement
 - `**[src/pdf/drawers/draw-organic-canvas.js](src/pdf/drawers/draw-organic-canvas.js)**`: Same inline block replacement
 - `**[src/pdf/drawers/draw-curvy-canvas.js](src/pdf/drawers/draw-curvy-canvas.js)**`: Same inline block replacement

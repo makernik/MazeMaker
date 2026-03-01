@@ -416,8 +416,8 @@ generation, RoomsGrid assembly; determinism, solvability, fallback tests. **Done
 - **C4**: `solver-adapters.js` — `squaresAdapter`; solver finds outer path;
 `isPerfectMaze` works. Wire `main.js` squares branch. **Done.** Layout squares branch, draw-rooms (minimal), registry, formatStyleLabel, debug panel. Validation: `tests/rooms-adapter.test.js` + layout squares test; full suite 185 passed.
 - **C5**: `draw-rooms.js` — `drawWalls` (room border with gaps at openings; sub-maze scaled, round caps, thickness); smoke test on canvas and PDF backend. **Done.** Validation: `tests/draw-rooms.test.js` 2 passed; full suite 187 passed.
-- **C5b** (optional, before C6): **Rooms-first** — Add `roomOuterSize` to presets (default 1). When roomOuterSize > 1, use rooms-first flow (section 3b): layout room blocks → outer graph → carve → sub-mazes. Solver/drawer support room = block. Keeps 1×1 path when roomOuterSize === 1.
-- **C6**: `draw-rooms.js` — `drawSolutionOverlay`.
+- **C5b** (optional, before C6): **Rooms-first** — Add `roomOuterSize` to presets (default 1). When roomOuterSize > 1, use rooms-first flow (section 3b): layout room blocks → outer graph → carve → sub-mazes. Solver/drawer support room = block. Keeps 1×1 path when roomOuterSize === 1. **Done.** Validation: roomOuterSize 1 or 2 per age; RoomsGrid block-aware isRoomCell/getRoomCell; rooms-first deterministic (12-14 seed 700); openingCells on RoomCell; solver opening-to-opening shortcut; drawWalls/drawSolutionOverlay for blocks; layout roomOuterSize; full suite 195 passed.
+- **C6**: `draw-rooms.js` — `drawSolutionOverlay` (outer path + subSolutionPath for room cells on critical path only). **Done.** Validation: full suite 193 passed.
 - **C7**: Layout and registry wiring; full PDF render smoke across all five
 styles.
 - **C8**: Docs — DECISIONS.md, DEFERRED_IDEAS.md; regression check all styles.
@@ -498,11 +498,13 @@ styles.
 **Spelling:** Use **Labyrinth** (correct spelling) everywhere.
 
 **Remaining open items:**
+
 - **E2E style sweep:** No automated test that generates one maze per style (classic, jagged, curvy, circular, squares). Either add a test that does that and asserts PDF render, or document that style coverage is manual. Low priority.
 - **Network calls in main.js:** Remove or gate `fetch(...)` for workspace-rule compliance; separate change.
 - **Plan template:** Optional — add Validation subsection and Last updated/Owner for traceability.
 
 **Architectural recommendations:**
+
 - **Add `roomOuterSize` to constants now (default 1):** So presets and layout/drawer always have the field. C5b only branches when `roomOuterSize > 1`; no later migration. Reduces risk of special-casing “missing” roomOuterSize.
 - **Single layout and maze shape for Squares:** Keep one `layout: 'squares'` and one shape (outerGrid + roomsGrid). For rooms-first (K×K blocks), represent the outer maze so that solver and drawer still see a grid plus roomsGrid (e.g. outer grid of “region” cells: passage vs room id; passage cells carry walls). Avoid two separate adapters or two layout types; extend the same contract.
 - **Labyrinth split:** When adding Labyrinth as its own style, either a separate generator file (e.g. `labyrinth-generator.js`) that reuses the current rooms-second logic, or a single “embedded rooms” generator that takes a mode: `'squares'` (rooms-first when roomOuterSize > 1, else rooms-second for 1×1) vs `'labyrinth'` (always rooms-second). Keeps Labyrinth and Squares clearly separated at the call site (main.js style branch).

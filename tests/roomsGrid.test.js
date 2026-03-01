@@ -105,4 +105,22 @@ describe('RoomsGrid', () => {
     rg.outerGrid = grid;
     expect(rg.openPassageCount(0, 0)).toBe(4);
   });
+
+  it('isRoomCell/getRoomCell support block (roomOuterSize > 1)', () => {
+    const rg = new RoomsGrid();
+    rg.outerGrid = new MazeGrid(6, 6);
+    rg.roomOuterSize = 2;
+    const rc = new RoomCell();
+    rc.outerRow = 1;
+    rc.outerCol = 2;
+    rc.outerSize = 2;
+    rg.roomCells.set('1,2', rc);
+    expect(rg.isRoomCell(1, 2)).toBe(true);
+    expect(rg.isRoomCell(2, 3)).toBe(true);
+    expect(rg.isRoomCell(1, 3)).toBe(true);
+    expect(rg.isRoomCell(2, 2)).toBe(true);
+    expect(rg.isRoomCell(0, 2)).toBe(false);
+    expect(rg.isRoomCell(1, 4)).toBe(false);
+    expect(rg.getRoomCell(2, 3)).toBe(rc);
+  });
 });

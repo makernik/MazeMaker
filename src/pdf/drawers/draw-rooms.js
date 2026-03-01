@@ -44,6 +44,41 @@ function drawWall(backend, x1, y1, x2, y2, thickness, isRounded) {
 const ROOM_OPENING_FRAC = 0.5;
 
 /**
+ * Derive opening directions from openingCells when openings is missing/empty.
+ * Direction from block (or, oc) with size K to passage cell (r, c): which side of the block (r,c) is on.
+ * @param {number} or - block top row
+ * @param {number} oc - block left col
+ * @param {number} K - block size
+ * @param {{ row: number, col: number }[]} openingCells
+ * @returns {number[]} DIRECTIONS values
+ */
+function openingsFromCells(or, oc, K, openingCells) {
+  if (!openingCells || openingCells.length === 0) return [];
+  const out = [];
+  for (const { row: r, col: c } of openingCells) {
+    if (r === or - 1) out.push(DIRECTIONS.TOP);
+    else if (r === or + K) out.push(DIRECTIONS.BOTTOM);
+    else if (c === oc - 1) out.push(DIRECTIONS.LEFT);
+    else if (c === oc + K) out.push(DIRECTIONS.RIGHT);
+  }
+  return out;
+}
+
+/**
+ * Resolve which opening directions to use for drawing gaps. Prefer roomCell.openings; fall back to deriving from openingCells.
+ */
+function getOpeningDirections(roomCell) {
+  const fromOpenings = roomCell.openings;
+  if (fromOpenings != null && fromOpenings.length > 0) return fromOpenings;
+  return openingsFromCells(
+    roomCell.outerRow,
+    roomCell.outerCol,
+    roomCell.outerSize ?? 1,
+    roomCell.openingCells
+  );
+}
+
+/**
  * Draw one segment of room border, optionally with a centered gap (for openings).
  */
 function drawBorderSegment(backend, x1, y1, x2, y2, thickness, isRounded, gapFrac) {
@@ -64,26 +99,26 @@ function drawBorderSegment(backend, x1, y1, x2, y2, thickness, isRounded, gapFra
 }
 
 /**
- * Draw room cell: solid border with gaps at openings, then sub-maze walls inside (round caps).
+ * Draw one room: solid border with gaps at openings, then sub-maze walls inside (round caps).
+ * @param {number} blockSize - width/height of the room in points (cellSize for 1×1, roomOuterSize*cellSize for blocks)
  */
-function drawRoomCell(backend, roomCell, roomX, roomY, cellSize, lineThickness, style, roomSubSize) {
+function drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness, style, roomSubSize) {
   const isRounded = style === 'classic';
   const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
-  const openings = new Set(roomCell.openings);
+  const openingDirs = getOpeningDirections(roomCell);
+  const openings = new Set(openingDirs);
   const gapFrac = ROOM_OPENING_FRAC;
 
-  // Border: four sides, gap on opening directions
-  const top = roomY + cellSize;
+  const top = roomY + blockSize;
   const bottom = roomY;
   const left = roomX;
-  const right = roomX + cellSize;
+  const right = roomX + blockSize;
   drawBorderSegment(backend, left, top, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.TOP) ? gapFrac : 0);
   drawBorderSegment(backend, left, bottom, right, bottom, effectiveThickness, isRounded, openings.has(DIRECTIONS.BOTTOM) ? gapFrac : 0);
   drawBorderSegment(backend, left, bottom, left, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.LEFT) ? gapFrac : 0);
   drawBorderSegment(backend, right, bottom, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.RIGHT) ? gapFrac : 0);
 
-  // Sub-maze inside: scaled to fit, round caps, thinner
-  const subCellSize = cellSize / roomSubSize;
+  const subCellSize = blockSize / roomSubSize;
   const subThickness = Math.max(0.5, lineThickness * 0.4);
   const subGrid = roomCell.subGrid;
   backend.save();
@@ -112,24 +147,29 @@ function drawRoomCell(backend, roomCell, roomX, roomY, cellSize, lineThickness, 
 
 /**
  * Draw outer maze walls. Non-room cells: Classic grid logic. Room cells: border with gaps + sub-maze inside.
+ * For roomOuterSize > 1, each room is drawn once as a block (roomOuterSize×cellSize); passage cells drawn per cell.
  *
  * @param {object} backend - DrawBackend (pdf or canvas)
  * @param {object} maze - Maze with layout 'squares', outerGrid, roomsGrid
- * @param {object} layoutResult - { offsetX, offsetY, cellSize, lineThickness, style, roomSubSize }
+ * @param {object} layoutResult - { offsetX, offsetY, cellSize, lineThickness, style, roomSubSize, roomOuterSize }
  */
 export function drawWalls(backend, maze, layoutResult) {
   const grid = maze.outerGrid;
   const roomsGrid = maze.roomsGrid;
-  const { offsetX, offsetY, cellSize, lineThickness, style, roomSubSize } = layoutResult;
+  const { offsetX, offsetY, cellSize, lineThickness, style, roomSubSize, roomOuterSize } = layoutResult;
+  const K = roomOuterSize ?? 1;
   const isRounded = style === 'classic';
   const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
+  const rows = grid.rows;
 
   for (let row = 0; row < grid.rows; row++) {
     for (let col = 0; col < grid.cols; col++) {
-      const x = offsetX + col * cellSize;
-      const y = offsetY + (grid.rows - 1 - row) * cellSize;
       const roomCell = roomsGrid?.getRoomCell(row, col);
-
+      if (roomCell && K > 1) {
+        continue;
+      }
+      const x = offsetX + col * cellSize;
+      const y = offsetY + (rows - 1 - row) * cellSize;
       if (roomCell) {
         drawRoomCell(backend, roomCell, x, y, cellSize, lineThickness, style, roomSubSize ?? roomCell.subGrid.rows);
       } else {
@@ -147,6 +187,15 @@ export function drawWalls(backend, maze, layoutResult) {
           drawWall(backend, x + cellSize, y, x + cellSize, y + cellSize, effectiveThickness, isRounded);
         }
       }
+    }
+  }
+
+  if (K > 1 && roomsGrid) {
+    const blockSize = K * cellSize;
+    for (const roomCell of roomsGrid.roomCells.values()) {
+      const roomX = offsetX + roomCell.outerCol * cellSize;
+      const roomY = offsetY + (rows - roomCell.outerRow - roomCell.outerSize) * cellSize;
+      drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness, style, roomSubSize ?? roomCell.subGrid.rows);
     }
   }
 }
@@ -196,16 +245,18 @@ export function drawLabels(backend, maze, layoutResult, options = {}) {
 }
 
 /**
- * Draw outer solution path. Room interior paths drawn in C6.
+ * Draw outer solution path and, for room cells on the path, their inner subSolutionPath.
+ * Rooms not on the critical path get no inner path (dead-end indistinguishability).
  *
  * @param {object} backend - DrawBackend
- * @param {object} maze - Maze with outerGrid
+ * @param {object} maze - Maze with outerGrid, roomsGrid
  * @param {object[]} path - Outer path [{ row, col }]
- * @param {object} layoutResult - { offsetX, offsetY, cellSize }
+ * @param {object} layoutResult - { offsetX, offsetY, cellSize, roomSubSize }
  */
 export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   const grid = maze.outerGrid;
-  const { offsetX, offsetY, cellSize } = layoutResult;
+  const roomsGrid = maze.roomsGrid;
+  const { offsetX, offsetY, cellSize, roomSubSize } = layoutResult;
   const rows = grid.rows;
 
   backend.save();
@@ -213,6 +264,7 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   backend.setDash([4, 4]);
   backend.setOpacity(0.7);
 
+  // Outer path
   for (let i = 1; i < path.length; i++) {
     const prev = path[i - 1];
     const curr = path[i];
@@ -221,6 +273,36 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
     const x2 = offsetX + (curr.col + 0.5) * cellSize;
     const y2 = offsetY + (rows - 1 - curr.row + 0.5) * cellSize;
     backend.line(x1, y1, x2, y2);
+  }
+
+  // Inner solution for rooms on the critical path only (1×1: path contains room cell; block: path contains both openings)
+  if (roomsGrid && path.length > 0) {
+    const pathCellKeys = new Set(path.map((p) => `${p.row},${p.col}`));
+    const subSize = roomSubSize ?? 0;
+    const roomOuterSize = roomsGrid.roomOuterSize ?? 1;
+    for (const roomCell of roomsGrid.roomCells.values()) {
+      const onPath = roomOuterSize === 1
+        ? pathCellKeys.has(`${roomCell.outerRow},${roomCell.outerCol}`)
+        : (roomCell.openingCells?.length >= 2 &&
+           pathCellKeys.has(`${roomCell.openingCells[0].row},${roomCell.openingCells[0].col}`) &&
+           pathCellKeys.has(`${roomCell.openingCells[1].row},${roomCell.openingCells[1].col}`));
+      if (!onPath) continue;
+      const subPath = roomCell.subSolutionPath;
+      if (!subPath || subPath.length < 2) continue;
+      const K = roomCell.outerSize ?? 1;
+      const roomX = offsetX + roomCell.outerCol * cellSize;
+      const roomY = offsetY + (rows - roomCell.outerRow - K) * cellSize;
+      const subCellSize = subSize > 0 ? (K * cellSize) / subSize : cellSize;
+      for (let j = 1; j < subPath.length; j++) {
+        const prev = subPath[j - 1];
+        const curr = subPath[j];
+        const x1 = roomX + (prev.col + 0.5) * subCellSize;
+        const y1 = roomY + (subSize - 1 - prev.row + 0.5) * subCellSize;
+        const x2 = roomX + (curr.col + 0.5) * subCellSize;
+        const y2 = roomY + (subSize - 1 - curr.row + 0.5) * subCellSize;
+        backend.line(x1, y1, x2, y2);
+      }
+    }
   }
 
   backend.restore();
