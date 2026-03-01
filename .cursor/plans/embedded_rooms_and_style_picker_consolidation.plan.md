@@ -350,7 +350,7 @@ locked rooms are a rendering overlay; embedded rooms are structural.
 generation, RoomsGrid assembly; determinism, solvability, fallback tests. **Done.** Optional gridWidth/gridHeight added to generateMaze. Validation: `tests/rooms-generator.test.js` 8 passed; full suite 181 passed.
 - **C4**: `solver-adapters.js` — `squaresAdapter`; solver finds outer path;
 `isPerfectMaze` works. Wire `main.js` squares branch. **Done.** Layout squares branch, draw-rooms (minimal), registry, formatStyleLabel, debug panel. Validation: `tests/rooms-adapter.test.js` + layout squares test; full suite 185 passed.
-- **C5**: `draw-rooms.js` — `drawWalls`; smoke test on canvas backend.
+- **C5**: `draw-rooms.js` — `drawWalls` (room border with gaps at openings; sub-maze scaled, round caps, thickness); smoke test on canvas and PDF backend. **Done.** Validation: `tests/draw-rooms.test.js` 2 passed; full suite 187 passed.
 - **C6**: `draw-rooms.js` — `drawSolutionOverlay`.
 - **C7**: Layout and registry wiring; full PDF render smoke across all five
 styles.
@@ -378,6 +378,7 @@ styles.
 | **New** `tests/roomsGrid.test.js`       | RoomCell, RoomsGrid, openPassageCount (C2)                              |
 | **New** `tests/rooms-generator.test.js` | Determinism, room count, solvability, fallback                          |
 | **New** `tests/rooms-adapter.test.js`   | Solver outer path; isPerfectMaze                                        |
+| **New** `tests/draw-rooms.test.js`      | drawWalls smoke (canvas + PDF backend) (C5)                             |
 
 
 ---

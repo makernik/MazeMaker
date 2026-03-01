@@ -40,35 +40,112 @@ function drawWall(backend, x1, y1, x2, y2, thickness, isRounded) {
   backend.line(startX, startY, endX, endY);
 }
 
+/** Gap as fraction of cell size for room opening (match outer corridor). */
+const ROOM_OPENING_FRAC = 0.5;
+
 /**
- * Draw outer maze walls. Room cells drawn as normal grid cells for now (C5: room border + sub-maze).
+ * Draw one segment of room border, optionally with a centered gap (for openings).
+ */
+function drawBorderSegment(backend, x1, y1, x2, y2, thickness, isRounded, gapFrac) {
+  if (gapFrac == null || gapFrac <= 0) {
+    drawWall(backend, x1, y1, x2, y2, thickness, isRounded);
+    return;
+  }
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const gapLen = len * gapFrac;
+  const half = gapLen / 2;
+  const mid = len / 2;
+  drawWall(backend, x1, y1, x1 + ux * (mid - half), y1 + uy * (mid - half), thickness, isRounded);
+  drawWall(backend, x1 + ux * (mid + half), y1 + uy * (mid + half), x2, y2, thickness, isRounded);
+}
+
+/**
+ * Draw room cell: solid border with gaps at openings, then sub-maze walls inside (round caps).
+ */
+function drawRoomCell(backend, roomCell, roomX, roomY, cellSize, lineThickness, style, roomSubSize) {
+  const isRounded = style === 'classic';
+  const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
+  const openings = new Set(roomCell.openings);
+  const gapFrac = ROOM_OPENING_FRAC;
+
+  // Border: four sides, gap on opening directions
+  const top = roomY + cellSize;
+  const bottom = roomY;
+  const left = roomX;
+  const right = roomX + cellSize;
+  drawBorderSegment(backend, left, top, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.TOP) ? gapFrac : 0);
+  drawBorderSegment(backend, left, bottom, right, bottom, effectiveThickness, isRounded, openings.has(DIRECTIONS.BOTTOM) ? gapFrac : 0);
+  drawBorderSegment(backend, left, bottom, left, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.LEFT) ? gapFrac : 0);
+  drawBorderSegment(backend, right, bottom, right, top, effectiveThickness, isRounded, openings.has(DIRECTIONS.RIGHT) ? gapFrac : 0);
+
+  // Sub-maze inside: scaled to fit, round caps, thinner
+  const subCellSize = cellSize / roomSubSize;
+  const subThickness = Math.max(0.5, lineThickness * 0.4);
+  const subGrid = roomCell.subGrid;
+  backend.save();
+  backend.setStroke('#000', subThickness, 'round');
+  for (let sr = 0; sr < subGrid.rows; sr++) {
+    for (let sc = 0; sc < subGrid.cols; sc++) {
+      const cell = subGrid.getCell(sr, sc);
+      const sx = roomX + sc * subCellSize;
+      const sy = roomY + (roomSubSize - 1 - sr) * subCellSize;
+      if (cell.hasWall(DIRECTIONS.TOP)) {
+        backend.line(sx, sy + subCellSize, sx + subCellSize, sy + subCellSize);
+      }
+      if (cell.hasWall(DIRECTIONS.BOTTOM)) {
+        backend.line(sx, sy, sx + subCellSize, sy);
+      }
+      if (cell.hasWall(DIRECTIONS.LEFT)) {
+        backend.line(sx, sy, sx, sy + subCellSize);
+      }
+      if (cell.hasWall(DIRECTIONS.RIGHT)) {
+        backend.line(sx + subCellSize, sy, sx + subCellSize, sy + subCellSize);
+      }
+    }
+  }
+  backend.restore();
+}
+
+/**
+ * Draw outer maze walls. Non-room cells: Classic grid logic. Room cells: border with gaps + sub-maze inside.
  *
  * @param {object} backend - DrawBackend (pdf or canvas)
  * @param {object} maze - Maze with layout 'squares', outerGrid, roomsGrid
- * @param {object} layoutResult - { offsetX, offsetY, cellSize, lineThickness, style }
+ * @param {object} layoutResult - { offsetX, offsetY, cellSize, lineThickness, style, roomSubSize }
  */
 export function drawWalls(backend, maze, layoutResult) {
   const grid = maze.outerGrid;
-  const { offsetX, offsetY, cellSize, lineThickness, style } = layoutResult;
+  const roomsGrid = maze.roomsGrid;
+  const { offsetX, offsetY, cellSize, lineThickness, style, roomSubSize } = layoutResult;
   const isRounded = style === 'classic';
   const effectiveThickness = isRounded ? lineThickness * 2 : lineThickness;
 
   for (let row = 0; row < grid.rows; row++) {
     for (let col = 0; col < grid.cols; col++) {
-      const cell = grid.getCell(row, col);
       const x = offsetX + col * cellSize;
       const y = offsetY + (grid.rows - 1 - row) * cellSize;
-      if (cell.hasWall(DIRECTIONS.TOP)) {
-        drawWall(backend, x, y + cellSize, x + cellSize, y + cellSize, effectiveThickness, isRounded);
-      }
-      if (cell.hasWall(DIRECTIONS.BOTTOM)) {
-        drawWall(backend, x, y, x + cellSize, y, effectiveThickness, isRounded);
-      }
-      if (cell.hasWall(DIRECTIONS.LEFT)) {
-        drawWall(backend, x, y, x, y + cellSize, effectiveThickness, isRounded);
-      }
-      if (cell.hasWall(DIRECTIONS.RIGHT)) {
-        drawWall(backend, x + cellSize, y, x + cellSize, y + cellSize, effectiveThickness, isRounded);
+      const roomCell = roomsGrid?.getRoomCell(row, col);
+
+      if (roomCell) {
+        drawRoomCell(backend, roomCell, x, y, cellSize, lineThickness, style, roomSubSize ?? roomCell.subGrid.rows);
+      } else {
+        const cell = grid.getCell(row, col);
+        if (cell.hasWall(DIRECTIONS.TOP)) {
+          drawWall(backend, x, y + cellSize, x + cellSize, y + cellSize, effectiveThickness, isRounded);
+        }
+        if (cell.hasWall(DIRECTIONS.BOTTOM)) {
+          drawWall(backend, x, y, x + cellSize, y, effectiveThickness, isRounded);
+        }
+        if (cell.hasWall(DIRECTIONS.LEFT)) {
+          drawWall(backend, x, y, x, y + cellSize, effectiveThickness, isRounded);
+        }
+        if (cell.hasWall(DIRECTIONS.RIGHT)) {
+          drawWall(backend, x + cellSize, y, x + cellSize, y + cellSize, effectiveThickness, isRounded);
+        }
       }
     }
   }
