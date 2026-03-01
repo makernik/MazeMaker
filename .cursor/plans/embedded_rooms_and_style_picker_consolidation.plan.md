@@ -345,7 +345,7 @@ locked rooms are a rendering overlay; embedded rooms are structural.
 
 - **C0**: UI — remove Topology fieldset; five-option Style picker (`name="maze-style"`); `main.js` routes by `mazeStyle`; Squares shows "not yet available" until C4; `syncMazeStyleVisibility` keeps fieldset visible; `GRID_ALGORITHM_IDS` fix. **Done.** Validation: `npm run test` 160 passed.
 - **C1**: Constants — `roomCount`, `roomSubSize` on all presets; `MIN_CELL_SIZE_SQUARES_PT` (28) and coercion documented in constants.js. **Done.** Validation: `npm run test` 162 passed (includes constants tests in maze.test.js).
-- **C2**: `roomsGrid.js` — RoomCell, RoomsGrid, openPassageCount; unit tests.
+- **C2**: `roomsGrid.js` — RoomCell, RoomsGrid, openPassageCount; unit tests. **Done.** Validation: `tests/roomsGrid.test.js` 11 tests passed.
 - **C3**: `rooms-generator.js` — outer maze, room selection, sub-maze
 generation, RoomsGrid assembly; determinism, solvability, fallback tests.
 - **C4**: `solver-adapters.js` — `squaresAdapter`; solver finds outer path;
@@ -375,6 +375,7 @@ styles.
 | `src/pdf/renderer.js`                   | formatStyleLabel for all five styles                                    |
 | `docs/DECISIONS.md`                     | Style consolidation; Squares style decisions                            |
 | `docs/DEFERRED_IDEAS.md`                | showDeadEndRooms; organic/polar rooms; locked rooms distinction         |
+| **New** `tests/roomsGrid.test.js`       | RoomCell, RoomsGrid, openPassageCount (C2)                              |
 | **New** `tests/rooms-generator.test.js` | Determinism, room count, solvability, fallback                          |
 | **New** `tests/rooms-adapter.test.js`   | Solver outer path; isPerfectMaze                                        |
 
