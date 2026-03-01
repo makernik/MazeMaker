@@ -226,7 +226,7 @@ roomOuterSize: N,    // outer grid cells per side of room (room = N×N cell bloc
 
 When **roomOuterSize === 1** (current): room = one cell; existing "maze first, then select 2-passage cells" flow applies. When **roomOuterSize > 1**: use **rooms-first** flow (section 3b).
 
-**Preserve rooms-second:** When implementing rooms-first (C5b), do **not** remove the current "maze first → select 2-passage cells → 1×1 rooms" path. Keep it either as the roomOuterSize === 1 branch of Squares, or for a future **Labyrinth**-type style (same algorithm, different style name). That way the "rooms second" approach remains available and is not overwritten.
+**Preserve rooms-second for Labyrinth:** When implementing rooms-first (C5b), do **not** remove the current "maze first → select 2-passage cells → 1×1 rooms" path. That path is the future **Labyrinth** style (outer maze primary, small rooms as passage obstacles; distinct from Squares where rooms are primary). Keep it as the roomOuterSize === 1 branch of Squares until Labyrinth is promoted to its own style, or migrate it to a Labyrinth generator when adding the style.
 
 ---
 
@@ -274,7 +274,7 @@ This section sketches the data structures and order of operations so that a room
 
 ### Checkpoint for rooms-first
 
-- **C5b (optional, before C6):** Add `roomOuterSize` to presets (default 1). Implement rooms-first path when roomOuterSize > 1: layout room blocks → outer graph → carve → sub-mazes. **Keep existing rooms-second (1×1) path** when roomOuterSize === 1; do not remove it (it may be reused for a future Labyrinth-style variant). Solver and drawer support both (room = one cell or room = one block). Tests: determinism, room count, solvability, draw smoke.
+- **C5b (optional, before C6):** Add `roomOuterSize` to presets (default 1). Implement rooms-first path when roomOuterSize > 1: layout room blocks → outer graph → carve → sub-mazes. **Keep existing rooms-second (1×1) path** when roomOuterSize === 1; do not remove it (that path is the future Labyrinth style — see DEFERRED_IDEAS). Solver and drawer support both (room = one cell or room = one block). Tests: determinism, room count, solvability, draw smoke.
 
 ---
 
@@ -490,6 +490,22 @@ styles.
 ### Determinism / Privacy (existing code)
 
 - **Network calls in main.js:** Several `fetch('http://127.0.0.1:7243/...')` calls exist (agent log/telemetry). Workspace rules forbid runtime network calls and telemetry. Not introduced by this plan; consider removing or gating behind a build/debug flag in a separate change.
+
+---
+
+## Outstanding issues and recommendations
+
+**Spelling:** Use **Labyrinth** (correct spelling) everywhere.
+
+**Remaining open items:**
+- **E2E style sweep:** No automated test that generates one maze per style (classic, jagged, curvy, circular, squares). Either add a test that does that and asserts PDF render, or document that style coverage is manual. Low priority.
+- **Network calls in main.js:** Remove or gate `fetch(...)` for workspace-rule compliance; separate change.
+- **Plan template:** Optional — add Validation subsection and Last updated/Owner for traceability.
+
+**Architectural recommendations:**
+- **Add `roomOuterSize` to constants now (default 1):** So presets and layout/drawer always have the field. C5b only branches when `roomOuterSize > 1`; no later migration. Reduces risk of special-casing “missing” roomOuterSize.
+- **Single layout and maze shape for Squares:** Keep one `layout: 'squares'` and one shape (outerGrid + roomsGrid). For rooms-first (K×K blocks), represent the outer maze so that solver and drawer still see a grid plus roomsGrid (e.g. outer grid of “region” cells: passage vs room id; passage cells carry walls). Avoid two separate adapters or two layout types; extend the same contract.
+- **Labyrinth split:** When adding Labyrinth as its own style, either a separate generator file (e.g. `labyrinth-generator.js`) that reuses the current rooms-second logic, or a single “embedded rooms” generator that takes a mode: `'squares'` (rooms-first when roomOuterSize > 1, else rooms-second for 1×1) vs `'labyrinth'` (always rooms-second). Keeps Labyrinth and Squares clearly separated at the call site (main.js style branch).
 
 ---
 

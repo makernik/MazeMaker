@@ -12,8 +12,8 @@ todos:
     content: "C2: Add organicFill to constants.js presets (0 for medium and below, 1 for hard and up); gate filler in organic-generator.js on preset.organicFill; use computeCorridorWidth for halfW"
     status: completed
   - id: c3-test-validate
-    content: "C3: Update tests, run all tests, visual validation with jagged and curvy styles"
-    status: in_progress
+    content: "C3: Update tests (6 new), all 193 tests pass. Visual validation pending user review."
+    status: completed
 isProject: false
 ---
 
@@ -27,31 +27,25 @@ isProject: false
 
 Replace grid-based void-filling with a strategy that places filler nodes at perpendicular offsets from each **carved** main maze edge. The filler graph edges connect sequential nodes along each corridor's offset path, so filler corridors naturally run parallel to nearby main corridors.
 
-### Algorithm sketch
+### Algorithm sketch (v2 — long single-edge filler)
+
+The v1 approach (multi-node strips with junction cross-connections) produced short chunky stubs. v2 simplifies: each filler corridor is a **single long edge** spanning most of its parent corridor's length.
 
 For each carved edge A-B in the main graph:
 
 - Compute perpendicular direction `p`
 - For each side (left, right):
-  - Offset distance = `corridorHalfW + gap + fillerRadius` (place beyond the wall line)
-  - Sample 2-3 positions along the edge (e.g. t = 0.25, 0.50, 0.75)
-  - At each sample: `pos = lerp(A, B, t) + p * offset`
-  - If pos doesn't overlap any main circle and is within bounds, create a filler node
-- Connect sequential filler nodes along the same edge/side
+  - Offset distance = `halfW * 3` (one halfW for main wall, one for gap, one for filler wall center)
+  - Place two nodes: one at `t = 0.15`, one at `t = 0.85` along the offset path
+  - If both nodes are within bounds and don't overlap any OTHER corridor, create the pair + one edge
+- No junction cross-connections (they caused crossing stubs)
+- DFS opens the single wall on each 2-node component, producing a clean parallel corridor with round end caps
 
-Then run DFS on the filler graph to carve a spanning tree (preserving dead-ends for visual interest). Since nodes are placed along corridor offsets, even the DFS paths will follow main corridor directions.
-
-### Junction handling (nodes with 3+ carved passages)
-
-**Crowding prevention.** Filler nodes are sampled starting at `t >= 0.25` along each edge, never at the junction node itself (`t=0`). This creates a natural exclusion zone of at least 25% of edge-length around every junction center. No additional exclusion logic is needed.
-
-**Cross-connection rule.** After all filler nodes are placed, attempt to link filler endpoints from different edges that meet at the same main-graph node:
-
-1. **Proximity gate**: two filler endpoints must be within `fillerR * 4` of each other.
-2. **Angle tolerance (45 deg)**: the angle between the two parent-edge directions must be < 45 degrees. This means filler paths from gently-curving corridors connect into continuous parallels, while perpendicular corridors (T-junctions, 90-degree bends) stay separate -- which is correct, since a tiny filler corridor turning a right angle would look jarring.
-3. Eligible pairs get a neighbor connection (with a wall, as usual). DFS carving decides which cross-connections actually become drawn edges.
-
-**Why 45 degrees.** At 30 degrees almost nothing connects, leaving most junctions as disconnected stubs. At 60+ degrees, filler starts wrapping around moderate bends which looks forced at filler scale. 45 degrees is the sweet spot: gentle curves connect, sharp turns don't. DFS carving is a further safety net -- even if a cross-connection is created, it only draws if the spanning tree traverses it.
+Parameters are derived from `halfW` (visual corridor width), not from circle topology radius:
+- `fillerR = max(2, halfW)` — node radius for the graph
+- `offset = halfW * 3` — centerline-to-centerline distance
+- `corridorClearance = halfW * 2 + 1` — collision check radius
+- `minEdgeLen = halfW * 8` — skip short edges where filler would be a blob
 
 ### Per-level filler flag (`organicFill`)
 

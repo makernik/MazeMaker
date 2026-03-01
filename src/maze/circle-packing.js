@@ -290,13 +290,28 @@ function findComponents(circles, neighbors) {
 // Corridor-following filler (pass 2 — decorative filler parallel to corridors)
 // ---------------------------------------------------------------------------
 
-const FILLER_T_VALUES = [0.25, 0.50, 0.75];
-const JUNCTION_ANGLE_TOLERANCE = Math.PI / 4; // 45 degrees
+/** Squared distance from point (px,py) to line segment (ax,ay)-(bx,by). */
+function pointToSegDistSq(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 0.0001) {
+    const ex = px - ax;
+    const ey = py - ay;
+    return ex * ex + ey * ey;
+  }
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+  const cx = ax + t * dx;
+  const cy = ay + t * dy;
+  const ex = px - cx;
+  const ey = py - cy;
+  return ex * ex + ey * ey;
+}
 
 /**
- * Place filler circles at perpendicular offsets alongside carved main-maze
- * corridors.  Returns circles + a pre-built neighbor map (topology is known
- * from placement, so computeNeighbors is not needed).
+ * Place filler corridors as long parallel segments alongside carved main-maze
+ * corridors.  Each filler is a single edge (2 nodes) that spans most of the
+ * parent corridor's length, producing a clean parallel line with end caps.
  *
  * @param {{ nodes: Array, hasWall: Function, getNode: Function }} mainGraph
  * @param {Array<{ id: number, x: number, y: number, r: number }>} circles
@@ -307,21 +322,24 @@ const JUNCTION_ANGLE_TOLERANCE = Math.PI / 4; // 45 degrees
  * @returns {{ circles: Array<{ id: number, x: number, y: number, r: number }>, neighborMap: Map<number, number[]> }}
  */
 export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsHeight, halfW, seed) {
-  let totalR = 0;
-  let maxExistingR = 0;
-  for (const c of circles) {
-    totalR += c.r;
-    if (c.r > maxExistingR) maxExistingR = c.r;
-  }
-  const avgR = circles.length > 0 ? totalR / circles.length : 10;
-  const fillerR = Math.max(3, avgR * 0.4);
-  const offset = halfW + fillerR * 0.8;
-  const minEdgeLen = fillerR * 4;
+  const fillerR = Math.max(2, halfW);
+  const offset = halfW * 3;
+  const corridorClearance = halfW * 2 + 1;
 
-  const checkDist = maxExistingR + fillerR + 2;
-  const cellSize = Math.max(1, checkDist * 2);
-  const grid = new SpatialGrid(boundsWidth, boundsHeight, cellSize);
-  grid.build(circles);
+  const tStart = 0.15;
+  const tEnd = 0.85;
+  const minEdgeLen = halfW * 8;
+
+  // Pre-collect carved edge segments for corridor-aware collision
+  const carvedEdges = [];
+  for (const node of mainGraph.nodes) {
+    for (const nid of node.neighbors) {
+      if (nid > node.id && !mainGraph.hasWall(node.id, nid)) {
+        const other = mainGraph.getNode(nid);
+        if (other) carvedEdges.push({ ax: node.x, ay: node.y, bx: other.x, by: other.y });
+      }
+    }
+  }
 
   let nextId = 0;
   for (const c of circles) {
@@ -331,9 +349,6 @@ export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsH
 
   const fillerCircles = [];
   const neighborMap = new Map();
-  // Per main-graph node: filler endpoints for cross-connection
-  const junctionEndpoints = new Map();
-
   const visitedEdges = new Set();
 
   for (const node of mainGraph.nodes) {
@@ -354,96 +369,43 @@ export function generateCorridorFillers(mainGraph, circles, boundsWidth, boundsH
       const uy = dy / dist;
       const px = -uy;
       const py = ux;
-      const edgeAngle = Math.atan2(dy, dx);
 
       for (const side of [1, -1]) {
-        const stripIds = [];
+        const sx = node.x + ux * (tStart * dist) + px * offset * side;
+        const sy = node.y + uy * (tStart * dist) + py * offset * side;
+        const ex = node.x + ux * (tEnd * dist) + px * offset * side;
+        const ey = node.y + uy * (tEnd * dist) + py * offset * side;
 
-        for (const t of FILLER_T_VALUES) {
-          const fx = node.x + ux * (t * dist) + px * offset * side;
-          const fy = node.y + uy * (t * dist) + py * offset * side;
+        if (sx < fillerR || sx > boundsWidth - fillerR - 1 ||
+            sy < fillerR || sy > boundsHeight - fillerR - 1 ||
+            ex < fillerR || ex > boundsWidth - fillerR - 1 ||
+            ey < fillerR || ey > boundsHeight - fillerR - 1) continue;
 
-          if (fx < fillerR || fx > boundsWidth - fillerR - 1 ||
-              fy < fillerR || fy > boundsHeight - fillerR - 1) continue;
-
-          const nearby = grid.getNearby(fx, fy);
-          let overlaps = false;
-          for (let k = 0; k < nearby.length; k++) {
-            const c = circles[nearby[k]];
-            const cdx = fx - c.x;
-            const cdy = fy - c.y;
-            if (cdx * cdx + cdy * cdy < (c.r + fillerR + 1) * (c.r + fillerR + 1)) {
-              overlaps = true;
-              break;
-            }
+        // Check both endpoints don't overlap any OTHER corridor
+        let overlaps = false;
+        for (let e = 0; e < carvedEdges.length; e++) {
+          const seg = carvedEdges[e];
+          if (Math.abs(seg.ax - node.x) < 0.01 && Math.abs(seg.ay - node.y) < 0.01 &&
+              Math.abs(seg.bx - other.x) < 0.01 && Math.abs(seg.by - other.y) < 0.01) continue;
+          if (pointToSegDistSq(sx, sy, seg.ax, seg.ay, seg.bx, seg.by) < corridorClearance * corridorClearance ||
+              pointToSegDistSq(ex, ey, seg.ax, seg.ay, seg.bx, seg.by) < corridorClearance * corridorClearance) {
+            overlaps = true;
+            break;
           }
-          if (overlaps) continue;
-
-          const id = nextId++;
-          fillerCircles.push({ id, x: fx, y: fy, r: fillerR });
-          neighborMap.set(id, []);
-          stripIds.push(id);
         }
+        if (overlaps) continue;
 
-        for (let i = 0; i < stripIds.length - 1; i++) {
-          neighborMap.get(stripIds[i]).push(stripIds[i + 1]);
-          neighborMap.get(stripIds[i + 1]).push(stripIds[i]);
-        }
-
-        if (stripIds.length > 0) {
-          // t=0.25 end is near node; t=0.75 end is near other
-          const dirAtStart = edgeAngle;
-          const dirAtEnd = edgeAngle + Math.PI;
-          addJunctionEndpoint(junctionEndpoints, node.id, stripIds[0], dirAtStart);
-          addJunctionEndpoint(junctionEndpoints, nid, stripIds[stripIds.length - 1], dirAtEnd);
-        }
+        const idA = nextId++;
+        const idB = nextId++;
+        fillerCircles.push({ id: idA, x: sx, y: sy, r: fillerR });
+        fillerCircles.push({ id: idB, x: ex, y: ey, r: fillerR });
+        neighborMap.set(idA, [idB]);
+        neighborMap.set(idB, [idA]);
       }
     }
   }
-
-  crossConnectAtJunctions(junctionEndpoints, fillerCircles, neighborMap, fillerR);
 
   return { circles: fillerCircles, neighborMap };
-}
-
-function addJunctionEndpoint(map, mainNodeId, fillerId, direction) {
-  let list = map.get(mainNodeId);
-  if (!list) { list = []; map.set(mainNodeId, list); }
-  list.push({ fillerId, direction });
-}
-
-/**
- * Link filler endpoints from different edges that meet at the same
- * main-graph node, if they are close and roughly co-directional.
- */
-function crossConnectAtJunctions(junctionEndpoints, fillerCircles, neighborMap, fillerR) {
-  const proximityLimit = fillerR * 4;
-  const proxSq = proximityLimit * proximityLimit;
-  const byId = new Map(fillerCircles.map(c => [c.id, c]));
-
-  for (const [, endpoints] of junctionEndpoints) {
-    if (endpoints.length < 2) continue;
-    for (let i = 0; i < endpoints.length; i++) {
-      for (let j = i + 1; j < endpoints.length; j++) {
-        const a = endpoints[i];
-        const b = endpoints[j];
-        if (neighborMap.get(a.fillerId).includes(b.fillerId)) continue;
-
-        let angleDiff = Math.abs(a.direction - b.direction);
-        if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-        if (angleDiff > JUNCTION_ANGLE_TOLERANCE) continue;
-
-        const fa = byId.get(a.fillerId);
-        const fb = byId.get(b.fillerId);
-        const dx = fa.x - fb.x;
-        const dy = fa.y - fb.y;
-        if (dx * dx + dy * dy > proxSq) continue;
-
-        neighborMap.get(a.fillerId).push(b.fillerId);
-        neighborMap.get(b.fillerId).push(a.fillerId);
-      }
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------

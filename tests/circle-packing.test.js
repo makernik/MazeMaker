@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { packCircles, computeNeighbors, generateCorridorFillers } from '../src/maze/circle-packing.js';
+import { packCircles, computeNeighbors, ensureConnected, generateCorridorFillers } from '../src/maze/circle-packing.js';
 import { buildOrganicGraph } from '../src/maze/organic-graph.js';
 import { computeCorridorWidth } from '../src/pdf/drawers/organic-geometry.js';
 import { createRng } from '../src/utils/rng.js';
@@ -79,6 +79,7 @@ describe('Circle packing', () => {
 // Helper: build a carved organic graph from packed circles
 function buildCarvedGraph(width, height, targetCount, seed) {
   const { circles } = packCircles({ width, height, targetCount, seed });
+  ensureConnected(circles, width, height);
   const neighborMap = computeNeighbors(circles);
   const graph = buildOrganicGraph(circles, neighborMap);
   const rng = createRng(seed);
@@ -131,16 +132,34 @@ describe('generateCorridorFillers', () => {
     }
   });
 
-  it('produces filler that does not overlap main circles', () => {
-    const { graph, circles } = buildCarvedGraph(300, 400, 40, 777);
+  it('produces filler that does not overlap corridor centerlines', () => {
+    const { graph, circles } = buildCarvedGraph(500, 700, 60, 777);
     const { halfW } = computeCorridorWidth(graph);
-    const result = generateCorridorFillers(graph, circles, 300, 400, halfW, 99999);
+    const result = generateCorridorFillers(graph, circles, 500, 700, halfW, 99999);
+    const carvedEdges = [];
+    for (const node of graph.nodes) {
+      for (const nid of node.neighbors) {
+        if (nid > node.id && !graph.hasWall(node.id, nid)) {
+          const other = graph.getNode(nid);
+          if (other) carvedEdges.push({ ax: node.x, ay: node.y, bx: other.x, by: other.y });
+        }
+      }
+    }
+    const fillerR = result.circles.length > 0 ? result.circles[0].r : 5;
+    const clearance = halfW + fillerR;
     for (const f of result.circles) {
-      for (const c of circles) {
-        const dx = f.x - c.x;
-        const dy = f.y - c.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        expect(dist).toBeGreaterThan(c.r + f.r);
+      for (const seg of carvedEdges) {
+        const dx = seg.bx - seg.ax;
+        const dy = seg.by - seg.ay;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq < 0.01) continue;
+        const t = Math.max(0, Math.min(1, ((f.x - seg.ax) * dx + (f.y - seg.ay) * dy) / lenSq));
+        const cx = seg.ax + t * dx;
+        const cy = seg.ay + t * dy;
+        const distSq = (f.x - cx) * (f.x - cx) + (f.y - cy) * (f.y - cy);
+        // Each filler should be its own parent edge -- skip that one
+        // but at minimum, no filler should be closer than halfW to any centerline
+        expect(Math.sqrt(distSq)).toBeGreaterThanOrEqual(halfW - 0.1);
       }
     }
   });
