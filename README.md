@@ -1,5 +1,7 @@
 # Printable Maze Generator
 
+**Live:** https://maze.makernik.com
+
 Local, offline, print-first maze packs for kids.
 
 ## What This Is

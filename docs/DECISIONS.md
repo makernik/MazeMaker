@@ -4,6 +4,20 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-019 — Deployment: GitHub Pages + maze.makernik.com subdomain (2026-03-15)
+
+**Context:** The app needs to be publicly accessible without requiring users to clone the repo. Two options were considered: (1) GitHub Pages at a custom subdomain, (2) Porkbun static hosting at `makernik.com/maze` deployed via GitHub Actions SFTP.
+
+**Decision:** GitHub Pages with custom subdomain `maze.makernik.com`.
+
+- **Why not Porkbun SFTP:** Porkbun static hosting uses FTP (not SFTP). Deploying via GitHub Actions FTP requires storing credentials as secrets, handling sync logic, and manually managing TLS. More moving parts, no benefit over GitHub Pages for a static site.
+- **Why not `makernik.com/maze` path:** Serving at a path requires the main site and maze to coexist on the same host (or a reverse proxy), and requires `base: '/maze/'` in `vite.config.js`, changing all asset paths.
+- **Subdomain independence:** `hello.makernik.com` and `maze.makernik.com` each point to separate GitHub repos' Pages sites. No coupling.
+- **Vite `base` unchanged:** Custom domains serve from `/` (root), so `vite.config.js` requires no `base` path setting. Current config is correct as-is.
+- **Infrastructure:** `src/public/CNAME` with `maze.makernik.com` (Vite copies `src/public/` verbatim to `dist/`), `.github/workflows/deploy.yml` using official GitHub Pages actions, one DNS CNAME record at Porkbun (`maze` → `<github-username>.github.io`).
+
+---
+
 ## D-018 — Square rooms: non-adjacent openings (2026-02-28)
 
 **Context:** In Squares style, each room has two openings to the outer maze. If both openings lie on the same side of the room (or on adjacent sides sharing a corner), they are considered adjacent and look like a single wide opening. User requirement: the two openings must be **non-adjacent** (on different sides).
