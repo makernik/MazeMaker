@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { generatePolarMaze, generatePolarMazes, getCarveWeight, directionFromTo } from '../src/maze/polarGenerator.js';
 import { PolarGrid, POLAR_DIRECTIONS } from '../src/maze/polarGrid.js';
 import { POLAR_ALGORITHM_IDS } from '../src/utils/constants.js';
+import { solveMaze } from '../src/maze/solver.js';
 
 /** Normalize (ring, wedge) to integer indices so getCell never receives a float. */
 function normalizeCell(grid, state) {
@@ -181,6 +182,40 @@ describe('variable wedges', () => {
     const reached = countReachableFrom(maze.polarGrid);
     expect(reached).toBe(total);
     expect(maze.algorithm).toBe('recursive-backtracker');
+  });
+
+  function passageIsOpen(grid, from, to) {
+    const cell = grid.getCell(from.ring, from.wedge);
+    if (!cell) return false;
+    for (const dir of Object.values(POLAR_DIRECTIONS)) {
+      const neighbors = grid.getNeighbor(from.ring, from.wedge, dir);
+      for (let i = 0; i < neighbors.length; i++) {
+        const n = neighbors[i];
+        if (n.ring === to.ring && n.wedge === to.wedge && cell.hasWall(dir, i) === false) return true;
+      }
+    }
+    return false;
+  }
+
+  it('capped Medium and Hard mazes solve only through open walls', () => {
+    for (const ageRange of ['6-8', '9-11']) {
+      for (const algorithm of POLAR_ALGORITHM_IDS) {
+        const maze = generatePolarMaze({ ageRange, seed: 7, algorithm });
+        const solution = solveMaze(maze);
+        expect(solution.solved).toBe(true);
+        const grid = maze.polarGrid;
+        for (let r = 1; r < grid.rings; r++) {
+          expect(grid.wedgesAtRing(r) % grid.wedgesAtRing(r - 1)).toBe(0);
+        }
+        for (let i = 1; i < solution.path.length; i++) {
+          const prev = solution.path[i - 1];
+          const curr = solution.path[i];
+          expect(passageIsOpen(grid, prev, curr)).toBe(true);
+          expect(passageIsOpen(grid, curr, prev)).toBe(true);
+        }
+        expect(countReachableFrom(grid)).toBe(grid.getTotalCells());
+      }
+    }
   });
 
   it('recursive-backtracker entrance and exit open with variable wedges', () => {
