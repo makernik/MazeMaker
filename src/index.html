@@ -17,6 +17,20 @@
         </header>
 
         <form class="controls" id="maze-form">
+          <fieldset class="control-group">
+            <legend>Mode</legend>
+            <div class="toggle-group" role="radiogroup" aria-label="Mode">
+              <label class="toggle">
+                <input type="radio" name="app-mode" value="print" checked />
+                <span>Print</span>
+              </label>
+              <label class="toggle">
+                <input type="radio" name="app-mode" value="play" />
+                <span>Play</span>
+              </label>
+            </div>
+          </fieldset>
+
           <!-- Select level: vertical list, label + age (parentheses) -->
           <fieldset class="control-group">
             <legend>Select level</legend>
@@ -86,6 +100,33 @@
             </div>
           </fieldset>
 
+          <div id="play-controls" class="play-controls" hidden>
+            <div class="control-group">
+              <label for="play-tolerance" class="quantity-label">
+                Line forgiveness: <output id="play-tolerance-display" for="play-tolerance">0.42</output>
+              </label>
+              <div class="slider-container">
+                <span class="slider-bound">Tight</span>
+                <input
+                  type="range"
+                  id="play-tolerance"
+                  min="0.05"
+                  max="0.6"
+                  step="0.01"
+                  value="0.42"
+                  aria-describedby="play-tolerance-note"
+                />
+                <span class="slider-bound">Loose</span>
+              </div>
+              <p id="play-tolerance-note" class="play-controls__note">How far the marker can pass a wall and still count. Each level keeps its own setting until you leave the page.</p>
+            </div>
+            <div class="play-actions">
+              <button type="button" id="play-hint" class="play-action">Hint</button>
+              <button type="button" id="play-clear" class="play-action">Start over</button>
+            </div>
+            <p id="play-status" class="status" aria-live="polite">Draw from Start to Finish.</p>
+          </div>
+
           <!-- Theme: Toggle Group (hidden for this iteration; backend still supports theme param) -->
           <fieldset class="control-group theme-paused" aria-hidden="true" hidden>
             <legend>Theme</legend>
@@ -106,7 +147,7 @@
           </fieldset>
 
           <!-- Quantity: Slider with Numeric Display -->
-          <div class="control-group">
+          <div class="control-group quantity-group">
             <label for="quantity" class="quantity-label">
               Quantity: <output id="quantity-display" for="quantity">5</output>
             </label>
@@ -191,9 +232,12 @@
       <!-- Preview Area (Right) -->
       <main class="preview-area">
         <div class="maze-background" aria-hidden="true"></div>
-        <div class="sample-preview" aria-live="polite">
-          <p class="sample-preview__label">Sample output</p>
-          <canvas id="sample-preview-canvas" class="sample-preview__canvas" width="560" height="720"></canvas>
+        <div class="sample-preview">
+          <p class="sample-preview__label" id="preview-label">Sample output</p>
+          <div class="play-stage" id="play-stage">
+            <canvas id="sample-preview-canvas" class="sample-preview__canvas" width="560" height="720" aria-label="Sample maze preview"></canvas>
+            <p id="play-celebrate" class="play-celebrate" hidden aria-hidden="true">Solved</p>
+          </div>
         </div>
       </main>
     </div>

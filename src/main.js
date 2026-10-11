@@ -15,6 +15,15 @@ import { getDrawer, getDrawerKey } from './pdf/drawers/index.js';
 import { createCanvasBackend } from './pdf/drawers/draw-backend.js';
 import { getDifficultyPreset, DIFFICULTY_PRESETS, GRID_ALGORITHM_IDS, POLAR_ALGORITHM_IDS, ORGANIC_ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
+import { initPlay } from './play/ui.js';
+
+let playApi = {
+  isActive() {
+    return false;
+  },
+  onConfigChange() {},
+  setMode() {},
+};
 
 // DOM elements
 const form = document.getElementById('maze-form');
@@ -311,8 +320,13 @@ function syncMazeStyleVisibility() {
  * Sample preview: update when level or maze style changes
  */
 form.addEventListener('change', (e) => {
+  if (e.target.name === 'app-mode') {
+    playApi.setMode(e.target.value);
+    return;
+  }
   if (e.target.name === 'age-range' || e.target.name === 'maze-style') {
-    updatePreviewCanvas();
+    if (playApi.isActive()) playApi.onConfigChange();
+    else updatePreviewCanvas();
   }
 });
 
@@ -328,6 +342,7 @@ if (debugShowNodeLabelsCheckbox) {
  */
 async function generateAndDownload(event) {
   event.preventDefault();
+  if (playApi.isActive()) return;
 
   const values = getFormValues();
   console.log('Generate clicked with values:', values);
@@ -539,4 +554,11 @@ form.addEventListener('submit', generateAndDownload);
 initDebugFromUrl();
 syncMazeStyleVisibility();
 updatePreviewCanvas();
+playApi = initPlay({
+  getFormValues,
+  redrawPreview: updatePreviewCanvas,
+  noteSeed(seed) {
+    if (isDebugMode() && debugSeedEl) debugSeedEl.textContent = String(seed);
+  },
+});
 console.log('MakerNik Maze Generator loaded');
