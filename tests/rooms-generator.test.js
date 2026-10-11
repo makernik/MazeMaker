@@ -5,7 +5,31 @@
 import { describe, it, expect } from 'vitest';
 import { generateSquaresMaze } from '../src/maze/rooms-generator.js';
 import { validateMaze } from '../src/maze/solver.js';
-import { getDifficultyPreset, MIN_CELL_SIZE_SQUARES_PT } from '../src/utils/constants.js';
+import { getDifficultyPreset, MIN_CELL_SIZE_SQUARES_PT, DIFFICULTY_PRESETS } from '../src/utils/constants.js';
+import { DIRECTIONS } from '../src/maze/grid.js';
+
+/** Border walls that are open on a room sub-maze, as "direction:index". */
+function subMazeBorderOpenings(subGrid) {
+  const n = subGrid.rows;
+  const holes = [];
+  for (let c = 0; c < n; c++) {
+    if (!subGrid.getCell(0, c).hasWall(DIRECTIONS.TOP)) holes.push(`${DIRECTIONS.TOP}:${c}`);
+    if (!subGrid.getCell(n - 1, c).hasWall(DIRECTIONS.BOTTOM)) holes.push(`${DIRECTIONS.BOTTOM}:${c}`);
+  }
+  for (let r = 0; r < n; r++) {
+    if (!subGrid.getCell(r, 0).hasWall(DIRECTIONS.LEFT)) holes.push(`${DIRECTIONS.LEFT}:${r}`);
+    if (!subGrid.getCell(r, n - 1).hasWall(DIRECTIONS.RIGHT)) holes.push(`${DIRECTIONS.RIGHT}:${r}`);
+  }
+  return holes.sort();
+}
+
+function intendedDoorKeys(room) {
+  return room.openings.map((dir, i) => {
+    const cell = i === 0 ? room.subStart : room.subFinish;
+    const index = dir === DIRECTIONS.TOP || dir === DIRECTIONS.BOTTOM ? cell.col : cell.row;
+    return `${dir}:${index}`;
+  }).sort();
+}
 
 describe('generateSquaresMaze', () => {
   it('returns maze with layout squares and required shape', () => {
@@ -49,6 +73,16 @@ describe('generateSquaresMaze', () => {
       if (!isRoomsFirst) {
         expect(room.openings.length).toBe(2);
         expect(maze.roomsGrid.openPassageCount(room.outerRow, room.outerCol)).toBe(2);
+      }
+    }
+  });
+
+  it('sub-maze border is open only at the two intended doors', () => {
+    for (const ageRange of Object.keys(DIFFICULTY_PRESETS)) {
+      const maze = generateSquaresMaze({ ageRange, seed: 42 });
+      expect(maze.roomsGrid.roomCells.size).toBeGreaterThan(0);
+      for (const room of maze.roomsGrid.roomCells.values()) {
+        expect(subMazeBorderOpenings(room.subGrid)).toEqual(intendedDoorKeys(room));
       }
     }
   });
