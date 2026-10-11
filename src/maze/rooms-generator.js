@@ -8,7 +8,7 @@ import { MazeGrid } from './grid.js';
 import { generateMaze } from './generator.js';
 import { solveMaze, validateMaze } from './solver.js';
 import { createRng } from '../utils/rng.js';
-import { getDifficultyPreset, MIN_CELL_SIZE_SQUARES_PT } from '../utils/constants.js';
+import { getDifficultyPreset, MIN_CELL_SIZE_SQUARES_PT, roomInteriorLayout } from '../utils/constants.js';
 import { PRINTABLE_WIDTH, PRINTABLE_HEIGHT, FOOTER_HEIGHT } from '../pdf/layout.js';
 import { RoomsGrid, RoomCell } from './roomsGrid.js';
 
@@ -26,6 +26,34 @@ function borderPositionForDirection(direction, subSize) {
   if (direction === DIRECTIONS.BOTTOM) return { row: subSize - 1, col: mid };
   if (direction === DIRECTIONS.LEFT) return { row: mid, col: 0 };
   return { row: mid, col: subSize - 1 }; // RIGHT
+}
+
+/** Index of an opening cell along its side of the block (0 .. K-1). */
+function alongIndexForOpening(or, oc, openingCell, direction) {
+  if (direction === DIRECTIONS.TOP || direction === DIRECTIONS.BOTTOM) return openingCell.col - oc;
+  return openingCell.row - or;
+}
+
+/**
+ * Sub-cell index in the middle of outer segment `along` (0 .. outerSize-1).
+ * The segment covers [along/K, (along+1)/K) of the side.
+ */
+function subIndexInSegment(along, outerSize, subSize) {
+  const i = Math.max(0, Math.min(outerSize - 1, along));
+  const start = Math.floor((i * subSize) / outerSize);
+  const end = Math.max(start + 1, Math.ceil(((i + 1) * subSize) / outerSize));
+  const last = Math.min(subSize - 1, end - 1);
+  const first = Math.min(start, last);
+  return first + Math.floor((last - first) / 2);
+}
+
+/** Door on the sub-maze border, inside the outer opening rather than the middle of the whole side. */
+function borderPositionForOpening(direction, subSize, along, outerSize) {
+  const index = subIndexInSegment(along, outerSize, subSize);
+  if (direction === DIRECTIONS.TOP) return { row: 0, col: index };
+  if (direction === DIRECTIONS.BOTTOM) return { row: subSize - 1, col: index };
+  if (direction === DIRECTIONS.LEFT) return { row: index, col: 0 };
+  return { row: index, col: subSize - 1 };
 }
 
 /**
@@ -289,10 +317,19 @@ function generateSquaresMazeRoomsFirst(opts) {
     const [b1, b2] = openingCellsByRoom[id];
     const openingDir1 = directionFromBlockToCell(or, oc, K, b1.row, b1.col);
     const openingDir2 = directionFromBlockToCell(or, oc, K, b2.row, b2.col);
-    const openings = [openingDir1, openingDir2].filter((x) => x != null);
-
-    const subStart = borderPositionForDirection(openings[0] ?? DIRECTIONS.TOP, roomSubSize);
-    const subFinish = borderPositionForDirection(openings[1] ?? DIRECTIONS.BOTTOM, roomSubSize);
+    const pairs = [
+      [openingDir1, b1],
+      [openingDir2, b2],
+    ].filter(([dir, cell]) => dir != null && cell);
+    const openings = pairs.map(([dir]) => dir);
+    const doorAt = ([dir, cell]) => borderPositionForOpening(
+      dir,
+      roomSubSize,
+      alongIndexForOpening(or, oc, cell, dir),
+      K,
+    );
+    const subStart = pairs[0] ? doorAt(pairs[0]) : borderPositionForDirection(DIRECTIONS.TOP, roomSubSize);
+    const subFinish = pairs[1] ? doorAt(pairs[1]) : borderPositionForDirection(DIRECTIONS.BOTTOM, roomSubSize);
     const derivedSeed = seed + id * 997;
     const subMaze = generateMaze({
       ageRange,
@@ -370,13 +407,18 @@ export function generateSquaresMaze(config) {
   }
 
   const roomOuterSize = preset.roomOuterSize ?? 1;
+  const roomSubSize = roomInteriorLayout(
+    effectiveCellSize,
+    roomOuterSize,
+    preset.roomDetail ?? 2,
+  ).roomSubSize;
   if (roomOuterSize > 1) {
     return generateSquaresMazeRoomsFirst({
       gridWidth,
       gridHeight,
       roomOuterSize,
       roomCount: preset.roomCount,
-      roomSubSize: preset.roomSubSize,
+      roomSubSize,
       seed,
       ageRange,
       algorithm: algo,
@@ -393,7 +435,6 @@ export function generateSquaresMaze(config) {
     gridHeight,
   });
   const outerGrid = outerMaze.grid;
-  const roomSubSize = preset.roomSubSize;
   const roomsGrid = new RoomsGrid();
   roomsGrid.outerGrid = outerGrid;
   roomsGrid.roomSubSize = roomSubSize;

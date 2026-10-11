@@ -4,6 +4,21 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-021 — Squares rooms are finer mini-mazes (2026-10-11)
+
+**Context:** A Squares room is a sub-maze drawn inside an outer-grid block. `roomSubSize` was a fixed count. On Intro and Easy it matched the outer grain (one sub-cell per outer cell), so the room did not read as a maze within a maze. On Difficult the interior was barely finer than the outside. The sub-maze door was also placed at the center of a whole side, not in the outer cell that actually opens into the room. Finer interiors would have made that mismatch a second doorway.
+
+**Decision:**
+
+- Each preset has `roomDetail`: how many interior cells span one outer cell. Intro, Easy, and Medium use 2. Hard through Difficult use 3. Epic uses 4.
+- `roomInteriorLayout` turns that into `roomSubSize = roomOuterSize × detail`. If the resulting sub-cell would be under 7pt, detail steps down until the sub-cell is at least `MIN_ROOM_SUB_CELL_PT` (7).
+- The carved door for each opening is the sub-cell in the middle of that opening’s outer segment, so the fine path continues out of the coarse corridor.
+- Interior stroke is capped at 15% of the sub-cell (and still at least 0.4pt) so a fine maze stays open on the page.
+
+Outer block size, room count, and the two-door rule are unchanged.
+
+---
+
 ## D-020 — Squares sub-maze borders and polar wedge cap (2026-10-11)
 
 **Context:** Squares rooms were generated with `generateMaze()`, which opens the printable entrance and exit. Those two border holes were drawn in addition to the room’s two doors, so a passage could enter the room through a corner. Separately, polar wedge counts are capped at 64. Medium and Hard presets grow 6 × 2^(r−1), so a 48-wedge ring was followed by 64. 64 is not a multiple of 48. Outward neighbors then used fractional wedge indexes, the solver treated a missing outward slot as an open passage, and Kruskal and Wilson’s threw when the neighbor cell was missing.
