@@ -7,7 +7,7 @@ isProject: false
 
 # Plan: Playable maze
 
-**Status:** executing
+**Status:** done
 **Last updated:** 2026-10-11
 **Owner:** agent
 **Related:** `docs/DECISIONS.md#D-020`
@@ -118,19 +118,20 @@ npm test
 
 **What worked:**
 
-- Pending
+- `npm test` — 214 passed, including `tests/play.test.js` (18).
+- Browser check: Play hides print controls, the marker follows the pointer, Hint draws the next turns, Start over clears the same maze, and a narrow window stacks the maze above the controls.
 
 **What didn't work:**
 
-- Pending
+- The first play canvas was transparent, so the faint page pattern showed through. The play surface is now filled with the page color before the walls are drawn.
 
 **Gaps identified:**
 
-- Pending
+- Forgiveness defaults are starting points. The slider is there so each level can be dialed in by hand.
 
 **Lessons learned:**
 
-- Pending
+- Squares play has to walk each room’s sub-maze. The outer solver path jumps the openings.
 
 ---
 
