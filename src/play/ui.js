@@ -107,8 +107,9 @@ export function initPlay(options) {
     const w = canvas.width;
     const h = canvas.height;
     ctx.save();
-    ctx.setTransform(1, 0, 0, -1, 0, h);
-    ctx.clearRect(0, 0, w, h);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#FAFAF8';
+    ctx.fillRect(0, 0, w, h);
     ctx.restore();
     ctx.save();
     ctx.setTransform(1, 0, 0, -1, 0, h);
