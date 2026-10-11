@@ -549,6 +549,131 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--color-text-muted);
 }
 
+.play-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.play-celebrate {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(250, 250, 248, 0.78);
+  pointer-events: none;
+}
+
+.play-celebrate[hidden] {
+  display: none;
+}
+
+.play-controls[hidden] {
+  display: none;
+}
+
+.play-controls__note {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.play-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.play-action {
+  flex: 1;
+  min-height: 44px;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.play-action:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.play-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.app-layout.mode-play .quantity-group,
+.app-layout.mode-play #generate-btn {
+  display: none;
+}
+
+.app-layout.mode-play {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-layout.mode-play .sample-preview {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: 0.75rem;
+}
+
+.app-layout.mode-play .play-stage {
+  flex: 1;
+  width: 100%;
+  min-height: 280px;
+  touch-action: none;
+}
+
+.app-layout.mode-play .preview-area {
+  overflow: hidden;
+}
+
+.app-layout.mode-play .sample-preview__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  touch-action: none;
+  user-select: none;
+}
+
+@media (max-width: 900px) {
+  .app-layout.mode-play {
+    flex-direction: column-reverse;
+    height: 100dvh;
+  }
+
+  .app-layout.mode-play .control-panel {
+    width: 100%;
+    max-width: 100%;
+    max-height: 46vh;
+    overflow: auto;
+    padding: 0.75rem 1rem 1rem;
+    border-right: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .app-layout.mode-play .preview-area {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 .sample-preview__canvas {
   display: block;
   max-width: 100%;

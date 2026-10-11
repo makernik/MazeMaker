@@ -4,6 +4,22 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-020 — Play mode: one freehand maze, no saved stats (2026-10-11)
+
+**Context:** The site should also be a maze you can solve on a phone or tablet. The printable generator, perfect-maze rule, offline use, and lack of accounts stay as they are.
+
+**Decision:**
+
+- **Mode:** Print and Play share the page. Play uses the selected level and style and shows one maze. Quantity and PDF export stay on Print.
+- **Input:** Mouse, pen, and finger share pointer events. The stroke is stored and drawn as the pointer moved, with a medium round marker. It is not snapped to corridor centers.
+- **Forgiveness:** Each difficulty has a default `playTolerance` (fraction of that corridor’s width). A point that far past a wall still belongs to the corridor. Farther than that does not enter a blocked cell. A slider labeled “Line forgiveness” edits the current level’s value in memory only. It is not written to disk. Changing it re-reads the current stroke.
+- **Progress:** The logical walk may use only open passages. The furthest correct cell is the farthest solution cell reached. A wrong branch does not advance it. Start over clears the stroke and keeps the seed.
+- **Hint:** From that furthest cell, draw the solution through the next two branch cells (three or more open passages) and include the correct step out of the second branch. If fewer branches remain, draw through the finish.
+- **Solve:** Show a still “Solved” message, wait briefly, then call the existing `generateSeed()` and draw a new maze for the same level and style. No score, timer storage, or account.
+- **Topologies:** Classic uses the grid. Jagged and Curvy use organic corridors (filler passages are decorative and not playable). Circular uses polar sectors. Squares traces outer corridors and each room’s sub-maze.
+
+---
+
 ## D-019 — Deployment: GitHub Pages + maze.makernik.com subdomain (2026-03-15)
 
 **Context:** The app needs to be publicly accessible without requiring users to clone the repo. Two options were considered: (1) GitHub Pages at a custom subdomain, (2) Porkbun static hosting at `makernik.com/maze` deployed via GitHub Actions SFTP.
