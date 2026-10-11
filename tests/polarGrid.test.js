@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { PolarGrid, PolarCell, POLAR_DIRECTIONS } from '../src/maze/polarGrid.js';
+import { DIFFICULTY_PRESETS } from '../src/utils/constants.js';
 
 describe('PolarGrid', () => {
   it('constructs with at least 2 rings and 2 wedges', () => {
@@ -84,6 +85,53 @@ describe('PolarGrid', () => {
     grid.openExit();
     expect(grid.getCell(0, 0).hasWall(POLAR_DIRECTIONS.OUTWARD, 0)).toBe(false);
     expect(grid.getCell(1, 0).hasWall(POLAR_DIRECTIONS.INWARD)).toBe(false);
+  });
+
+  it('caps wedge counts on an integer multiple of the previous ring', () => {
+    const grid = new PolarGrid(6, 6, 2);
+    expect(grid.wedgesAtRing(4)).toBe(48);
+    expect(grid.wedgesAtRing(5)).toBe(48);
+    for (let r = 1; r < grid.rings; r++) {
+      expect(grid.wedgesAtRing(r) % grid.wedgesAtRing(r - 1)).toBe(0);
+    }
+  });
+
+  it('every difficulty preset has integer-multiple wedge counts within the cap', () => {
+    for (const preset of Object.values(DIFFICULTY_PRESETS)) {
+      const grid = new PolarGrid(preset.polarRings, preset.polarBaseWedges, preset.polarWedgeMultiplier);
+      for (let r = 1; r < grid.rings; r++) {
+        const count = grid.wedgesAtRing(r);
+        expect(count).toBeGreaterThan(0);
+        expect(count).toBeLessThanOrEqual(64);
+        expect(count % grid.wedgesAtRing(r - 1)).toBe(0);
+      }
+    }
+  });
+
+  it('outward neighbors are integer cells and match wall slots', () => {
+    const grid = new PolarGrid(6, 6, 2);
+    for (let r = 0; r < grid.maxRing; r++) {
+      const W = grid.wedgesAtRing(r);
+      for (let w = 0; w < W; w++) {
+        const cell = grid.getCell(r, w);
+        const neighbors = grid.getNeighbor(r, w, POLAR_DIRECTIONS.OUTWARD);
+        const slots = cell.walls[POLAR_DIRECTIONS.OUTWARD].length;
+        expect(neighbors).toHaveLength(r === 0 ? 1 : slots);
+        for (const n of neighbors) {
+          expect(Number.isInteger(n.wedge)).toBe(true);
+          expect(grid.getCell(n.ring, n.wedge)).toBeInstanceOf(PolarCell);
+        }
+      }
+    }
+  });
+
+  it('hasWall is true and removeWall is a no-op past the outward slot count', () => {
+    const grid = new PolarGrid(3, 4);
+    const cell = grid.getCell(1, 0);
+    expect(cell.hasWall(POLAR_DIRECTIONS.OUTWARD, 3)).toBe(true);
+    cell.removeWall(POLAR_DIRECTIONS.OUTWARD, 3);
+    expect(cell.walls[POLAR_DIRECTIONS.OUTWARD]).toHaveLength(1);
+    expect(grid.getCell(1, 1.5)).toBeNull();
   });
 
   it('variable wedges: outer rings have 2× wedge count when multiplier is 2', () => {
