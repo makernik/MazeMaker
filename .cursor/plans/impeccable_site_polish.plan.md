@@ -7,7 +7,7 @@ isProject: false
 
 # Plan: Impeccable site polish
 
-**Status:** executing
+**Status:** done
 **Last updated:** 2026-10-18
 **Owner:** agent
 **Related:** `.cursor/rules/ui_rules.mdc`
@@ -91,19 +91,21 @@ Impeccable flagged one real contrast failure and two font warnings. The fonts st
 
 **What worked:**
 
-- Pending verification.
+- Removing the age-label opacity cleared the only contrast finding.
+- A 44px slider box with a 6px track kept the thin track and a real finger target.
+- On desktop the control panel scrolls inside the viewport, so Generate and Hint stay reachable and the maze stays put.
 
 **What didn't work:**
 
-- ...
+- The detector still warns that Fraunces and Inter are overused. Those faces are required by the UI rules, so they stay.
 
 **Gaps identified:**
 
-- ...
+- `.control-group.topology-disabled` still fades a whole group. Nothing applies that class in the current page.
 
 **Lessons learned:**
 
-- ...
+- Raising tap targets made the panel taller than a laptop window. The scroll belongs on the panel.
 
 ---
 

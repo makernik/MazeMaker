@@ -105,6 +105,21 @@ body {
   min-height: 0;
 }
 
+/* Desktop: keep the maze in view and scroll the controls */
+@media (min-width: 769px) {
+  .app-layout {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .control-panel,
+  .debug-panel {
+    max-height: 100vh;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
 /* Responsive: Stack on narrow viewports */
 @media (max-width: 768px) {
   .app-layout {
