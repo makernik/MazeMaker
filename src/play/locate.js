@@ -4,6 +4,7 @@
  */
 
 import { DIRECTIONS } from '../maze/grid.js';
+import { curvyPoint } from '../pdf/drawers/organic-geometry.js';
 
 const GRID_DIRS = [
   { wall: DIRECTIONS.RIGHT, dr: 0, dc: 1 },
@@ -99,14 +100,37 @@ export function locateGrid(grid, tolerance, point, currentKey, startKey) {
   return null;
 }
 
-function distToSegment(point, a, b) {
+function projectSegment(point, a, b) {
   const vx = b.x - a.x;
   const vy = b.y - a.y;
   const len2 = vx * vx + vy * vy;
-  if (len2 === 0) return Math.hypot(point.x - a.x, point.y - a.y);
+  if (len2 === 0) {
+    return { dist: Math.hypot(point.x - a.x, point.y - a.y), t: 0 };
+  }
   let t = ((point.x - a.x) * vx + (point.y - a.y) * vy) / len2;
   t = Math.max(0, Math.min(1, t));
-  return Math.hypot(point.x - (a.x + vx * t), point.y - (a.y + vy * t));
+  return {
+    dist: Math.hypot(point.x - (a.x + vx * t), point.y - (a.y + vy * t)),
+    t,
+  };
+}
+
+/** Distance from a point to the bowed centerline, plus progress along it. */
+function bowProximity(point, a, b, halfW) {
+  const steps = 8;
+  let best = Infinity;
+  let bestT = 0;
+  let prev = { x: a.x, y: a.y };
+  for (let i = 1; i <= steps; i++) {
+    const next = curvyPoint(a.x, a.y, b.x, b.y, halfW, i / steps);
+    const hit = projectSegment(point, prev, next);
+    if (hit.dist < best) {
+      best = hit.dist;
+      bestT = (i - 1) / steps + hit.t / steps;
+    }
+    prev = next;
+  }
+  return { dist: best, t: bestT };
 }
 
 /**
@@ -119,10 +143,12 @@ function distToSegment(point, a, b) {
  * @param {number} tolerance
  * @param {{x:number,y:number}} point
  * @param {string|null} currentKey
+ * @param {boolean} [curved] - measure the bowed centerline when Curvy
  * @returns {string|null}
  */
-export function locateOrganic(graph, halfW, startId, tolerance, point, currentKey) {
+export function locateOrganic(graph, halfW, startId, tolerance, point, currentKey, curved = false) {
   const radius = halfW + tolerance * (halfW * 2);
+  const near = (a, b) => (curved ? bowProximity(point, a, b, halfW) : projectSegment(point, a, b));
 
   if (!currentKey) {
     const start = graph.getNode(startId);
@@ -142,13 +168,10 @@ export function locateOrganic(graph, halfW, startId, tolerance, point, currentKe
     if (graph.hasWall(id, nid)) continue;
     const other = graph.getNode(nid);
     if (!other) continue;
-    if (distToSegment(point, node, other) > radius) continue;
-    const vx = other.x - node.x;
-    const vy = other.y - node.y;
-    const len2 = vx * vx + vy * vy || 1;
-    const along = ((point.x - node.x) * vx + (point.y - node.y) * vy) / len2;
-    if (along > bestAlong) {
-      bestAlong = along;
+    const hit = curved ? bowProximity(point, node, other, halfW) : projectSegment(point, node, other);
+    if (hit.dist > radius) continue;
+    if (hit.t > bestAlong) {
+      bestAlong = hit.t;
       best = String(nid);
     }
   }
@@ -159,7 +182,7 @@ export function locateOrganic(graph, halfW, startId, tolerance, point, currentKe
     const nid = nids[i];
     if (graph.hasWall(id, nid)) continue;
     const other = graph.getNode(nid);
-    if (other && distToSegment(point, node, other) <= radius) return currentKey;
+    if (other && near(node, other).dist <= radius) return currentKey;
   }
   return null;
 }

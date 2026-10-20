@@ -6,7 +6,7 @@
 import { DIRECTIONS, DIRECTION_OFFSETS } from '../maze/grid.js';
 import { polarBoundaryFractions } from '../maze/polarRadii.js';
 import { solveMaze } from '../maze/solver.js';
-import { computeCorridorWidth } from '../pdf/drawers/organic-geometry.js';
+import { computeCorridorWidth, curvyPoint } from '../pdf/drawers/organic-geometry.js';
 import { locateGrid, locateOrganic, locatePolar, gridKey, parseGridKey } from './locate.js';
 
 /**
@@ -135,7 +135,8 @@ function gridTopology(maze, path) {
 
 function organicTopology(maze, path) {
   const graph = maze.graph;
-  const { halfW } = computeCorridorWidth(graph);
+  const curved = maze.organicCurve === 'curvy';
+  const { halfW } = computeCorridorWidth(graph, curved ? maze.preset?.lineThickness : undefined);
   const neighbors = new Map();
   for (const node of graph.nodes) {
     const list = [];
@@ -153,8 +154,17 @@ function organicTopology(maze, path) {
       const node = graph.getNode(Number(key));
       return { x: node.x, y: node.y };
     },
+    bend(fromKey, toKey) {
+      if (!curved) return null;
+      const a = graph.getNode(Number(fromKey));
+      const b = graph.getNode(Number(toKey));
+      if (!a || !b) return null;
+      const pts = [];
+      for (let i = 1; i <= 8; i++) pts.push(curvyPoint(a.x, a.y, b.x, b.y, halfW, i / 8));
+      return pts;
+    },
     locate(point, currentKey, tolerance) {
-      return locateOrganic(graph, halfW, maze.startId, tolerance, point, currentKey);
+      return locateOrganic(graph, halfW, maze.startId, tolerance, point, currentKey, curved);
     },
   };
 }

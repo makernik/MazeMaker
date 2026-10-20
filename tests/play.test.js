@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { MazeGrid, DIRECTIONS } from '../src/maze/grid.js';
 import { generateMaze } from '../src/maze/generator.js';
 import { generateOrganicMaze } from '../src/maze/organic-generator.js';
+import { computeCorridorWidth, curvyPoint } from '../src/pdf/drawers/organic-geometry.js';
 import { generatePolarMaze } from '../src/maze/polarGenerator.js';
 import { generateSquaresMaze } from '../src/maze/rooms-generator.js';
 import { getLayoutForMaze } from '../src/pdf/layout.js';
@@ -210,6 +211,27 @@ describe('play session on generated mazes', () => {
     expect(hint.length).toBeLessThanOrEqual(keys.length);
     const end = keys.indexOf(hint[hint.length - 1]);
     expect(end).toBeGreaterThanOrEqual(0);
+  });
+
+  it('solves a curvy maze along the bowed centerline', () => {
+    const maze = generateOrganicMaze({ ageRange: '6-8', seed: 11 });
+    maze.organicCurve = 'curvy';
+    const state = play(maze, 0.3);
+    const { halfW } = computeCorridorWidth(maze.graph, maze.preset.lineThickness);
+    let next = state;
+    const keys = state.topology.solution;
+    for (let i = 0; i < keys.length; i++) {
+      if (i === 0) {
+        next = addPointer(next, state.topology.center(keys[i]), 'start');
+        continue;
+      }
+      const a = state.topology.center(keys[i - 1]);
+      const b = state.topology.center(keys[i]);
+      for (let s = 1; s <= 4; s++) {
+        next = addPointer(next, curvyPoint(a.x, a.y, b.x, b.y, halfW, s / 4), 'move');
+      }
+    }
+    expect(next.trace.solved).toBe(true);
   });
 
   it('solves jagged, circular, and squares mazes along the solution', () => {

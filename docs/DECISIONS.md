@@ -4,6 +4,19 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-022 — Difficulty steps and bowed Curvy corridors (2026-10-20)
+
+**Context:** After the circular taper, the other styles had flat or backwards steps. Classic Hard and Challenging were nearly the same size. Squares Difficult and Epic kept the same outer grid as Hard, and their room interiors were coarser than Challenging. Jagged and Curvy jumped from 120 nodes at Medium to 400 at Hard, then packed Epic finer than the circular rim. Curvy and Jagged also shared the same straight corridors; Curvy only splined through the nodes, so a straight run looked like Jagged.
+
+**Decision:**
+
+- Classic Challenging is 18×24, between Hard (12×18) and Difficult (24×30).
+- Squares keeps the 28pt outer-cell floor. Difficult rooms are 14×14 inside a 6×6 block. Epic rooms are 18×18 inside a 6×6 block. Room counts stay 6 and 8.
+- Organic node targets: Medium 200, Hard 280, Challenging 500, Difficult 800, Epic 1200. Fill and Prim still start at Hard.
+- Curvy keeps the organic graph. Each open corridor bows to the side, same segment every time, amplitude `min(20% of the segment, 2.4 × half the corridor)`. The crest is `0.75 ×` that amplitude. Two cubics meet at the crest so the wall leaves each junction along the passage. Jagged stays straight. Play, the hint, and the solution line follow that bow. The preview seed is still per style; whether Jagged and Curvy should share a seed is undecided.
+
+---
+
 ## D-021 — Circular rings taper on the higher levels (2026-10-19)
 
 **Context:** Circular mazes used equal radial steps. On the higher levels that leaves the finish as fine as the rim, while the outer rings stay too coarse for the difficulty of the rectangular mazes at the same level. Epic shows this most.
