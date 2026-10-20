@@ -4,6 +4,7 @@
  */
 
 import { DIRECTIONS } from '../maze/grid.js';
+import { curvyPoint } from '../pdf/drawers/organic-geometry.js';
 
 const GRID_DIRS = [
   { wall: DIRECTIONS.RIGHT, dr: 0, dc: 1 },
@@ -99,14 +100,37 @@ export function locateGrid(grid, tolerance, point, currentKey, startKey) {
   return null;
 }
 
-function distToSegment(point, a, b) {
+function projectSegment(point, a, b) {
   const vx = b.x - a.x;
   const vy = b.y - a.y;
   const len2 = vx * vx + vy * vy;
-  if (len2 === 0) return Math.hypot(point.x - a.x, point.y - a.y);
+  if (len2 === 0) {
+    return { dist: Math.hypot(point.x - a.x, point.y - a.y), t: 0 };
+  }
   let t = ((point.x - a.x) * vx + (point.y - a.y) * vy) / len2;
   t = Math.max(0, Math.min(1, t));
-  return Math.hypot(point.x - (a.x + vx * t), point.y - (a.y + vy * t));
+  return {
+    dist: Math.hypot(point.x - (a.x + vx * t), point.y - (a.y + vy * t)),
+    t,
+  };
+}
+
+/** Distance from a point to the bowed centerline, plus progress along it. */
+function bowProximity(point, a, b, halfW) {
+  const steps = 8;
+  let best = Infinity;
+  let bestT = 0;
+  let prev = { x: a.x, y: a.y };
+  for (let i = 1; i <= steps; i++) {
+    const next = curvyPoint(a.x, a.y, b.x, b.y, halfW, i / steps);
+    const hit = projectSegment(point, prev, next);
+    if (hit.dist < best) {
+      best = hit.dist;
+      bestT = (i - 1) / steps + hit.t / steps;
+    }
+    prev = next;
+  }
+  return { dist: best, t: bestT };
 }
 
 /**
@@ -119,10 +143,12 @@ function distToSegment(point, a, b) {
  * @param {number} tolerance
  * @param {{x:number,y:number}} point
  * @param {string|null} currentKey
+ * @param {boolean} [curved] - measure the bowed centerline when Curvy
  * @returns {string|null}
  */
-export function locateOrganic(graph, halfW, startId, tolerance, point, currentKey) {
+export function locateOrganic(graph, halfW, startId, tolerance, point, currentKey, curved = false) {
   const radius = halfW + tolerance * (halfW * 2);
+  const near = (a, b) => (curved ? bowProximity(point, a, b, halfW) : projectSegment(point, a, b));
 
   if (!currentKey) {
     const start = graph.getNode(startId);
@@ -142,13 +168,10 @@ export function locateOrganic(graph, halfW, startId, tolerance, point, currentKe
     if (graph.hasWall(id, nid)) continue;
     const other = graph.getNode(nid);
     if (!other) continue;
-    if (distToSegment(point, node, other) > radius) continue;
-    const vx = other.x - node.x;
-    const vy = other.y - node.y;
-    const len2 = vx * vx + vy * vy || 1;
-    const along = ((point.x - node.x) * vx + (point.y - node.y) * vy) / len2;
-    if (along > bestAlong) {
-      bestAlong = along;
+    const hit = curved ? bowProximity(point, node, other, halfW) : projectSegment(point, node, other);
+    if (hit.dist > radius) continue;
+    if (hit.t > bestAlong) {
+      bestAlong = hit.t;
       best = String(nid);
     }
   }
@@ -159,7 +182,7 @@ export function locateOrganic(graph, halfW, startId, tolerance, point, currentKe
     const nid = nids[i];
     if (graph.hasWall(id, nid)) continue;
     const other = graph.getNode(nid);
-    if (other && distToSegment(point, node, other) <= radius) return currentKey;
+    if (other && near(node, other).dist <= radius) return currentKey;
   }
   return null;
 }
@@ -184,7 +207,7 @@ function polarKey(ring, wedge) {
 
 /**
  * @param {import('../maze/polarGrid.js').PolarGrid} grid
- * @param {{ roomNorm: number, ringNorm: number }} geom
+ * @param {{ edges: number[] }} geom - normalized boundary radii, center → outer edge
  * @param {number} tolerance
  * @param {{ nx: number, ny: number }} point - offset from center, divided by maxRadius
  * @param {string|null} currentKey
@@ -194,10 +217,9 @@ function polarKey(ring, wedge) {
 export function locatePolar(grid, geom, tolerance, point, currentKey, start) {
   const radius = Math.hypot(point.nx, point.ny);
   const angle = normAngle(Math.atan2(point.ny, point.nx));
-  const radialSlack = tolerance * geom.ringNorm;
 
   if (!currentKey) {
-    if (sectorContains(grid, geom, start.ring, start.wedge, radius, angle, radialSlack, tolerance)) {
+    if (sectorContains(grid, geom, start.ring, start.wedge, radius, angle, tolerance)) {
       return polarKey(start.ring, start.wedge);
     }
     return null;
@@ -212,25 +234,24 @@ export function locatePolar(grid, geom, tolerance, point, currentKey, start) {
   let bestPen = 0;
   for (let i = 0; i < neighbors.length; i++) {
     const n = neighbors[i];
-    const pen = penetration(grid, geom, ring, wedge, n, radius, angle, radialSlack, tolerance);
+    const pen = penetration(grid, geom, ring, wedge, n, radius, angle, tolerance);
     if (pen > bestPen) {
       bestPen = pen;
       best = n;
     }
   }
   if (best && bestPen > 1e-8) return polarKey(best.ring, best.wedge);
-  if (sectorContains(grid, geom, ring, wedge, radius, angle, radialSlack, tolerance)) return currentKey;
+  if (sectorContains(grid, geom, ring, wedge, radius, angle, tolerance)) return currentKey;
   return null;
 }
 
 function ringBand(geom, ring) {
-  if (ring <= 0) return { inner: 0, outer: geom.roomNorm };
-  const inner = geom.roomNorm + (ring - 1) * geom.ringNorm;
-  return { inner, outer: geom.roomNorm + ring * geom.ringNorm };
+  return { inner: geom.edges[ring], outer: geom.edges[ring + 1] };
 }
 
-function sectorContains(grid, geom, ring, wedge, radius, angle, radialSlack, tolerance) {
+function sectorContains(grid, geom, ring, wedge, radius, angle, tolerance) {
   const { inner, outer } = ringBand(geom, ring);
+  const radialSlack = tolerance * (outer - inner);
   if (radius < inner - radialSlack || radius > outer + radialSlack) return false;
   if (ring === 0) return true;
   const step = (Math.PI * 2) / grid.wedgesAtRing(ring);
@@ -244,10 +265,11 @@ function sectorContains(grid, geom, ring, wedge, radius, angle, radialSlack, tol
  * How far `point` has crossed from `ring,wedge` into neighbor `n`.
  * Zero when the boundary has not been crossed.
  */
-function penetration(grid, geom, ring, wedge, n, radius, angle, radialSlack, tolerance) {
+function penetration(grid, geom, ring, wedge, n, radius, angle, tolerance) {
   const step = ring === 0 ? (Math.PI * 2) / grid.wedgesAtRing(n.ring) : (Math.PI * 2) / grid.wedgesAtRing(ring);
   const angSlack = tolerance * step;
   const { inner, outer } = ringBand(geom, ring);
+  const radialSlack = tolerance * (outer - inner);
 
   if (n.ring === ring) {
     const W = grid.wedgesAtRing(ring);
@@ -261,9 +283,11 @@ function penetration(grid, geom, ring, wedge, n, radius, angle, radialSlack, tol
   }
 
   if (n.ring > ring) {
+    const dest = ringBand(geom, n.ring);
+    const destWidth = dest.outer - dest.inner;
     const pen = radius - outer;
     if (pen <= 1e-8) return 0;
-    if (pen > geom.ringNorm + radialSlack) return 0;
+    if (pen > destWidth + tolerance * destWidth) return 0;
     if (!angleNear(grid, n.ring, n.wedge, angle, tolerance)) return 0;
     return pen;
   }
@@ -271,7 +295,9 @@ function penetration(grid, geom, ring, wedge, n, radius, angle, radialSlack, tol
   const pen = inner - radius;
   if (pen <= 1e-8) return 0;
   if (ring === 0) return 0;
-  if (pen > (ring === 1 ? geom.roomNorm + radialSlack : geom.ringNorm + radialSlack)) return 0;
+  const dest = ringBand(geom, n.ring);
+  const destWidth = dest.outer - dest.inner;
+  if (pen > destWidth + tolerance * destWidth) return 0;
   if (n.ring === 0) {
     if (!angleNear(grid, ring, wedge, angle, tolerance)) return 0;
     return pen;

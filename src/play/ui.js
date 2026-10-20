@@ -150,7 +150,9 @@ export function initPlay(options) {
     if (values.mazeStyle === 'circular') return generatePolarMaze({ ageRange: values.ageRange, seed });
     if (values.mazeStyle === 'squares') return generateSquaresMaze({ ageRange: values.ageRange, seed });
     if (values.mazeStyle === 'jagged' || values.mazeStyle === 'curvy') {
-      return generateOrganicMaze({ ageRange: values.ageRange, seed });
+      const maze = generateOrganicMaze({ ageRange: values.ageRange, seed });
+      if (values.mazeStyle === 'curvy') maze.organicCurve = 'curvy';
+      return maze;
     }
     const preset = getDifficultyPreset(values.ageRange);
     return generateMaze({ ageRange: values.ageRange, seed, algorithm: preset.algorithm });
