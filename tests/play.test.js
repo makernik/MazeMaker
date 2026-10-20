@@ -219,6 +219,9 @@ describe('play session on generated mazes', () => {
     const circular = walkCenters(play(generatePolarMaze({ ageRange: '3', seed: 5 }), 0.42));
     expect(circular.trace.solved).toBe(true);
 
+    const epic = walkCenters(play(generatePolarMaze({ ageRange: '18+', seed: 5 }), 0.1));
+    expect(epic.trace.solved).toBe(true);
+
     const squares = play(generateSquaresMaze({ ageRange: '3', seed: 5 }), 0.42);
     for (let i = 1; i < squares.topology.solution.length; i++) {
       const prev = squares.topology.solution[i - 1];

@@ -184,7 +184,7 @@ function polarKey(ring, wedge) {
 
 /**
  * @param {import('../maze/polarGrid.js').PolarGrid} grid
- * @param {{ roomNorm: number, ringNorm: number }} geom
+ * @param {{ edges: number[] }} geom - normalized boundary radii, center → outer edge
  * @param {number} tolerance
  * @param {{ nx: number, ny: number }} point - offset from center, divided by maxRadius
  * @param {string|null} currentKey
@@ -194,10 +194,9 @@ function polarKey(ring, wedge) {
 export function locatePolar(grid, geom, tolerance, point, currentKey, start) {
   const radius = Math.hypot(point.nx, point.ny);
   const angle = normAngle(Math.atan2(point.ny, point.nx));
-  const radialSlack = tolerance * geom.ringNorm;
 
   if (!currentKey) {
-    if (sectorContains(grid, geom, start.ring, start.wedge, radius, angle, radialSlack, tolerance)) {
+    if (sectorContains(grid, geom, start.ring, start.wedge, radius, angle, tolerance)) {
       return polarKey(start.ring, start.wedge);
     }
     return null;
@@ -212,25 +211,24 @@ export function locatePolar(grid, geom, tolerance, point, currentKey, start) {
   let bestPen = 0;
   for (let i = 0; i < neighbors.length; i++) {
     const n = neighbors[i];
-    const pen = penetration(grid, geom, ring, wedge, n, radius, angle, radialSlack, tolerance);
+    const pen = penetration(grid, geom, ring, wedge, n, radius, angle, tolerance);
     if (pen > bestPen) {
       bestPen = pen;
       best = n;
     }
   }
   if (best && bestPen > 1e-8) return polarKey(best.ring, best.wedge);
-  if (sectorContains(grid, geom, ring, wedge, radius, angle, radialSlack, tolerance)) return currentKey;
+  if (sectorContains(grid, geom, ring, wedge, radius, angle, tolerance)) return currentKey;
   return null;
 }
 
 function ringBand(geom, ring) {
-  if (ring <= 0) return { inner: 0, outer: geom.roomNorm };
-  const inner = geom.roomNorm + (ring - 1) * geom.ringNorm;
-  return { inner, outer: geom.roomNorm + ring * geom.ringNorm };
+  return { inner: geom.edges[ring], outer: geom.edges[ring + 1] };
 }
 
-function sectorContains(grid, geom, ring, wedge, radius, angle, radialSlack, tolerance) {
+function sectorContains(grid, geom, ring, wedge, radius, angle, tolerance) {
   const { inner, outer } = ringBand(geom, ring);
+  const radialSlack = tolerance * (outer - inner);
   if (radius < inner - radialSlack || radius > outer + radialSlack) return false;
   if (ring === 0) return true;
   const step = (Math.PI * 2) / grid.wedgesAtRing(ring);
@@ -244,10 +242,11 @@ function sectorContains(grid, geom, ring, wedge, radius, angle, radialSlack, tol
  * How far `point` has crossed from `ring,wedge` into neighbor `n`.
  * Zero when the boundary has not been crossed.
  */
-function penetration(grid, geom, ring, wedge, n, radius, angle, radialSlack, tolerance) {
+function penetration(grid, geom, ring, wedge, n, radius, angle, tolerance) {
   const step = ring === 0 ? (Math.PI * 2) / grid.wedgesAtRing(n.ring) : (Math.PI * 2) / grid.wedgesAtRing(ring);
   const angSlack = tolerance * step;
   const { inner, outer } = ringBand(geom, ring);
+  const radialSlack = tolerance * (outer - inner);
 
   if (n.ring === ring) {
     const W = grid.wedgesAtRing(ring);
@@ -261,9 +260,11 @@ function penetration(grid, geom, ring, wedge, n, radius, angle, radialSlack, tol
   }
 
   if (n.ring > ring) {
+    const dest = ringBand(geom, n.ring);
+    const destWidth = dest.outer - dest.inner;
     const pen = radius - outer;
     if (pen <= 1e-8) return 0;
-    if (pen > geom.ringNorm + radialSlack) return 0;
+    if (pen > destWidth + tolerance * destWidth) return 0;
     if (!angleNear(grid, n.ring, n.wedge, angle, tolerance)) return 0;
     return pen;
   }
@@ -271,7 +272,9 @@ function penetration(grid, geom, ring, wedge, n, radius, angle, radialSlack, tol
   const pen = inner - radius;
   if (pen <= 1e-8) return 0;
   if (ring === 0) return 0;
-  if (pen > (ring === 1 ? geom.roomNorm + radialSlack : geom.ringNorm + radialSlack)) return 0;
+  const dest = ringBand(geom, n.ring);
+  const destWidth = dest.outer - dest.inner;
+  if (pen > destWidth + tolerance * destWidth) return 0;
   if (n.ring === 0) {
     if (!angleNear(grid, ring, wedge, angle, tolerance)) return 0;
     return pen;

@@ -4,6 +4,7 @@
  */
 
 import { DIRECTIONS, DIRECTION_OFFSETS } from '../maze/grid.js';
+import { polarBoundaryFractions } from '../maze/polarRadii.js';
 import { solveMaze } from '../maze/solver.js';
 import { computeCorridorWidth } from '../pdf/drawers/organic-geometry.js';
 import { locateGrid, locateOrganic, locatePolar, gridKey, parseGridKey } from './locate.js';
@@ -45,7 +46,14 @@ export function buildView(maze, layoutResult) {
 
   if (maze.layout === 'polar') {
     const { centerX, centerY, maxRadius, roomRadius } = layoutResult;
-    const ringWidth = (maxRadius - roomRadius) / maze.polarGrid.maxRing;
+    const radii = layoutResult.ringRadii;
+    let ringWidth = (maxRadius - roomRadius) / maze.polarGrid.maxRing;
+    if (Array.isArray(radii) && radii.length > 2) {
+      ringWidth = Infinity;
+      for (let i = 1; i < radii.length - 1; i++) {
+        ringWidth = Math.min(ringWidth, radii[i + 1] - radii[i]);
+      }
+    }
     return {
       markerWidth: Math.max(4, ringWidth * 0.32),
       toLayout(p) {
@@ -154,9 +162,16 @@ function organicTopology(maze, path) {
 function polarTopology(maze, path) {
   const grid = maze.polarGrid;
   const maxRing = grid.maxRing;
-  const roomNorm = 1 / maxRing;
-  const ringNorm = (1 - roomNorm) / maxRing;
-  const geom = { roomNorm, ringNorm };
+  const edges = polarBoundaryFractions(
+    maxRing,
+    maze.preset?.polarRingRatio ?? 1,
+    maze.preset?.polarRoomScale ?? 1,
+  );
+  const geom = { edges };
+  let minWidth = Infinity;
+  for (let ring = 1; ring <= maxRing; ring++) {
+    minWidth = Math.min(minWidth, edges[ring + 1] - edges[ring]);
+  }
   const neighbors = new Map();
   for (let ring = 0; ring < grid.rings; ring++) {
     const wedges = grid.wedgesAtRing(ring);
@@ -169,11 +184,11 @@ function polarTopology(maze, path) {
   return {
     solution: path.map((p) => `${p.ring},${p.wedge}`),
     neighbors,
-    sampleStep: Math.max(ringNorm * 0.25, 0.02),
+    sampleStep: Math.max(minWidth * 0.25, 0.008),
     center(key) {
       const [ring, wedge] = key.split(',').map(Number);
       if (ring === 0) return { x: 0, y: 0 };
-      const radius = roomNorm + (ring - 0.5) * ringNorm;
+      const radius = (edges[ring] + edges[ring + 1]) / 2;
       const step = (Math.PI * 2) / grid.wedgesAtRing(ring);
       const angle = (wedge + 0.5) * step;
       return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };

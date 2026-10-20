@@ -4,6 +4,23 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-021 — Circular rings taper on the higher levels (2026-10-19)
+
+**Context:** Circular mazes used equal radial steps. On the higher levels that leaves the finish as fine as the rim, while the outer rings stay too coarse for the difficulty of the rectangular mazes at the same level. Epic shows this most.
+
+**Decision:** Intro, Easy, and Medium keep equal rings. From Hard upward, each maze ring outward is `polarRingRatio` times the width of the ring inside it, and the center room is `polarRoomScale` times the innermost maze ring. The same boundaries drive PDF, preview, the solution line, and play hit-testing.
+
+| Level | Ratio | Room scale |
+| --- | --- | --- |
+| Hard (9–11) | 0.97 | 1.15 |
+| Challenging (12–14) | 0.945 | 1.22 |
+| Difficult (15–17) | 0.94 | 1.45 |
+| Epic Adventure (18+) | 0.94 | 1.8 |
+
+Ratio `1` (the default) keeps the previous even spacing. A lower ratio packs more rings into the outer edge. Epic uses the same ratio as Difficult; the extra rings carry that ratio further, so the rim is the finest there.
+
+---
+
 ## D-020 — Play mode: one freehand maze, no saved stats (2026-10-11)
 
 **Context:** The site should also be a maze you can solve on a phone or tablet. The printable generator, perfect-maze rule, offline use, and lack of accounts stay as they are.

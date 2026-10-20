@@ -8,6 +8,9 @@
  * - algorithm: which maze generator to use ('prim' | 'recursive-backtracker' | 'kruskal'; more can be added in generator.js)
  * - roomCount, roomSubSize, roomOuterSize: for Squares style (embedded rooms); see rooms-generator.js.
  * - playTolerance: fraction of a corridor width that a drawn path may pass beyond a wall and still count (play mode).
+ * - polarRingRatio / polarRoomScale: circular radial taper (D-021). Omit them for even rings.
+ *   Each maze ring outward is polarRingRatio times the previous ring. The center room is
+ *   polarRoomScale times the innermost maze ring.
  *
  * Squares style: if preset cellSize < MIN_CELL_SIZE_SQUARES_PT, it is coerced to that minimum and
  * grid dimensions are recomputed so sub-mazes remain legible in print.
@@ -105,6 +108,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 9,
     polarBaseWedges: 6,
     polarWedgeMultiplier: 2,
+    polarRingRatio: 0.97,
+    polarRoomScale: 1.15,
     roomCount: 4,
     roomSubSize: 5,
     roomOuterSize: 3,
@@ -122,6 +127,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 12,
     polarBaseWedges: 8,
     polarWedgeMultiplier: 2,
+    polarRingRatio: 0.945,
+    polarRoomScale: 1.22,
     roomCount: 5,
     roomSubSize: 10,
     roomOuterSize: 5,
@@ -139,6 +146,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 14,
     polarBaseWedges: 8,
     polarWedgeMultiplier: 2,
+    polarRingRatio: 0.94,
+    polarRoomScale: 1.45,
     roomCount: 6,
     roomSubSize: 7,
     roomOuterSize: 6,
@@ -156,6 +165,8 @@ export const DIFFICULTY_PRESETS = {
     polarRings: 18,
     polarBaseWedges: 8,
     polarWedgeMultiplier: 5,
+    polarRingRatio: 0.94,
+    polarRoomScale: 1.8,
     roomCount: 8,
     roomSubSize: 8,
     roomOuterSize: 6,
