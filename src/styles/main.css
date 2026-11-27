@@ -819,6 +819,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   min-height: 0;
   width: 100%;
   padding: 0.75rem;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .app-layout.mode-play .play-stage {
@@ -894,6 +897,45 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 
   .sample-preview {
     padding: 0.5rem 0.75rem 0.35rem;
+  }
+
+  /* Play may grow past the leftover viewport so the maze can fill the width.
+     Print keeps the locked frame above. */
+  html.play-mode,
+  body.play-mode,
+  .app-layout.mode-play {
+    overscroll-behavior-y: contain;
+  }
+
+  html.play-mode {
+    scrollbar-gutter: stable;
+  }
+
+  .app-layout.mode-play {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .app-layout.mode-play .preview-area,
+  .app-layout.mode-play .sample-preview {
+    height: auto;
+    overflow: visible;
+    flex: none;
+  }
+
+  .app-layout.mode-play .play-stage {
+    flex: none;
+    height: auto;
+    min-height: 12rem;
+    overflow: visible;
+  }
+
+  .app-layout.mode-play .controls {
+    overflow: visible;
+    min-height: min-content;
   }
 
   .control-group legend,

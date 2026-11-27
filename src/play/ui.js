@@ -21,7 +21,8 @@ import {
   setPlayLayout,
   setTolerance,
 } from './session.js';
-import { clientToLocal, drawPlayInk } from './view.js';
+import { fitPlayCanvas } from './fit.js';
+import { clientToLocal, drawPlayInk, isNearPlayCanvas, pointInRect } from './view.js';
 
 /**
  * @param {{ getFormValues: Function, noteSeed?: Function, redrawPreview: Function }} options
@@ -31,6 +32,8 @@ export function initPlay(options) {
   const layoutEl = document.querySelector('.app-layout');
   const canvas = document.getElementById('sample-preview-canvas');
   const stage = document.getElementById('play-stage');
+  const surface = document.querySelector('.sample-preview');
+  const narrowQuery = window.matchMedia('(max-width: 768px)');
   const label = document.getElementById('preview-label');
   const controls = document.getElementById('play-controls');
   const toleranceInput = document.getElementById('play-tolerance');
@@ -72,36 +75,47 @@ export function initPlay(options) {
     return `${values.ageRange}|${values.mazeStyle}`;
   }
 
-  function layoutOptions() {
+  function layoutFor(maze, fit) {
     const values = getFormValues();
     const style = values.mazeStyle === 'circular' ? 'classic' : values.mazeStyle;
-    const margin = Math.max(16, Math.round(Math.min(canvas.width, canvas.height) * 0.04));
-    return getLayoutForMaze(state.maze, {
-      pageWidth: canvas.width,
-      pageHeight: canvas.height,
-      margin,
+    return getLayoutForMaze(maze, {
+      pageWidth: fit.pageWidth,
+      pageHeight: fit.pageHeight,
+      margin: fit.margin,
       style,
     });
   }
 
-  function fitCanvas() {
+  /**
+   * Size the bitmap to the stage. On a phone, grow the stage so a portrait
+   * maze is limited by width instead of the leftover viewport height.
+   * @param {object} maze
+   */
+  function applyFit(maze) {
+    const narrow = narrowQuery.matches;
     const rect = stage.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cssWidth = rect.width >= 40 ? rect.width : 560;
     const cssHeight = rect.height >= 40 ? rect.height : 720;
-    const width = Math.max(2, Math.floor(cssWidth * dpr));
-    const height = Math.max(2, Math.floor(cssHeight * dpr));
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
+    const fit = fitPlayCanvas(maze, cssWidth, cssHeight, dpr, { allowGrow: narrow });
+    if (narrow) {
+      const next = `${Math.round(fit.cssHeight * 100) / 100}px`;
+      if (stage.style.height !== next) stage.style.height = next;
+    } else if (stage.style.height) {
+      stage.style.height = '';
     }
+    if (canvas.width !== fit.pageWidth || canvas.height !== fit.pageHeight) {
+      canvas.width = fit.pageWidth;
+      canvas.height = fit.pageHeight;
+    }
+    return fit;
   }
 
   function render() {
     if (!state) return;
-    fitCanvas();
+    const fit = applyFit(state.maze);
     const values = getFormValues();
-    const layout = layoutOptions();
+    const layout = layoutFor(state.maze, fit);
     state = setPlayLayout(state, layout);
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
@@ -165,15 +179,8 @@ export function initPlay(options) {
     const seed = generateSeed();
     try {
       const maze = generatePlayMaze(values, seed);
-      fitCanvas();
-      const style = values.mazeStyle === 'circular' ? 'classic' : values.mazeStyle;
-      const margin = Math.max(16, Math.round(Math.min(canvas.width, canvas.height) * 0.04));
-      const layout = getLayoutForMaze(maze, {
-        pageWidth: canvas.width,
-        pageHeight: canvas.height,
-        margin,
-        style,
-      });
+      const fit = applyFit(maze);
+      const layout = layoutFor(maze, fit);
       state = createPlayState(maze, layout, toleranceFor(values.ageRange));
       configKey = currentConfigKey();
       failures = 0;
@@ -203,10 +210,21 @@ export function initPlay(options) {
     }, SOLVE_PAUSE_MS);
   }
 
+  function isControlTarget(target) {
+    return !!target?.closest?.('button, a, input, select, textarea, summary, label');
+  }
+
+  function touchBeginsPlay(clientX, clientY) {
+    if (pointInRect(clientX, clientY, surface.getBoundingClientRect())) return true;
+    return isNearPlayCanvas(clientX, clientY, canvas.getBoundingClientRect());
+  }
+
   function onPointerDown(event) {
     if (!active || celebrating || !state) return;
-    event.preventDefault();
-    canvas.setPointerCapture(event.pointerId);
+    if (isControlTarget(event.target)) return;
+    if (!touchBeginsPlay(event.clientX, event.clientY)) return;
+    if (event.cancelable) event.preventDefault();
+    surface.setPointerCapture(event.pointerId);
     drawing = true;
     const local = clientToLocal(canvas, event.clientX, event.clientY, state.view);
     state = addPointer(state, local, 'start');
@@ -232,7 +250,29 @@ export function initPlay(options) {
   function onPointerUp(event) {
     if (!drawing) return;
     drawing = false;
-    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    if (surface.hasPointerCapture(event.pointerId)) surface.releasePointerCapture(event.pointerId);
+  }
+
+  let blockingTouch = false;
+
+  function onTouchStart(event) {
+    if (!active) return;
+    const t = event.touches[0];
+    if (!t || isControlTarget(event.target)) {
+      blockingTouch = false;
+      return;
+    }
+    blockingTouch = touchBeginsPlay(t.clientX, t.clientY);
+    if (blockingTouch && event.cancelable) event.preventDefault();
+  }
+
+  function onTouchMove(event) {
+    if (!active || !blockingTouch) return;
+    if (event.cancelable) event.preventDefault();
+  }
+
+  function onTouchEnd() {
+    blockingTouch = false;
   }
 
   toleranceInput.addEventListener('input', () => {
@@ -261,25 +301,37 @@ export function initPlay(options) {
     render();
   });
 
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', onPointerUp);
-  canvas.addEventListener('contextmenu', (event) => {
+  surface.addEventListener('pointerdown', onPointerDown);
+  surface.addEventListener('pointermove', onPointerMove);
+  surface.addEventListener('pointerup', onPointerUp);
+  surface.addEventListener('pointercancel', onPointerUp);
+  surface.addEventListener('contextmenu', (event) => {
     if (active) event.preventDefault();
   });
+  document.addEventListener('touchstart', onTouchStart, { passive: false });
+  document.addEventListener('touchmove', onTouchMove, { passive: false });
+  document.addEventListener('touchend', onTouchEnd);
+  document.addEventListener('touchcancel', onTouchEnd);
 
   const resizeObserver = new ResizeObserver(() => {
     if (!active || !state || celebrating) return;
     render();
   });
   resizeObserver.observe(stage);
+  narrowQuery.addEventListener('change', () => {
+    if (!narrowQuery.matches) stage.style.height = '';
+    if (!active || !state || celebrating) return;
+    render();
+  });
 
   function setMode(mode) {
     active = mode === 'play';
     layoutEl.classList.toggle('mode-play', active);
+    document.documentElement.classList.toggle('play-mode', active);
+    document.body.classList.toggle('play-mode', active);
     controls.hidden = !active;
     canvas.style.touchAction = active ? 'none' : '';
+    if (!active) stage.style.height = '';
     if (label) label.textContent = active ? 'Draw the path' : 'Sample output';
     canvas.setAttribute(
       'aria-label',
