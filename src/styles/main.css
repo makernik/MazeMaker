@@ -81,67 +81,111 @@ body {
    Layout — Asymmetrical (Controls Left)
    ============================================ */
 .app-layout {
-  display: flex;
-  min-height: 100vh;
+  display: grid;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  grid-template-columns: var(--panel-width) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "header preview"
+    "controls preview"
+    "footer preview";
 }
 
+/* Lets the title, form, and footer share the page grid with the maze. */
 .control-panel {
-  width: var(--panel-width);
-  max-width: var(--panel-max-width);
-  min-width: 280px;
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  padding: 2rem 1.5rem;
+  display: contents;
 }
 
 .preview-area {
-  flex: 1;
+  grid-area: preview;
   position: relative;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
+  height: 100%;
 }
 
-/* Desktop: keep the maze in view and scroll the controls */
+#debug-panel:not([hidden]) {
+  grid-area: debug;
+}
+
+/* Desktop: keep the maze in view and scroll the controls.
+   Play still lists level then style, matching Print. Hint follows. */
 @media (min-width: 769px) {
-  .app-layout {
-    height: 100vh;
-    overflow: hidden;
+  .app-layout.mode-play #maze-style-fieldset {
+    order: 1;
   }
 
-  .control-panel,
-  .debug-panel {
-    max-height: 100vh;
-    min-height: 0;
-    overflow-y: auto;
+  .app-layout.mode-play .play-controls {
+    order: 2;
+  }
+
+  .app-layout:has(#debug-panel:not([hidden])) {
+    grid-template-columns: var(--panel-width) 220px minmax(0, 1fr);
+    grid-template-areas:
+      "header debug preview"
+      "controls debug preview"
+      "footer debug preview";
   }
 }
 
-/* Responsive: Stack on narrow viewports */
+/* Narrow: maze between the title and the controls, footer last */
 @media (max-width: 768px) {
   .app-layout {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "header"
+      "preview"
+      "controls"
+      "footer";
   }
-  
-  .control-panel {
-    width: 100%;
-    max-width: 100%;
+
+  .app-layout:has(#debug-panel:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(160px, 1fr) auto auto auto;
+    grid-template-areas:
+      "header"
+      "preview"
+      "controls"
+      "debug"
+      "footer";
+  }
+
+  .panel-header,
+  .controls,
+  .panel-footer,
+  .debug-panel {
+    width: auto;
+    max-width: none;
+    min-width: 0;
     border-right: none;
-    border-bottom: 1px solid var(--color-border);
   }
 
   .debug-panel {
-    width: 100%;
-    min-width: 0;
-    border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
-  
-  .preview-area {
-    min-height: 200px;
+
+  .panel-header {
+    padding: 0.75rem 1rem 0.35rem;
+  }
+
+  .panel-header h1 {
+    font-size: 1.35rem;
+  }
+
+  .controls {
+    padding: 0.5rem 1rem 0.65rem;
+    gap: 0.65rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .panel-footer {
+    padding: 0.5rem 1rem 0.7rem;
   }
 }
 
@@ -149,7 +193,11 @@ body {
    Header — Display Typography
    ============================================ */
 .panel-header {
-  margin-bottom: 2rem;
+  grid-area: header;
+  margin: 0;
+  padding: 1.35rem 1.5rem 0.15rem;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
 }
 
 .panel-header h1 {
@@ -171,10 +219,17 @@ body {
    Controls Container
    ============================================ */
 .controls {
-  flex: 1;
+  grid-area: controls;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+  margin: 0;
+  padding: 0.75rem 1.5rem 0.75rem;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
 }
 
 /* ============================================
@@ -271,6 +326,42 @@ body {
 .level-option:hover .level-option__label,
 .level-option:hover .level-option__age {
   color: var(--color-primary);
+}
+
+.level-compact {
+  display: none;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--color-primary);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.level-compact:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+#play-status {
+  margin: 0.35rem 0 0.15rem;
+}
+
+@media (max-width: 768px) {
+  .level-select {
+    display: none;
+  }
+
+  .level-compact {
+    display: block;
+  }
+
+  .sample-preview {
+    padding: 0.65rem 0.75rem 0.4rem;
+  }
 }
 
 /* ============================================
@@ -547,8 +638,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
    Footer
    ============================================ */
 .panel-footer {
-  margin-top: 2rem;
-  padding-top: 1rem;
+  grid-area: footer;
+  margin: 0;
+  padding: 0.85rem 1.5rem 1.25rem;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
   border-top: 1px solid var(--color-border);
 }
 
@@ -580,10 +674,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 1.5rem;
   box-sizing: border-box;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .sample-preview__label {
@@ -595,8 +691,14 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .play-stage {
   position: relative;
   display: flex;
+  align-items: center;
   justify-content: center;
+  width: 100%;
   max-width: 100%;
+  flex: 1 1 auto;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .play-celebrate {
@@ -623,7 +725,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 .play-controls__note {
-  margin: 0.35rem 0 0;
+  margin: 0.35rem 0 0.65rem;
   font-size: 0.75rem;
   color: var(--color-text-muted);
 }
@@ -631,7 +733,55 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .play-actions {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+}
+
+.play-advanced {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  padding: 0 0.75rem;
+}
+
+.play-advanced summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  list-style: none;
+}
+
+.play-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.play-advanced summary::before {
+  content: "";
+  flex: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-0.12rem) rotate(45deg);
+}
+
+.play-advanced[open] summary::before {
+  transform: translateY(0.12rem) rotate(-135deg);
+}
+
+.play-advanced summary output {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+}
+
+.play-advanced summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .play-action {
@@ -659,13 +809,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 .app-layout.mode-play .quantity-group,
-.app-layout.mode-play #generate-btn {
+.app-layout.mode-play #generate-btn,
+.app-layout.mode-play #status {
   display: none;
-}
-
-.app-layout.mode-play {
-  min-height: 100vh;
-  min-height: 100dvh;
 }
 
 .app-layout.mode-play .sample-preview {
@@ -678,7 +824,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .app-layout.mode-play .play-stage {
   flex: 1;
   width: 100%;
-  min-height: 280px;
+  min-height: 0;
   touch-action: none;
 }
 
@@ -696,32 +842,10 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   user-select: none;
 }
 
-@media (max-width: 900px) {
-  .app-layout.mode-play {
-    flex-direction: column-reverse;
-    height: 100dvh;
-  }
-
-  .app-layout.mode-play .control-panel {
-    width: 100%;
-    max-width: 100%;
-    max-height: 46vh;
-    overflow: auto;
-    padding: 0.75rem 1rem 1rem;
-    border-right: none;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .app-layout.mode-play .preview-area {
-    flex: 1;
-    min-height: 0;
-  }
-}
-
 .sample-preview__canvas {
   display: block;
   max-width: 100%;
-  max-height: min(85vh, 720px);
+  max-height: 100%;
   width: auto;
   height: auto;
   border: 1px solid var(--color-border);
@@ -746,4 +870,34 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 /* Focus visible polyfill for older browsers */
 :focus:not(:focus-visible) {
   outline: none;
+}
+
+/* Phone rules live last so they win over the shared panel metrics. */
+@media (max-width: 768px) {
+  .panel-header {
+    padding: 0.7rem 1rem 0.25rem;
+  }
+
+  .panel-header h1 {
+    font-size: 1.35rem;
+  }
+
+  .controls {
+    padding: 0.45rem 1rem 0.55rem;
+    gap: 0.55rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .panel-footer {
+    padding: 0.45rem 1rem 0.6rem;
+  }
+
+  .sample-preview {
+    padding: 0.5rem 0.75rem 0.35rem;
+  }
+
+  .control-group legend,
+  .control-group > label {
+    margin-bottom: 0.3rem;
+  }
 }

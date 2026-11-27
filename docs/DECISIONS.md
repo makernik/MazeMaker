@@ -4,6 +4,19 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-025 — One page frame for Print and Play (2026-11-27)
+
+**Context:** Print and Play did not share a phone layout. Play stacked a tall maze over a scrolling sheet, so changing level and reaching Hint or Start over meant leaving the drawing. A style chip could sit clipped under that maze. Print stacked the whole form first, so the sample preview rendered below the footer.
+
+**Decision:**
+
+- Both modes use one grid. Wide screens keep the controls on the left and the maze on the right. Narrow screens keep the title, then the maze, then the controls, then the footer, so the preview stays above the footer and the page itself does not scroll.
+- Print steps stay level, style, quantity, then Generate. Play uses the same frame with a different step order: level, Hint and Start over, then style. Line forgiveness stays in the page, inside a closed disclosure.
+- On narrow screens the seven-row level list is replaced by one level menu bound to the same radios. The list stays on wider screens.
+- The freehand path is `#2563EB` at full opacity. On `#FAFAF8` that is about 4.9:1, lighter than the `#1E293B` walls, and it is not drawn into the PDF.
+
+---
+
 ## D-024 — Squares rooms are finer mini-mazes (2026-10-11)
 
 **Context:** A Squares room is a sub-maze drawn inside an outer-grid block. `roomSubSize` was a fixed count. On Intro and Easy it matched the outer grain (one sub-cell per outer cell), so the room did not read as a maze within a maze. On Difficult the interior was barely finer than the outside. The sub-maze door was also placed at the center of a whole side, not in the outer cell that actually opens into the room. Finer interiors would have made that mismatch a second doorway.

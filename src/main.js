@@ -319,11 +319,33 @@ function syncMazeStyleVisibility() {
 /**
  * Sample preview: update when level or maze style changes
  */
+const levelCompact = document.getElementById('level-compact');
+
+function syncLevelCompact() {
+  if (!levelCompact || !form) return;
+  const checked = form.querySelector('input[name="age-range"]:checked');
+  if (checked) levelCompact.value = checked.value;
+}
+
+if (levelCompact) {
+  levelCompact.addEventListener('change', () => {
+    const radio = form.querySelector(
+      `input[name="age-range"][value="${CSS.escape(levelCompact.value)}"]`
+    );
+    if (!radio || radio.checked) return;
+    radio.checked = true;
+    radio.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+syncLevelCompact();
+
 form.addEventListener('change', (e) => {
   if (e.target.name === 'app-mode') {
     playApi.setMode(e.target.value);
     return;
   }
+  if (e.target.name === 'age-range') syncLevelCompact();
   if (e.target.name === 'age-range' || e.target.name === 'maze-style') {
     if (playApi.isActive()) playApi.onConfigChange();
     else updatePreviewCanvas();
