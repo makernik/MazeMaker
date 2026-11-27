@@ -10,7 +10,7 @@ isProject: false
 **Status:** done  
 **Last updated:** 2026-10-11  
 **Owner:** agent  
-**Related:** `docs/DECISIONS.md#D-020`
+**Related:** `docs/DECISIONS.md#D-021`
 
 ---
 
@@ -49,13 +49,13 @@ Two confirmed print bugs:
 - `tests/rooms-generator.test.js`
 - `tests/polarGrid.test.js`
 - `tests/polarGenerator.test.js`
-- `docs/DECISIONS.md` — D-020
+- `docs/DECISIONS.md` — D-021
 
 ---
 
 ## Checkpoints
 
-- **C0** — Plan + D-020
+- **C0** — Plan + D-021
 - **C1** — Squares: seal sub-maze borders; test that perimeter openings match the two doors
 - **C2** — Polar: integer-multiple cap, neighbor/wall safety; tests for 6-8 and 9-11 across algorithms
 
