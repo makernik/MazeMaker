@@ -211,7 +211,10 @@ function drawRoomCell(backend, roomCell, roomX, roomY, blockSize, lineThickness,
   }
 
   const subCellSize = blockSize / roomSubSize;
-  const subThickness = Math.max(0.5, lineThickness * 0.4);
+  const subThickness = Math.min(
+    Math.max(0.5, lineThickness * 0.4),
+    Math.max(0.4, subCellSize * 0.15),
+  );
   const subGrid = roomCell.subGrid;
   const openingIndicesTop = K > 1 && roomCell.openingCells?.length ? getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.TOP) : new Set();
   const openingIndicesBottom = K > 1 && roomCell.openingCells?.length ? getOpeningIndicesForSide(or, oc, K, roomCell.openingCells, DIRECTIONS.BOTTOM) : new Set();

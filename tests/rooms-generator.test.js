@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateSquaresMaze } from '../src/maze/rooms-generator.js';
 import { validateMaze } from '../src/maze/solver.js';
-import { getDifficultyPreset, MIN_CELL_SIZE_SQUARES_PT, DIFFICULTY_PRESETS } from '../src/utils/constants.js';
+import { getDifficultyPreset, MIN_CELL_SIZE_SQUARES_PT, MIN_ROOM_SUB_CELL_PT, DIFFICULTY_PRESETS, roomInteriorLayout } from '../src/utils/constants.js';
 import { DIRECTIONS } from '../src/maze/grid.js';
 
 /** Border walls that are open on a room sub-maze, as "direction:index". */
@@ -73,6 +73,46 @@ describe('generateSquaresMaze', () => {
       if (!isRoomsFirst) {
         expect(room.openings.length).toBe(2);
         expect(maze.roomsGrid.openPassageCount(room.outerRow, room.outerCol)).toBe(2);
+      }
+    }
+  });
+
+  it('interior paths are finer than the outer maze and stay printable', () => {
+    for (const [ageRange, preset] of Object.entries(DIFFICULTY_PRESETS)) {
+      const cell = Math.max(preset.cellSize, MIN_CELL_SIZE_SQUARES_PT);
+      const layout = roomInteriorLayout(cell, preset.roomOuterSize, preset.roomDetail);
+      expect(layout.detail).toBeGreaterThanOrEqual(2);
+      expect(layout.subCellSize).toBeLessThan(cell);
+      expect(layout.subCellSize).toBeGreaterThanOrEqual(MIN_ROOM_SUB_CELL_PT);
+      const maze = generateSquaresMaze({ ageRange, seed: 42 });
+      expect(maze.roomsGrid.roomCells.size).toBeGreaterThan(0);
+      for (const room of maze.roomsGrid.roomCells.values()) {
+        expect(room.subGrid.rows).toBe(layout.roomSubSize);
+        expect(room.subGrid.rows).toBe(room.outerSize * layout.detail);
+      }
+    }
+  });
+
+  it('each mini-maze door sits inside its outer opening', () => {
+    for (const ageRange of Object.keys(DIFFICULTY_PRESETS)) {
+      const maze = generateSquaresMaze({ ageRange, seed: 11 });
+      for (const room of maze.roomsGrid.roomCells.values()) {
+        const subSize = room.subGrid.rows;
+        const outerSize = room.outerSize;
+        const doors = [
+          [room.openings[0], room.openingCells[0], room.subStart],
+          [room.openings[1], room.openingCells[1], room.subFinish],
+        ];
+        for (const [dir, cell, sub] of doors) {
+          const along = dir === DIRECTIONS.TOP || dir === DIRECTIONS.BOTTOM
+            ? cell.col - room.outerCol
+            : cell.row - room.outerRow;
+          const start = Math.floor((along * subSize) / outerSize);
+          const end = Math.max(start + 1, Math.ceil(((along + 1) * subSize) / outerSize));
+          const index = dir === DIRECTIONS.TOP || dir === DIRECTIONS.BOTTOM ? sub.col : sub.row;
+          expect(index).toBeGreaterThanOrEqual(start);
+          expect(index).toBeLessThan(Math.min(subSize, end));
+        }
       }
     }
   });

@@ -6,7 +6,7 @@
  * - Cell size (larger = easier to trace)
  * - Line thickness (thicker = easier to see)
  * - algorithm: which maze generator to use ('prim' | 'recursive-backtracker' | 'kruskal'; more can be added in generator.js)
- * - roomCount, roomSubSize, roomOuterSize: for Squares style (embedded rooms); see rooms-generator.js.
+ * - roomCount, roomSubSize, roomOuterSize, roomDetail: for Squares style (embedded rooms); see rooms-generator.js.
  * - playTolerance: fraction of a corridor width that a drawn path may pass beyond a wall and still count (play mode).
  * - polarRingRatio / polarRoomScale: circular radial taper (D-022). Omit them for even rings.
  *   Each maze ring outward is polarRingRatio times the previous ring. The center room is
@@ -14,8 +14,13 @@
  *
  * Squares style: if preset cellSize < MIN_CELL_SIZE_SQUARES_PT, it is coerced to that minimum and
  * grid dimensions are recomputed so sub-mazes remain legible in print.
+ * roomDetail is interior cells per outer cell. roomInteriorLayout may lower it so a sub-cell stays
+ * at least MIN_ROOM_SUB_CELL_PT.
  */
 export const MIN_CELL_SIZE_SQUARES_PT = 28;
+
+/** Smallest interior cell, in points, for a Squares mini-maze. */
+export const MIN_ROOM_SUB_CELL_PT = 7;
 
 /** Supported algorithm ids (generator.js branches on these) */
 export const ALGORITHMS = {
@@ -60,6 +65,7 @@ export const DIFFICULTY_PRESETS = {
     roomCount: 1,
     roomSubSize: 3,
     roomOuterSize: 3,
+    roomDetail: 2,
     playTolerance: 0.42,
   },
   '4-5': {
@@ -77,6 +83,7 @@ export const DIFFICULTY_PRESETS = {
     roomCount: 2,
     roomSubSize: 3,
     roomOuterSize: 3,
+    roomDetail: 2,
     playTolerance: 0.36,
   },
   '6-8': {
@@ -94,6 +101,7 @@ export const DIFFICULTY_PRESETS = {
     roomCount: 3,
     roomSubSize: 4,
     roomOuterSize: 3,
+    roomDetail: 2,
     playTolerance: 0.30,
   },
   '9-11': {
@@ -113,6 +121,7 @@ export const DIFFICULTY_PRESETS = {
     roomCount: 4,
     roomSubSize: 5,
     roomOuterSize: 3,
+    roomDetail: 3,
     playTolerance: 0.24,
   },
   '12-14': {
@@ -132,6 +141,7 @@ export const DIFFICULTY_PRESETS = {
     roomCount: 5,
     roomSubSize: 10,
     roomOuterSize: 5,
+    roomDetail: 3,
     playTolerance: 0.18,
   },
   '15-17': {
@@ -151,6 +161,7 @@ export const DIFFICULTY_PRESETS = {
     roomCount: 6,
     roomSubSize: 14,
     roomOuterSize: 6,
+    roomDetail: 3,
     playTolerance: 0.14,
   },
   '18+': {
@@ -170,6 +181,7 @@ export const DIFFICULTY_PRESETS = {
     roomCount: 8,
     roomSubSize: 18,
     roomOuterSize: 6,
+    roomDetail: 4,
     playTolerance: 0.10,
   },
 };
@@ -181,6 +193,27 @@ export const DIFFICULTY_PRESETS = {
 export function getDifficultyPreset(ageRange) {
   const preset = DIFFICULTY_PRESETS[ageRange] || DIFFICULTY_PRESETS['9-11'];
   return { ...preset, algorithm: preset.algorithm ?? ALGORITHMS.PRIM };
+}
+
+/**
+ * Interior grid for a Squares room. detail is sub-cells per outer cell, lowered while
+ * the sub-cell would be under MIN_ROOM_SUB_CELL_PT.
+ * @param {number} effectiveCellSize - Outer cell size in points
+ * @param {number} roomOuterSize - Outer cells per side of the room block
+ * @param {number} roomDetail - Requested sub-cells per outer cell
+ * @returns {{ detail: number, roomSubSize: number, subCellSize: number }}
+ */
+export function roomInteriorLayout(effectiveCellSize, roomOuterSize, roomDetail) {
+  const outer = Math.max(1, roomOuterSize);
+  let detail = Math.max(1, Math.floor(roomDetail ?? 2));
+  while (detail > 1 && effectiveCellSize / detail < MIN_ROOM_SUB_CELL_PT) {
+    detail -= 1;
+  }
+  return {
+    detail,
+    roomSubSize: outer * detail,
+    subCellSize: effectiveCellSize / detail,
+  };
 }
 
 /**

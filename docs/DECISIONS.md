@@ -4,6 +4,21 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-024 — Squares rooms are finer mini-mazes (2026-10-11)
+
+**Context:** A Squares room is a sub-maze drawn inside an outer-grid block. `roomSubSize` was a fixed count. On Intro and Easy it matched the outer grain (one sub-cell per outer cell), so the room did not read as a maze within a maze. On Difficult the interior was barely finer than the outside. The sub-maze door was also placed at the center of a whole side, not in the outer cell that actually opens into the room. Finer interiors would have made that mismatch a second doorway.
+
+**Decision:**
+
+- Each preset has `roomDetail`: how many interior cells span one outer cell. Intro, Easy, and Medium use 2. Hard through Difficult use 3. Epic uses 4.
+- `roomInteriorLayout` turns that into `roomSubSize = roomOuterSize × detail`. If the resulting sub-cell would be under 7pt, detail steps down until the sub-cell is at least `MIN_ROOM_SUB_CELL_PT` (7).
+- The carved door for each opening is the sub-cell in the middle of that opening’s outer segment, so the fine path continues out of the coarse corridor.
+- Interior stroke is capped at 15% of the sub-cell (and still at least 0.4pt) so a fine maze stays open on the page.
+
+Outer block size, room count, and the two-door rule are unchanged.
+
+---
+
 ## D-023 — Difficulty steps and bowed Curvy corridors (2026-10-20)
 
 **Context:** After the circular taper, the other styles had flat or backwards steps. Classic Hard and Challenging were nearly the same size. Squares Difficult and Epic kept the same outer grid as Hard, and their room interiors were coarser than Challenging. Jagged and Curvy jumped from 120 nodes at Medium to 400 at Hard, then packed Epic finer than the circular rim. Curvy and Jagged also shared the same straight corridors; Curvy only splined through the nodes, so a straight run looked like Jagged.
