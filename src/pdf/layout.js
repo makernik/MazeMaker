@@ -5,6 +5,8 @@
  * getLayoutForMaze computes per-maze layout (transform, cellSize, etc.) for the drawer pipeline.
  */
 
+import { polarBoundaryFractions } from '../maze/polarRadii.js';
+
 // US Letter dimensions in points (72 points = 1 inch)
 export const PAGE_WIDTH = 8.5 * 72;  // 612 points
 export const PAGE_HEIGHT = 11 * 72;  // 792 points
@@ -53,11 +55,14 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
     const offsetY = pageH - margin - mazeHeight;
     const centerX = offsetX + mazeWidth / 2;
     const centerY = offsetY + mazeHeight / 2;
-    // Center room: radius = 1.5 × ring thickness (ring thickness = maxRadius / maxRing)
     const maxRing = grid.maxRing;
-    const ringThickness = maxRadius / maxRing;
-    const ROOM_FACTOR = 1;
-    const roomRadius = ringThickness * ROOM_FACTOR;
+    const fractions = polarBoundaryFractions(
+      maxRing,
+      maze.preset?.polarRingRatio ?? 1,
+      maze.preset?.polarRoomScale ?? 1,
+    );
+    const ringRadii = fractions.map((fraction) => fraction * maxRadius);
+    const roomRadius = ringRadii[1];
     return {
       layoutType: 'polar',
       lineThickness,
@@ -65,6 +70,7 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
       centerY,
       maxRadius,
       roomRadius,
+      ringRadii,
       rings: grid.rings,
       wedges: grid.wedges,
     };

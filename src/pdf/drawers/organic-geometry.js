@@ -96,6 +96,115 @@ export function catmullRomToBezier(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
 }
 
 /**
+ * Deterministic ±1 from the canonical (ordered) endpoints.
+ * Rounding keeps the sign stable for the same segment.
+ * @returns {1|-1}
+ */
+function bowSign(x0, y0, x1, y1) {
+  const ix0 = Math.round(x0 * 10);
+  const iy0 = Math.round(y0 * 10);
+  const ix1 = Math.round(x1 * 10);
+  const iy1 = Math.round(y1 * 10);
+  let h = Math.imul(ix0, 374761393);
+  h ^= Math.imul(iy0, 668265263);
+  h ^= Math.imul(ix1, 1274126177);
+  h ^= Math.imul(iy1, 2246822519);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  h ^= h >>> 16;
+  return (h & 1) === 0 ? 1 : -1;
+}
+
+/**
+ * Lateral offset added to both cubic controls of a Curvy corridor.
+ * Endpoint order does not change the vector.
+ *
+ * Amplitude is 20% of the segment, capped at 2.4 × half the corridor.
+ * The crest (t = 0.5) sits at 0.75 × this offset from the straight chord.
+ *
+ * @returns {{ x: number, y: number }}
+ */
+export function curvyBowOffset(ax, ay, bx, by, halfW) {
+  let x0 = ax;
+  let y0 = ay;
+  let x1 = bx;
+  let y1 = by;
+  if (ax > bx || (ax === bx && ay > by)) {
+    x0 = bx;
+    y0 = by;
+    x1 = ax;
+    y1 = ay;
+  }
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const dist = Math.hypot(dx, dy) || 1;
+  const amp = Math.min(dist * 0.2, halfW * 2.4);
+  const px = -dy / dist;
+  const py = dx / dist;
+  const sign = bowSign(x0, y0, x1, y1);
+  return { x: px * amp * sign, y: py * amp * sign };
+}
+
+function cubicAt(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, t) {
+  const u = 1 - t;
+  const uu = u * u;
+  const tt = t * t;
+  return {
+    x: uu * u * p0x + 3 * uu * t * p1x + 3 * u * tt * p2x + tt * t * p3x,
+    y: uu * u * p0y + 3 * uu * t * p1y + 3 * u * tt * p2y + tt * t * p3y,
+  };
+}
+
+/**
+ * Two cubics for the bowed segment from (ax, ay) to (bx, by).
+ * Each cubic leaves its junction along the chord and they meet at the crest.
+ * The crest sits 0.75 × `curvyBowOffset` off the straight chord.
+ *
+ * @returns {Array<{ cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number }>}
+ */
+export function curvySegmentCubics(ax, ay, bx, by, halfW) {
+  const off = curvyBowOffset(ax, ay, bx, by, halfW);
+  const dx = bx - ax;
+  const dy = by - ay;
+  const mx = (ax + bx) / 2 + off.x * 0.75;
+  const my = (ay + by) / 2 + off.y * 0.75;
+  return [
+    {
+      cp1x: ax + dx * 0.25,
+      cp1y: ay + dy * 0.25,
+      cp2x: mx - dx * 0.25,
+      cp2y: my - dy * 0.25,
+      x: mx,
+      y: my,
+    },
+    {
+      cp1x: mx + dx * 0.25,
+      cp1y: my + dy * 0.25,
+      cp2x: bx - dx * 0.25,
+      cp2y: by - dy * 0.25,
+      x: bx,
+      y: by,
+    },
+  ];
+}
+
+/**
+ * Point at parameter t on the bowed centerline.
+ * @param {number} t in [0, 1]
+ * @returns {{ x: number, y: number }}
+ */
+export function curvyPoint(ax, ay, bx, by, halfW, t) {
+  const cubics = curvySegmentCubics(ax, ay, bx, by, halfW);
+  const clamped = Math.max(0, Math.min(1, t));
+  if (clamped <= 0.5) {
+    return cubicAt(ax, ay, cubics[0].cp1x, cubics[0].cp1y, cubics[0].cp2x, cubics[0].cp2y, cubics[0].x, cubics[0].y, clamped * 2);
+  }
+  const mid = cubics[0];
+  const end = cubics[1];
+  return cubicAt(mid.x, mid.y, end.cp1x, end.cp1y, end.cp2x, end.cp2y, end.x, end.y, (clamped - 0.5) * 2);
+}
+
+/**
  * Adaptive phantom extension factor for Catmull-Rom endpoint tangents.
  * Short segments get less extension to avoid overshoot; long segments
  * get slightly more to maintain flow.

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { miterTrim, miterRadius, computeNodeTrims, catmullRomToBezier } from '../src/pdf/drawers/organic-geometry.js';
+import {
+  miterTrim,
+  miterRadius,
+  computeNodeTrims,
+  catmullRomToBezier,
+  curvyPoint,
+  curvyBowOffset,
+} from '../src/pdf/drawers/organic-geometry.js';
 
 const PI = Math.PI;
 const HALF_W = 10;
@@ -155,6 +162,28 @@ describe('catmullRomToBezier', () => {
     const r = catmullRomToBezier(0, 0, 5, 5, 15, 5, 20, 0);
     expect(r.cp1x).toBeGreaterThan(5);
     expect(r.cp1x).toBeLessThan(15);
+  });
+
+  it('bows the same crest from either direction', () => {
+    const forward = curvyPoint(0, 0, 100, 0, 10, 0.5);
+    const reverse = curvyPoint(100, 0, 0, 0, 10, 0.5);
+    const amp = Math.min(100 * 0.2, 10 * 2.4);
+    expect(forward.x).toBeCloseTo(50, 5);
+    expect(Math.abs(forward.y)).toBeCloseTo(0.75 * amp, 5);
+    expect(reverse.x).toBeCloseTo(forward.x, 5);
+    expect(reverse.y).toBeCloseTo(forward.y, 5);
+    expect(curvyPoint(0, 0, 100, 0, 10, 0).y).toBeCloseTo(0, 5);
+    expect(curvyPoint(0, 0, 100, 0, 10, 1).x).toBeCloseTo(100, 5);
+    const early = curvyPoint(0, 0, 100, 0, 10, 0.05);
+    expect(Math.abs(early.y)).toBeLessThan(1);
+  });
+
+  it('uses one offset for both directions of an edge', () => {
+    const ab = curvyBowOffset(10, 20, 80, 50, 6);
+    const ba = curvyBowOffset(80, 50, 10, 20, 6);
+    expect(ab.x).toBeCloseTo(ba.x, 5);
+    expect(ab.y).toBeCloseTo(ba.y, 5);
+    expect(Math.hypot(ab.x, ab.y)).toBeGreaterThan(1);
   });
 
   it('all values are finite', () => {

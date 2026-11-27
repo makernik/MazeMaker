@@ -69,9 +69,18 @@ function drawHint(ctx, state, markerWidth) {
   ctx.beginPath();
   const start = state.view.toLayout(state.topology.center(keys[0]));
   ctx.moveTo(start.x, start.y);
+  const bend = state.topology.bend;
   for (let i = 1; i < keys.length; i++) {
-    const p = state.view.toLayout(state.topology.center(keys[i]));
-    ctx.lineTo(p.x, p.y);
+    const pts = bend ? bend(keys[i - 1], keys[i]) : null;
+    if (pts && pts.length > 0) {
+      for (let j = 0; j < pts.length; j++) {
+        const p = state.view.toLayout(pts[j]);
+        ctx.lineTo(p.x, p.y);
+      }
+    } else {
+      const p = state.view.toLayout(state.topology.center(keys[i]));
+      ctx.lineTo(p.x, p.y);
+    }
   }
   ctx.stroke();
 }

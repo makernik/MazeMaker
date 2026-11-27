@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { MazeGrid, DIRECTIONS } from '../src/maze/grid.js';
 import { generateMaze } from '../src/maze/generator.js';
 import { generateOrganicMaze } from '../src/maze/organic-generator.js';
+import { computeCorridorWidth, curvyPoint } from '../src/pdf/drawers/organic-geometry.js';
 import { generatePolarMaze } from '../src/maze/polarGenerator.js';
 import { generateSquaresMaze } from '../src/maze/rooms-generator.js';
 import { getLayoutForMaze } from '../src/pdf/layout.js';
@@ -212,12 +213,36 @@ describe('play session on generated mazes', () => {
     expect(end).toBeGreaterThanOrEqual(0);
   });
 
+  it('solves a curvy maze along the bowed centerline', () => {
+    const maze = generateOrganicMaze({ ageRange: '6-8', seed: 11 });
+    maze.organicCurve = 'curvy';
+    const state = play(maze, 0.3);
+    const { halfW } = computeCorridorWidth(maze.graph, maze.preset.lineThickness);
+    let next = state;
+    const keys = state.topology.solution;
+    for (let i = 0; i < keys.length; i++) {
+      if (i === 0) {
+        next = addPointer(next, state.topology.center(keys[i]), 'start');
+        continue;
+      }
+      const a = state.topology.center(keys[i - 1]);
+      const b = state.topology.center(keys[i]);
+      for (let s = 1; s <= 4; s++) {
+        next = addPointer(next, curvyPoint(a.x, a.y, b.x, b.y, halfW, s / 4), 'move');
+      }
+    }
+    expect(next.trace.solved).toBe(true);
+  });
+
   it('solves jagged, circular, and squares mazes along the solution', () => {
     const jagged = walkCenters(play(generateOrganicMaze({ ageRange: '3', seed: 5 }), 0.42));
     expect(jagged.trace.solved).toBe(true);
 
     const circular = walkCenters(play(generatePolarMaze({ ageRange: '3', seed: 5 }), 0.42));
     expect(circular.trace.solved).toBe(true);
+
+    const epic = walkCenters(play(generatePolarMaze({ ageRange: '18+', seed: 5 }), 0.1));
+    expect(epic.trace.solved).toBe(true);
 
     const squares = play(generateSquaresMaze({ ageRange: '3', seed: 5 }), 0.42);
     for (let i = 1; i < squares.topology.solution.length; i++) {

@@ -1,8 +1,7 @@
 /**
- * Curvy maze drawer (unified): continuous Catmull-Rom spline walls along
- * chains of pass-through nodes, plus cubic-Bezier junction arcs.
- * Same generation and layout as jagged; only the rendering differs.
- * Labels and solution overlay are identical to jagged — re-exported directly.
+ * Curvy maze drawer: the same organic graph as jagged, with each open
+ * corridor drawn as a cubic bow. Junction arcs stay circular.
+ * Filler passages use the same bow. Labels match jagged.
  * All rendering goes through a DrawBackend (pdf or canvas).
  */
 
@@ -10,265 +9,118 @@ import {
   computeNodeTrims,
   computeCorridorWidth,
   prepareGraphData,
-  catmullRomToBezier,
-  extractThreads,
-  enhanceDeadEndThreads,
-  phantomFactor,
+  curvyBowOffset,
+  curvySegmentCubics,
 } from './organic-geometry.js';
 
-export { drawLabels, drawSolutionOverlay } from './draw-organic.js';
+export { drawLabels } from './draw-organic.js';
 
-// ---------------------------------------------------------------------------
-// Spline helpers
-// ---------------------------------------------------------------------------
-
-function addPhantoms(pts, halfW) {
-  const first = pts[0];
-  const second = pts[1];
-  const segLen0 = Math.sqrt((second.x - first.x) ** 2 + (second.y - first.y) ** 2) || 1;
-  const f0 = phantomFactor(segLen0, halfW);
-  const phantom0 = {
-    x: first.x - (second.x - first.x) * f0,
-    y: first.y - (second.y - first.y) * f0,
-  };
-
-  const last = pts[pts.length - 1];
-  const prev = pts[pts.length - 2];
-  const segLenN = Math.sqrt((last.x - prev.x) ** 2 + (last.y - prev.y) ** 2) || 1;
-  const fN = phantomFactor(segLenN, halfW);
-  const phantomN = {
-    x: last.x + (last.x - prev.x) * fN,
-    y: last.y + (last.y - prev.y) * fN,
-  };
-
-  return [phantom0, ...pts, phantomN];
-}
-
-function drawSplinePath(backend, fullPts, transform) {
-  const segCount = fullPts.length - 3;
-  if (segCount < 1) return;
-
-  const s = transform(fullPts[1].x, fullPts[1].y);
+function drawBow(backend, sx, sy, ex, ey, crestX, crestY, transform) {
+  const dx = ex - sx;
+  const dy = ey - sy;
+  const mx = (sx + ex) / 2 + crestX;
+  const my = (sy + ey) / 2 + crestY;
+  const s = transform(sx, sy);
+  const a1 = transform(sx + dx * 0.25, sy + dy * 0.25);
+  const a2 = transform(mx - dx * 0.25, my - dy * 0.25);
+  const m = transform(mx, my);
+  const b1 = transform(mx + dx * 0.25, my + dy * 0.25);
+  const b2 = transform(ex - dx * 0.25, ey - dy * 0.25);
+  const e = transform(ex, ey);
   backend.beginPath();
   backend.moveTo(s.x, s.y);
-
-  for (let i = 0; i < segCount; i++) {
-    const p0 = fullPts[i];
-    const p1 = fullPts[i + 1];
-    const p2 = fullPts[i + 2];
-    const p3 = fullPts[i + 3];
-    const b = catmullRomToBezier(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
-    const c1 = transform(b.cp1x, b.cp1y);
-    const c2 = transform(b.cp2x, b.cp2y);
-    const e = transform(p2.x, p2.y);
-    backend.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
-  }
-
+  backend.bezierCurveTo(a1.x, a1.y, a2.x, a2.y, m.x, m.y);
+  backend.bezierCurveTo(b1.x, b1.y, b2.x, b2.y, e.x, e.y);
   backend.stroke();
 }
 
-// ---------------------------------------------------------------------------
-// Straight-line fallback (per-edge, same as jagged)
-// ---------------------------------------------------------------------------
-
-function drawThreadStraight(backend, thread, graph, allNodeTrims, halfW, transform) {
-  for (let i = 0; i < thread.length - 1; i++) {
-    const node = graph.getNode(thread[i]);
-    const other = graph.getNode(thread[i + 1]);
-    const dx = other.x - node.x;
-    const dy = other.y - node.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const ux = dx / dist;
-    const uy = dy / dist;
-    const px = -uy;
-    const py = ux;
-
-    const trimsA = allNodeTrims.get(thread[i]);
-    const trimsB = allNodeTrims.get(thread[i + 1]);
-    const aTrim = trimsA ? trimsA.get(thread[i + 1]) : null;
-    const bTrim = trimsB ? trimsB.get(thread[i]) : null;
-    const cap = dist * 0.45;
-    const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
-    const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
-    const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
-    const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
-
-    const lS = transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW);
-    const lE = transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW);
-    backend.line(lS.x, lS.y, lE.x, lE.y);
-
-    const rS = transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW);
-    const rE = transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW);
-    backend.line(rS.x, rS.y, rE.x, rE.y);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Junction arcs (cubic Bezier approximation of circular arcs)
-// ---------------------------------------------------------------------------
-
-function drawJunctionBezier(backend, cx, cy, halfW, aStart, aEnd, transform) {
-  const span = aEnd - aStart;
-  const k = (4 / 3) * Math.tan(span / 4);
-  const p1 = { x: cx + halfW * Math.cos(aStart), y: cy + halfW * Math.sin(aStart) };
-  const p2 = { x: cx + halfW * Math.cos(aEnd), y: cy + halfW * Math.sin(aEnd) };
-  const cp1 = {
-    x: p1.x + k * halfW * (-Math.sin(aStart)),
-    y: p1.y + k * halfW * Math.cos(aStart),
-  };
-  const cp2 = {
-    x: p2.x - k * halfW * (-Math.sin(aEnd)),
-    y: p2.y - k * halfW * Math.cos(aEnd),
-  };
-  const p1T = transform(p1.x, p1.y);
-  const p2T = transform(p2.x, p2.y);
-  const c1T = transform(cp1.x, cp1.y);
-  const c2T = transform(cp2.x, cp2.y);
-  backend.beginPath();
-  backend.moveTo(p1T.x, p1T.y);
-  backend.bezierCurveTo(c1T.x, c1T.y, c2T.x, c2T.y, p2T.x, p2T.y);
-  backend.stroke();
-}
-
-// ---------------------------------------------------------------------------
-// Main corridor + junction drawing
-// ---------------------------------------------------------------------------
-
+/**
+ * Draw bowed corridor walls and circular junction arcs for a graph.
+ */
 function drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, params) {
-  const { transform, wallThickness, halfW, startId, finishId } = params;
+  const { transform, wallThickness, halfW, scale } = params;
+  const drawnEdges = new Set();
 
   backend.setStroke('#000', wallThickness, 'round');
 
-  const posMap = new Map();
-  for (const node of graph.nodes) posMap.set(node.id, { x: node.x, y: node.y });
+  for (const node of graph.nodes) {
+    for (const nid of node.neighbors) {
+      const key = node.id < nid ? `${node.id}-${nid}` : `${nid}-${node.id}`;
+      if (drawnEdges.has(key) || graph.hasWall(node.id, nid)) continue;
+      drawnEdges.add(key);
+      const other = graph.getNode(nid);
+      if (!other) continue;
+      const dx = other.x - node.x;
+      const dy = other.y - node.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ux = dx / dist;
+      const uy = dy / dist;
+      const px = -uy;
+      const py = ux;
+      const trimsA = allNodeTrims.get(node.id);
+      const trimsB = allNodeTrims.get(nid);
+      const aTrim = trimsA ? trimsA.get(nid) : null;
+      const bTrim = trimsB ? trimsB.get(node.id) : null;
+      const cap = dist * 0.45;
+      const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
+      const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
+      const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
+      const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
+      const off = curvyBowOffset(node.x, node.y, other.x, other.y, halfW);
+      const crestX = off.x * 0.75;
+      const crestY = off.y * 0.75;
 
-  const forceEndpoints = new Set();
-  if (startId != null) forceEndpoints.add(startId);
-  if (finishId != null) forceEndpoints.add(finishId);
-
-  const rawThreads = extractThreads(nodePassages, graph, forceEndpoints);
-  const threads = enhanceDeadEndThreads(rawThreads, nodePassages, posMap, halfW);
-  const splineInteriors = new Set();
-
-  for (const thread of threads) {
-    const n = thread.length;
-    if (n < 2) continue;
-
-    const centers = [];
-    for (const id of thread) {
-      const pos = posMap.get(id);
-      centers.push({ x: pos.x, y: pos.y });
+      drawBow(
+        backend,
+        node.x + ux * ltA + px * halfW,
+        node.y + uy * ltA + py * halfW,
+        other.x - ux * rtB + px * halfW,
+        other.y - uy * rtB + py * halfW,
+        crestX,
+        crestY,
+        transform,
+      );
+      drawBow(
+        backend,
+        node.x + ux * rtA - px * halfW,
+        node.y + uy * rtA - py * halfW,
+        other.x - ux * ltB - px * halfW,
+        other.y - uy * ltB - py * halfW,
+        crestX,
+        crestY,
+        transform,
+      );
     }
-
-    const tangents = [];
-    const perps = [];
-    for (let i = 0; i < n; i++) {
-      let tx, ty;
-      if (i === 0) {
-        tx = centers[1].x - centers[0].x;
-        ty = centers[1].y - centers[0].y;
-      } else if (i === n - 1) {
-        tx = centers[n - 1].x - centers[n - 2].x;
-        ty = centers[n - 1].y - centers[n - 2].y;
-      } else {
-        tx = (centers[i + 1].x - centers[i - 1].x) / 2;
-        ty = (centers[i + 1].y - centers[i - 1].y) / 2;
-      }
-      const len = Math.sqrt(tx * tx + ty * ty) || 1;
-      tangents.push({ x: tx / len, y: ty / len });
-      perps.push({ x: -ty / len, y: tx / len });
-    }
-
-    const leftPts = [];
-    const rightPts = [];
-    for (let i = 0; i < n; i++) {
-      const c = centers[i];
-      const p = perps[i];
-      const t = tangents[i];
-
-      if (i === 0) {
-        const trimsA = allNodeTrims.get(thread[0]);
-        let nbrIdx = 1;
-        while (nbrIdx < n && thread[nbrIdx] < 0) nbrIdx++;
-        const aTrim = trimsA ? trimsA.get(thread[nbrIdx]) : null;
-        const d01 = Math.sqrt((centers[1].x - c.x) ** 2 + (centers[1].y - c.y) ** 2) || 1;
-        const cap = d01 * 0.45;
-        const lt = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
-        const rt = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
-        leftPts.push({ x: c.x + t.x * lt + p.x * halfW, y: c.y + t.y * lt + p.y * halfW });
-        rightPts.push({ x: c.x + t.x * rt - p.x * halfW, y: c.y + t.y * rt - p.y * halfW });
-      } else if (i === n - 1) {
-        const trimsB = allNodeTrims.get(thread[n - 1]);
-        let nbrIdx = n - 2;
-        while (nbrIdx >= 0 && thread[nbrIdx] < 0) nbrIdx--;
-        const bTrim = trimsB ? trimsB.get(thread[nbrIdx]) : null;
-        const dLast = Math.sqrt((c.x - centers[n - 2].x) ** 2 + (c.y - centers[n - 2].y) ** 2) || 1;
-        const cap = dLast * 0.45;
-        const lt = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
-        const rt = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
-        leftPts.push({ x: c.x - t.x * rt + p.x * halfW, y: c.y - t.y * rt + p.y * halfW });
-        rightPts.push({ x: c.x - t.x * lt - p.x * halfW, y: c.y - t.y * lt - p.y * halfW });
-      } else {
-        leftPts.push({ x: c.x + p.x * halfW, y: c.y + p.y * halfW });
-        rightPts.push({ x: c.x - p.x * halfW, y: c.y - p.y * halfW });
-      }
-    }
-
-    let ok = true;
-    for (let i = 0; i < n; i++) {
-      const dx = rightPts[i].x - leftPts[i].x;
-      const dy = rightPts[i].y - leftPts[i].y;
-      if (dx * dx + dy * dy < halfW * halfW * 0.25) { ok = false; break; }
-    }
-
-    if (!ok) {
-      drawThreadStraight(backend, thread, graph, allNodeTrims, halfW, transform);
-      continue;
-    }
-
-    for (let i = 1; i < n - 1; i++) splineInteriors.add(thread[i]);
-
-    const fullLeft = addPhantoms(leftPts, halfW);
-    const fullRight = addPhantoms(rightPts, halfW);
-    drawSplinePath(backend, fullLeft, transform);
-    drawSplinePath(backend, fullRight, transform);
   }
 
   for (const node of graph.nodes) {
-    if (splineInteriors.has(node.id)) continue;
     const passages = nodePassages.get(node.id);
     if (!passages || passages.length === 0) continue;
     const cx = node.x;
     const cy = node.y;
-    const pn = passages.length;
-    for (let i = 0; i < pn; i++) {
+    const n = passages.length;
+    for (let i = 0; i < n; i++) {
       const curr = passages[i];
-      const next = passages[(i + 1) % pn];
+      const next = passages[(i + 1) % n];
       let gap = next.angle - curr.angle;
-      if (i === pn - 1) gap += 2 * Math.PI;
+      if (i === n - 1) gap += 2 * Math.PI;
       if (gap < 0) gap += 2 * Math.PI;
       if (gap <= Math.PI) continue;
 
       const arcStart = curr.angle + Math.PI / 2;
       let arcEnd = next.angle - Math.PI / 2;
-      if (i === pn - 1) arcEnd += 2 * Math.PI;
+      if (i === n - 1) arcEnd += 2 * Math.PI;
       const span = arcEnd - arcStart;
       if (span < 0.02) continue;
 
-      if (span > Math.PI * 0.95) {
-        const mid = (arcStart + arcEnd) / 2;
-        drawJunctionBezier(backend, cx, cy, halfW, arcStart, mid, transform);
-        drawJunctionBezier(backend, cx, cy, halfW, mid, arcEnd, transform);
-      } else {
-        drawJunctionBezier(backend, cx, cy, halfW, arcStart, arcEnd, transform);
-      }
+      const center = transform(cx, cy);
+      const r = halfW * scale;
+      backend.beginPath();
+      backend.arc(center.x, center.y, r, arcStart, arcEnd);
+      backend.stroke();
     }
   }
 }
-
-// ---------------------------------------------------------------------------
-// Public entry point
-// ---------------------------------------------------------------------------
 
 /**
  * Draw curvy organic maze. Returns stats for footer.
@@ -303,11 +155,13 @@ export function drawWalls(backend, maze, layoutResult) {
     allNodeTrims.set(maze.finishId, computeNodeTrims(finishPassages, halfW));
   }
 
-  const drawParams = {
-    transform, wallThickness, halfW, scale,
-    startId: maze.startId, finishId: maze.finishId,
-  };
+  const drawParams = { transform, wallThickness, halfW, scale };
   drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, drawParams);
+
+  if (maze.fillerGraph) {
+    const fillerData = prepareGraphData(maze.fillerGraph, halfW);
+    drawGraphCorridors(backend, maze.fillerGraph, fillerData.nodePassages, fillerData.allNodeTrims, drawParams);
+  }
 
   backend.setStroke('#000', wallThickness, 'round');
 
@@ -340,4 +194,47 @@ export function drawWalls(backend, maze, layoutResult) {
   line(bw, 0, bw, bh);
 
   return { corridorWidth, avgDist };
+}
+
+/**
+ * Solution line follows the same cubic bow as the corridors.
+ *
+ * @param {object} backend
+ * @param {object} maze
+ * @param {number[]} path
+ * @param {object} layoutResult
+ */
+export function drawSolutionOverlay(backend, maze, path, layoutResult) {
+  const { transform, lineThickness } = layoutResult;
+  const positions = [];
+  for (let i = 0; i < path.length; i++) {
+    const pos = maze.nodePositions.get(path[i]);
+    if (!pos) return;
+    positions.push(pos);
+  }
+  if (positions.length < 2) return;
+
+  const { halfW } = computeCorridorWidth(maze.graph, lineThickness ?? 1.5);
+
+  backend.save();
+  backend.setStroke('#666', 1.5, 'butt');
+  backend.setDash([4, 4]);
+  backend.setOpacity(0.7);
+  backend.beginPath();
+  const first = transform(positions[0].x, positions[0].y);
+  backend.moveTo(first.x, first.y);
+  for (let i = 0; i < positions.length - 1; i++) {
+    const a = positions[i];
+    const b = positions[i + 1];
+    const cubics = curvySegmentCubics(a.x, a.y, b.x, b.y, halfW);
+    for (let c = 0; c < cubics.length; c++) {
+      const seg = cubics[c];
+      const c1 = transform(seg.cp1x, seg.cp1y);
+      const c2 = transform(seg.cp2x, seg.cp2y);
+      const end = transform(seg.x, seg.y);
+      backend.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, end.x, end.y);
+    }
+  }
+  backend.stroke();
+  backend.restore();
 }
