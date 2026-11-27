@@ -41,7 +41,9 @@ export class PolarCell {
 
   removeWall(direction, outwardIndex = 0) {
     if (direction === POLAR_DIRECTIONS.OUTWARD) {
-      this.walls[POLAR_DIRECTIONS.OUTWARD][outwardIndex] = false;
+      const walls = this.walls[POLAR_DIRECTIONS.OUTWARD];
+      if (!Number.isInteger(outwardIndex) || outwardIndex < 0 || outwardIndex >= walls.length) return;
+      walls[outwardIndex] = false;
     } else {
       this.walls[direction] = false;
     }
@@ -49,7 +51,9 @@ export class PolarCell {
 
   hasWall(direction, outwardIndex = 0) {
     if (direction === POLAR_DIRECTIONS.OUTWARD) {
-      return this.walls[POLAR_DIRECTIONS.OUTWARD][outwardIndex];
+      const walls = this.walls[POLAR_DIRECTIONS.OUTWARD];
+      if (!Number.isInteger(outwardIndex) || outwardIndex < 0 || outwardIndex >= walls.length) return true;
+      return walls[outwardIndex];
     }
     return this.walls[direction];
   }
@@ -99,8 +103,26 @@ function validateWedgeCounts(rings, wedgeCounts) {
 }
 
 /**
+ * Formula wedge count for ring r. Cap at MAX_WEDGES, then snap down to a multiple of the previous ring.
+ * @param {number} r
+ * @param {number} previous
+ * @param {number} baseWedges
+ * @param {number} wedgeMultiplier
+ * @returns {number}
+ */
+function formulaWedgeCount(r, previous, baseWedges, wedgeMultiplier) {
+  if (r === 0) return 1;
+  const raw = baseWedges * Math.pow(wedgeMultiplier, r - 1);
+  const capped = Math.min(MAX_WEDGES, Math.max(1, Math.floor(raw)));
+  const prev = Math.max(1, previous);
+  const fitted = Math.floor(capped / prev) * prev;
+  return fitted >= prev ? fitted : prev;
+}
+
+/**
  * Polar grid: rings (including center) and wedges per ring (fixed or variable).
  * wedgeMultiplier > 1: ring r has baseWedges * (wedgeMultiplier ^ (r-1)) wedges, capped at MAX_WEDGES.
+ * If the cap would break the integer-multiple rule, the count drops to the greatest multiple of the previous ring that is still ≤ MAX_WEDGES.
  * Optional wedgeCounts: explicit per-ring counts; must satisfy integer-ratio rule (outer ring count = integer multiple of inner).
  * Start = outer ring at top. Finish = center room (0, 0).
  */
@@ -122,8 +144,7 @@ export class PolarGrid {
       for (let r = 0; r < rings; r++) this._wedgeCounts[r] = wedgeCounts[r];
     } else {
       for (let r = 0; r < rings; r++) {
-        const count = r === 0 ? 1 : Math.min(baseWedges * Math.pow(this.wedgeMultiplier, r - 1), MAX_WEDGES);
-        this._wedgeCounts[r] = count;
+        this._wedgeCounts[r] = formulaWedgeCount(r, this._wedgeCounts[r - 1] ?? 1, this.baseWedges, this.wedgeMultiplier);
       }
     }
 
@@ -164,6 +185,7 @@ export class PolarGrid {
   }
 
   getCell(ring, wedge) {
+    if (!Number.isInteger(ring) || !Number.isInteger(wedge)) return null;
     if (ring < 0 || ring >= this.rings) return null;
     if (ring === 0) return wedge === 0 ? this.cells[0][0] : null;
     const W = this.wedgesAtRing(ring);
@@ -182,19 +204,18 @@ export class PolarGrid {
   }
 
   /**
-   * Outward neighbor(s). Returns array of { ring, wedge } (length 1 or 2), or empty when at maxRing.
-   * Wedge is rounded and clamped to a valid index so getCell(ring, wedge) never receives a float.
+   * Outward neighbor(s). Returns array of { ring, wedge } (length 1 or more), or empty when at maxRing.
+   * One neighbor per outward wall slot. Indexes are integers inside the outer ring.
    */
   getOutwardNeighbors(ring, wedge) {
     if (ring === 0) return [{ ring: 1, wedge: 0 }];
     if (ring >= this.maxRing) return [];
-    const innerW = this.wedgesAtRing(ring);
+    const count = this.outwardNeighborCount(ring);
     const outerW = this.wedgesAtRing(ring + 1);
-    const ratio = outerW / innerW;
-    const out = [];
     const iW = Math.floor(Number(wedge));
-    for (let i = 0; i < ratio; i++) {
-      const outerWedge = Math.min(outerW - 1, iW * ratio + i);
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const outerWedge = Math.min(outerW - 1, iW * count + i);
       out.push({ ring: ring + 1, wedge: outerWedge });
     }
     return out;
@@ -274,6 +295,7 @@ export class PolarGrid {
   }
 
   removeWallBetween(cell1, cell2) {
+    if (!cell1 || !cell2) return;
     const r1 = cell1.ring;
     const w1 = cell1.wedge;
     const r2 = cell2.ring;
@@ -304,7 +326,7 @@ export class PolarGrid {
   outwardIndexFromInner(innerCell, outerRing, outerWedge) {
     const innerW = this.wedgesAtRing(outerRing - 1);
     const outerW = this.wedgesAtRing(outerRing);
-    const ratio = outerW / innerW;
+    const ratio = Math.max(1, Math.floor(outerW / innerW));
     const base = innerCell.wedge * ratio;
     const idx = outerWedge - base;
     return Math.max(0, Math.min(Math.floor(idx), ratio - 1));

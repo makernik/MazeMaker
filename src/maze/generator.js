@@ -90,10 +90,18 @@ class WallEntry {
  * @param {string} [config.algorithm] - 'prim' | 'recursive-backtracker' | 'kruskal' (default 'prim')
  * @param {number} [config.gridWidth] - Optional override for grid columns (e.g. Squares outer maze or sub-maze)
  * @param {number} [config.gridHeight] - Optional override for grid rows
+ * @param {boolean} [config.openBorder] - When true (default), open the printable entrance and exit. Sub-mazes pass false so only their own doors are opened.
  * @returns {object} Generated maze with grid and metadata
  */
 export function generateMaze(config) {
-  const { ageRange, seed = generateSeed(), algorithm = 'prim', gridWidth: configWidth, gridHeight: configHeight } = config;
+  const {
+    ageRange,
+    seed = generateSeed(),
+    algorithm = 'prim',
+    gridWidth: configWidth,
+    gridHeight: configHeight,
+    openBorder = true,
+  } = config;
 
   // Get difficulty preset for age range
   const preset = getDifficultyPreset(ageRange);
@@ -117,9 +125,11 @@ export function generateMaze(config) {
     primGenerate(grid, rng);
   }
 
-  // Open entrance and exit
-  grid.openEntrance();
-  grid.openExit();
+  // Printable mazes open the page entrance and exit. Embedded rooms leave the border sealed.
+  if (openBorder) {
+    grid.openEntrance();
+    grid.openExit();
+  }
 
   return {
     grid,
