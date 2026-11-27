@@ -7,6 +7,7 @@
  * - Line thickness (thicker = easier to see)
  * - algorithm: which maze generator to use ('prim' | 'recursive-backtracker' | 'kruskal'; more can be added in generator.js)
  * - roomCount, roomSubSize, roomOuterSize, roomDetail: for Squares style (embedded rooms); see rooms-generator.js.
+ * - playTolerance: fraction of a corridor width that a drawn path may pass beyond a wall and still count (play mode).
  *
  * Squares style: if preset cellSize < MIN_CELL_SIZE_SQUARES_PT, it is coerced to that minimum and
  * grid dimensions are recomputed so sub-mazes remain legible in print.
@@ -62,6 +63,7 @@ export const DIFFICULTY_PRESETS = {
     roomSubSize: 3,
     roomOuterSize: 3,
     roomDetail: 2,
+    playTolerance: 0.42,
   },
   '4-5': {
     gridWidth: 7,
@@ -79,6 +81,7 @@ export const DIFFICULTY_PRESETS = {
     roomSubSize: 3,
     roomOuterSize: 3,
     roomDetail: 2,
+    playTolerance: 0.36,
   },
   '6-8': {
     gridWidth: 10,
@@ -96,6 +99,7 @@ export const DIFFICULTY_PRESETS = {
     roomSubSize: 4,
     roomOuterSize: 3,
     roomDetail: 2,
+    playTolerance: 0.30,
   },
   '9-11': {
     gridWidth: 12,
@@ -113,6 +117,7 @@ export const DIFFICULTY_PRESETS = {
     roomSubSize: 5,
     roomOuterSize: 3,
     roomDetail: 3,
+    playTolerance: 0.24,
   },
   '12-14': {
     gridWidth: 14,
@@ -130,6 +135,7 @@ export const DIFFICULTY_PRESETS = {
     roomSubSize: 10,
     roomOuterSize: 5,
     roomDetail: 3,
+    playTolerance: 0.18,
   },
   '15-17': {
     gridWidth: 24,
@@ -147,6 +153,7 @@ export const DIFFICULTY_PRESETS = {
     roomSubSize: 7,
     roomOuterSize: 6,
     roomDetail: 3,
+    playTolerance: 0.14,
   },
   '18+': {
     gridWidth: 36,
@@ -164,6 +171,7 @@ export const DIFFICULTY_PRESETS = {
     roomSubSize: 8,
     roomOuterSize: 6,
     roomDetail: 4,
+    playTolerance: 0.10,
   },
 };
 

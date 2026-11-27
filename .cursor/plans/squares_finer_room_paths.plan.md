@@ -10,7 +10,7 @@ isProject: false
 **Status:** done  
 **Last updated:** 2026-10-11  
 **Owner:** agent  
-**Related:** `docs/DECISIONS.md#D-021`
+**Related:** `docs/DECISIONS.md#D-022`
 
 ---
 
@@ -43,7 +43,7 @@ Squares rooms are already mini-mazes: a block of the outer grid holds a sub-maze
 - `src/maze/rooms-generator.js` — computed sub-maze size; door aligned to the opening
 - `src/pdf/drawers/draw-rooms.js` — stroke cap for fine cells
 - `tests/rooms-generator.test.js`
-- `docs/DECISIONS.md` — D-021
+- `docs/DECISIONS.md` — D-022
 
 ---
 
