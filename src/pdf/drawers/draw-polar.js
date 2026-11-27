@@ -16,6 +16,25 @@ function polarToXY(centerX, centerY, angle, radius) {
 }
 
 /**
+ * Absolute boundary radii. Index 0 is the center, index 1 the room edge,
+ * index r+1 the outer edge of maze ring r.
+ * @param {object} grid
+ * @param {object} layoutResult
+ * @returns {number[]}
+ */
+function boundaryRadii(grid, layoutResult) {
+  const maxRing = grid.maxRing;
+  const provided = layoutResult.ringRadii;
+  if (Array.isArray(provided) && provided.length === maxRing + 2) return provided;
+  const maxRadius = layoutResult.maxRadius;
+  const roomRadius = layoutResult.roomRadius ?? maxRadius / maxRing;
+  const ringWidth = (maxRadius - roomRadius) / maxRing;
+  const radii = [0, roomRadius];
+  for (let r = 1; r <= maxRing; r++) radii.push(roomRadius + r * ringWidth);
+  return radii;
+}
+
+/**
  * @param {object} backend - DrawBackend
  * @param {object} maze - Maze with .polarGrid, layout 'polar'
  * @param {object} layoutResult - { centerX, centerY, maxRadius, roomRadius, lineThickness, rings, wedges }
@@ -23,10 +42,10 @@ function polarToXY(centerX, centerY, angle, radius) {
  */
 export function drawWalls(backend, maze, layoutResult) {
   const grid = maze.polarGrid;
-  const { centerX, centerY, maxRadius, lineThickness } = layoutResult;
-  const roomRadius = layoutResult.roomRadius ?? maxRadius / grid.maxRing;
+  const { centerX, centerY, lineThickness } = layoutResult;
+  const radii = boundaryRadii(grid, layoutResult);
+  const roomRadius = radii[1];
   const maxRing = grid.maxRing;
-  const ringWidth = (maxRadius - roomRadius) / maxRing;
   backend.setStroke('#000', lineThickness, 'round');
 
   // Room border: always draw a circle at roomRadius to delineate the center room from the maze.
@@ -48,8 +67,8 @@ export function drawWalls(backend, maze, layoutResult) {
   backend.stroke();
 
   for (let r = 1; r <= maxRing; r++) {
-    const innerR = roomRadius + (r - 1) * ringWidth;
-    const outerR = roomRadius + r * ringWidth;
+    const innerR = radii[r];
+    const outerR = radii[r + 1];
     const wedgeCount = grid.wedgesAtRing(r);
     const angleStep = (2 * Math.PI) / wedgeCount;
     for (let w = 0; w < wedgeCount; w++) {
@@ -99,7 +118,7 @@ export function drawWalls(backend, maze, layoutResult) {
 export function drawLabels(backend, maze, layoutResult, options = {}) {
   const grid = maze.polarGrid;
   const { centerX, centerY, maxRadius } = layoutResult;
-  const roomRadius = layoutResult.roomRadius ?? maxRadius / grid.maxRing;
+  const roomRadius = boundaryRadii(grid, layoutResult)[1];
   const useArrows = options.useArrows ?? false;
   const canvasHeight = options.canvasHeight;
   const isCanvas = canvasHeight != null;
@@ -164,17 +183,16 @@ export function drawLabels(backend, maze, layoutResult, options = {}) {
  * @param {object} grid - PolarGrid
  * @param {number} centerX
  * @param {number} centerY
- * @param {number} roomRadius
- * @param {number} ringWidth
+ * @param {number[]} radii - boundary radii from boundaryRadii
  */
-function passageWaypoint(prev, curr, grid, centerX, centerY, roomRadius, ringWidth) {
+function passageWaypoint(prev, curr, grid, centerX, centerY, radii) {
   const W = grid.wedgesAtRing(prev.ring);
   const angleStep = (2 * Math.PI) / W;
 
   if (prev.ring === curr.ring) {
     // CW/CCW: cross radial boundary at mid-radius of the ring
-    const innerR = roomRadius + (prev.ring - 1) * ringWidth;
-    const outerR = roomRadius + prev.ring * ringWidth;
+    const innerR = radii[prev.ring];
+    const outerR = radii[prev.ring + 1];
     const midR = (innerR + outerR) / 2;
     const passageAngle = curr.wedge === (prev.wedge + 1) % W
       ? (prev.wedge + 1) * angleStep
@@ -184,8 +202,8 @@ function passageWaypoint(prev, curr, grid, centerX, centerY, roomRadius, ringWid
 
   // INWARD or OUTWARD: cross arc boundary at midpoint of wedge angle
   const boundaryR = prev.ring > curr.ring
-    ? roomRadius + (prev.ring - 1) * ringWidth  // inner edge of prev
-    : roomRadius + prev.ring * ringWidth;       // outer edge of prev
+    ? radii[prev.ring]       // inner edge of prev
+    : radii[prev.ring + 1];  // outer edge of prev
   // From center (0,0) use next cell's wedge; otherwise use prev cell's wedge
   const wedgeAngle = prev.ring === 0
     ? (curr.wedge + 0.5) * (2 * Math.PI) / grid.wedgesAtRing(curr.ring)
@@ -201,10 +219,9 @@ function passageWaypoint(prev, curr, grid, centerX, centerY, roomRadius, ringWid
  */
 export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   const grid = maze.polarGrid;
-  const { centerX, centerY, maxRadius } = layoutResult;
-  const roomRadius = layoutResult.roomRadius ?? maxRadius / grid.maxRing;
+  const { centerX, centerY } = layoutResult;
+  const radii = boundaryRadii(grid, layoutResult);
   const maxRing = grid.maxRing;
-  const ringWidth = (maxRadius - roomRadius) / maxRing;
 
   /** Normalize path entry to integer ring/wedge and clamp wedge to valid range for that ring. */
   function normalize(p) {
@@ -216,7 +233,7 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
 
   function cellToXY(r, w) {
     if (r === 0) return { x: centerX, y: centerY };
-    const radius = roomRadius + (r - 0.5) * ringWidth;
+    const radius = (radii[r] + radii[r + 1]) / 2;
     const wedgeCount = grid.wedgesAtRing(r);
     const angleStep = (2 * Math.PI) / wedgeCount;
     const angle = (w + 0.5) * angleStep;
@@ -233,7 +250,7 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
     const curr = normalize(path[i]);
     const p1 = cellToXY(prev.ring, prev.wedge);
     const p2 = cellToXY(curr.ring, curr.wedge);
-    const way = passageWaypoint(prev, curr, grid, centerX, centerY, roomRadius, ringWidth);
+    const way = passageWaypoint(prev, curr, grid, centerX, centerY, radii);
     if (Number.isFinite(p1.x) && Number.isFinite(p1.y) && Number.isFinite(way.x) && Number.isFinite(way.y)) {
       backend.line(p1.x, p1.y, way.x, way.y);
     }

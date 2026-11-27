@@ -89,6 +89,10 @@ describe('getLayoutForMaze', () => {
     expect(layout.maxRadius).toBeGreaterThan(0);
     expect(layout.roomRadius).toBeGreaterThan(0);
     expect(layout.roomRadius).toBeLessThan(layout.maxRadius);
+    expect(layout.ringRadii).toHaveLength(maze.polarGrid.maxRing + 2);
+    expect(layout.ringRadii[0]).toBe(0);
+    expect(layout.ringRadii[1]).toBeCloseTo(layout.roomRadius, 8);
+    expect(layout.ringRadii[layout.ringRadii.length - 1]).toBeCloseTo(layout.maxRadius, 8);
     expect(layout.rings).toBe(maze.polarGrid.rings);
     expect(layout.wedges).toBe(maze.polarGrid.wedges);
   });

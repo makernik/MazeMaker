@@ -4,6 +4,36 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-023 — Difficulty steps and bowed Curvy corridors (2026-10-20)
+
+**Context:** After the circular taper, the other styles had flat or backwards steps. Classic Hard and Challenging were nearly the same size. Squares Difficult and Epic kept the same outer grid as Hard, and their room interiors were coarser than Challenging. Jagged and Curvy jumped from 120 nodes at Medium to 400 at Hard, then packed Epic finer than the circular rim. Curvy and Jagged also shared the same straight corridors; Curvy only splined through the nodes, so a straight run looked like Jagged.
+
+**Decision:**
+
+- Classic Challenging is 18×24, between Hard (12×18) and Difficult (24×30).
+- Squares keeps the 28pt outer-cell floor. Difficult rooms are 14×14 inside a 6×6 block. Epic rooms are 18×18 inside a 6×6 block. Room counts stay 6 and 8.
+- Organic node targets: Medium 200, Hard 280, Challenging 500, Difficult 800, Epic 1200. Fill and Prim still start at Hard.
+- Curvy keeps the organic graph. Each open corridor bows to the side, same segment every time, amplitude `min(20% of the segment, 2.4 × half the corridor)`. The crest is `0.75 ×` that amplitude. Two cubics meet at the crest so the wall leaves each junction along the passage. Jagged stays straight. Play, the hint, and the solution line follow that bow. The preview seed is still per style; whether Jagged and Curvy should share a seed is undecided.
+
+---
+
+## D-022 — Circular rings taper on the higher levels (2026-10-19)
+
+**Context:** Circular mazes used equal radial steps. On the higher levels that leaves the finish as fine as the rim, while the outer rings stay too coarse for the difficulty of the rectangular mazes at the same level. Epic shows this most.
+
+**Decision:** Intro, Easy, and Medium keep equal rings. From Hard upward, each maze ring outward is `polarRingRatio` times the width of the ring inside it, and the center room is `polarRoomScale` times the innermost maze ring. The same boundaries drive PDF, preview, the solution line, and play hit-testing.
+
+| Level | Ratio | Room scale |
+| --- | --- | --- |
+| Hard (9–11) | 0.97 | 1.15 |
+| Challenging (12–14) | 0.945 | 1.22 |
+| Difficult (15–17) | 0.94 | 1.45 |
+| Epic Adventure (18+) | 0.94 | 1.8 |
+
+Ratio `1` (the default) keeps the previous even spacing. A lower ratio packs more rings into the outer edge. Epic uses the same ratio as Difficult; the extra rings carry that ratio further, so the rim is the finest there.
+
+---
+
 ## D-021 — Squares sub-maze borders and polar wedge cap (2026-10-11)
 
 **Context:** Squares rooms were generated with `generateMaze()`, which opens the printable entrance and exit. Those two border holes were drawn in addition to the room’s two doors, so a passage could enter the room through a corner. Separately, polar wedge counts are capped at 64. Medium and Hard presets grow 6 × 2^(r−1), so a 48-wedge ring was followed by 64. 64 is not a multiple of 48. Outward neighbors then used fractional wedge indexes, the solver treated a missing outward slot as an open passage, and Kruskal and Wilson’s threw when the neighbor cell was missing.
