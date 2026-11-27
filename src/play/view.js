@@ -6,6 +6,13 @@
 import { currentHintKeys } from './session.js';
 
 /**
+ * Freehand path on the off-white maze ground.
+ * #2563EB at full opacity is about 4.9:1 on #FAFAF8 and lighter than the #1E293B walls.
+ * Canvas only — PDF drawers do not use this.
+ */
+export const PLAY_INK = '#2563EB';
+
+/**
  * Map a pointer event into maze-local coordinates.
  * @param {HTMLCanvasElement} canvas
  * @param {number} clientX
@@ -30,9 +37,9 @@ export function drawPlayInk(ctx, state) {
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#1E293B';
-  ctx.fillStyle = '#1E293B';
-  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = PLAY_INK;
+  ctx.fillStyle = PLAY_INK;
+  ctx.globalAlpha = 1;
   ctx.lineWidth = width;
 
   for (const stroke of state.strokes) {

@@ -25,6 +25,7 @@ import {
   currentHintKeys,
   setTolerance,
 } from '../src/play/session.js';
+import { PLAY_INK } from '../src/play/view.js';
 
 function layoutFor(maze, style = 'classic') {
   return getLayoutForMaze(maze, {
@@ -252,4 +253,31 @@ describe('play session on generated mazes', () => {
     }
     expect(walkCenters(squares).trace.solved).toBe(true);
   });
+
+  it('draws the path in a lighter blue that stays readable on the maze ground', () => {
+    const ground = '#FAFAF8';
+    const wall = '#1E293B';
+    expect(PLAY_INK).toBe('#2563EB');
+    expect(relLuminance(PLAY_INK)).toBeGreaterThan(relLuminance(wall));
+    expect(contrastRatio(PLAY_INK, ground)).toBeGreaterThanOrEqual(4.5);
+  });
 });
+
+function relLuminance(hex) {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const lin = (channel) => {
+    const s = channel / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const r = lin((n >> 16) & 255);
+  const g = lin((n >> 8) & 255);
+  const b = lin(n & 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(a, b) {
+  const l1 = relLuminance(a);
+  const l2 = relLuminance(b);
+  const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+  return (hi + 0.05) / (lo + 0.05);
+}

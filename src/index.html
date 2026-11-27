@@ -31,10 +31,10 @@
             </div>
           </fieldset>
 
-          <!-- Select level: vertical list, label + age (parentheses) -->
-          <fieldset class="control-group">
-            <legend>Select level</legend>
-            <div class="level-select" role="radiogroup" aria-label="Select level">
+          <!-- Select level: list on a wide screen, one menu on a phone -->
+          <fieldset class="control-group control-level">
+            <legend id="level-legend">Select level</legend>
+            <div class="level-select" role="radiogroup" aria-labelledby="level-legend">
               <label class="level-option">
                 <input type="radio" name="age-range" value="3" checked />
                 <span class="level-option__label">Intro</span>
@@ -71,7 +71,45 @@
                 <span class="level-option__age">(18+)</span>
               </label>
             </div>
+            <select id="level-compact" class="level-compact" aria-labelledby="level-legend">
+              <option value="3">Intro (3)</option>
+              <option value="4-5">Easy (4–5)</option>
+              <option value="6-8">Medium (6–8)</option>
+              <option value="9-11">Hard (9–11)</option>
+              <option value="12-14">Challenging (12–14)</option>
+              <option value="15-17">Difficult (15–17)</option>
+              <option value="18+">Epic Adventure (18+)</option>
+            </select>
           </fieldset>
+
+          <div id="play-controls" class="play-controls" hidden>
+            <div class="play-actions">
+              <button type="button" id="play-hint" class="play-action">Hint</button>
+              <button type="button" id="play-clear" class="play-action">Start over</button>
+            </div>
+            <p id="play-status" class="status" aria-live="polite">Draw from Start to Finish.</p>
+            <details class="play-advanced">
+              <summary>
+                Line forgiveness
+                <output id="play-tolerance-display" for="play-tolerance">0.42</output>
+              </summary>
+              <div class="slider-container">
+                <span class="slider-bound">Tight</span>
+                <input
+                  type="range"
+                  id="play-tolerance"
+                  min="0.05"
+                  max="0.6"
+                  step="0.01"
+                  value="0.42"
+                  aria-label="Line forgiveness"
+                  aria-describedby="play-tolerance-note"
+                />
+                <span class="slider-bound">Loose</span>
+              </div>
+              <p id="play-tolerance-note" class="play-controls__note">How far the marker can pass a wall and still count. Each level keeps its own setting until you leave the page.</p>
+            </details>
+          </div>
 
           <!-- Maze Style: single picker (Classic, Jagged, Curvy, Circular, Squares) -->
           <fieldset class="control-group" id="maze-style-fieldset">
@@ -99,33 +137,6 @@
               </label>
             </div>
           </fieldset>
-
-          <div id="play-controls" class="play-controls" hidden>
-            <div class="control-group">
-              <label for="play-tolerance" class="quantity-label">
-                Line forgiveness: <output id="play-tolerance-display" for="play-tolerance">0.42</output>
-              </label>
-              <div class="slider-container">
-                <span class="slider-bound">Tight</span>
-                <input
-                  type="range"
-                  id="play-tolerance"
-                  min="0.05"
-                  max="0.6"
-                  step="0.01"
-                  value="0.42"
-                  aria-describedby="play-tolerance-note"
-                />
-                <span class="slider-bound">Loose</span>
-              </div>
-              <p id="play-tolerance-note" class="play-controls__note">How far the marker can pass a wall and still count. Each level keeps its own setting until you leave the page.</p>
-            </div>
-            <div class="play-actions">
-              <button type="button" id="play-hint" class="play-action">Hint</button>
-              <button type="button" id="play-clear" class="play-action">Start over</button>
-            </div>
-            <p id="play-status" class="status" aria-live="polite">Draw from Start to Finish.</p>
-          </div>
 
           <!-- Theme: Toggle Group (hidden for this iteration; backend still supports theme param) -->
           <fieldset class="control-group theme-paused" aria-hidden="true" hidden>
