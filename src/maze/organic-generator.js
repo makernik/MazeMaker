@@ -9,6 +9,7 @@ import { getDifficultyPreset } from '../utils/constants.js';
 import { packCircles, computeNeighbors, ensureConnected, generateCorridorFillers } from './circle-packing.js';
 import { buildOrganicGraph } from './organic-graph.js';
 import { computeCorridorWidth } from '../pdf/drawers/organic-geometry.js';
+import { pruneCloseFillerEdges } from './corridor-clearance.js';
 import { PRINTABLE_WIDTH, PRINTABLE_HEIGHT, FOOTER_HEIGHT } from '../pdf/layout.js';
 
 const MAZE_TOP_MARGIN = 20;
@@ -67,7 +68,7 @@ export function generateOrganicMaze(config) {
   // Pass 2: decorative filler corridors alongside carved edges
   let fillerGraph = null;
   if (preset.organicFill) {
-    const { halfW } = computeCorridorWidth(graph);
+    const { halfW } = computeCorridorWidth(graph, preset.lineThickness);
     const fillerSeed = seed + 99999;
     const { circles: fillerCircles, neighborMap: fillerNeighborMap } =
       generateCorridorFillers(graph, circles, boundsWidth, boundsHeight, halfW, fillerSeed);
@@ -75,6 +76,14 @@ export function generateOrganicMaze(config) {
       fillerGraph = buildOrganicGraph(fillerCircles, fillerNeighborMap);
       const fillerRng = createRng(fillerSeed + 1);
       carveFillerPaths(fillerGraph, fillerRng);
+      pruneCloseFillerEdges(
+        fillerGraph,
+        graph,
+        halfW,
+        preset.lineThickness,
+        boundsWidth,
+        boundsHeight,
+      );
     }
   }
 

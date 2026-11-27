@@ -7,6 +7,7 @@ import { MazeGrid, DIRECTIONS } from '../src/maze/grid.js';
 import { generateMaze } from '../src/maze/generator.js';
 import { generateOrganicMaze } from '../src/maze/organic-generator.js';
 import { computeCorridorWidth, curvyPoint } from '../src/pdf/drawers/organic-geometry.js';
+import { bowScaleFor } from '../src/maze/corridor-clearance.js';
 import { generatePolarMaze } from '../src/maze/polarGenerator.js';
 import { generateSquaresMaze } from '../src/maze/rooms-generator.js';
 import { getLayoutForMaze } from '../src/pdf/layout.js';
@@ -229,7 +230,8 @@ describe('play session on generated mazes', () => {
       const a = state.topology.center(keys[i - 1]);
       const b = state.topology.center(keys[i]);
       for (let s = 1; s <= 4; s++) {
-        next = addPointer(next, curvyPoint(a.x, a.y, b.x, b.y, halfW, s / 4), 'move');
+        const amp = bowScaleFor(maze.bowScales, Number(keys[i - 1]), Number(keys[i]));
+        next = addPointer(next, curvyPoint(a.x, a.y, b.x, b.y, halfW, s / 4, amp), 'move');
       }
     }
     expect(next.trace.solved).toBe(true);

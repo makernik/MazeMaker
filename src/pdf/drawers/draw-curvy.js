@@ -9,36 +9,59 @@ import {
   computeNodeTrims,
   computeCorridorWidth,
   prepareGraphData,
-  curvyBowOffset,
+  curvyPoint,
   curvySegmentCubics,
 } from './organic-geometry.js';
+import { bowScaleFor, ensureBowScales } from '../../maze/corridor-clearance.js';
 
 export { drawLabels } from './draw-organic.js';
 
-function drawBow(backend, sx, sy, ex, ey, crestX, crestY, transform) {
-  const dx = ex - sx;
-  const dy = ey - sy;
-  const mx = (sx + ex) / 2 + crestX;
-  const my = (sy + ey) / 2 + crestY;
-  const s = transform(sx, sy);
-  const a1 = transform(sx + dx * 0.25, sy + dy * 0.25);
-  const a2 = transform(mx - dx * 0.25, my - dy * 0.25);
-  const m = transform(mx, my);
-  const b1 = transform(mx + dx * 0.25, my + dy * 0.25);
-  const b2 = transform(ex - dx * 0.25, ey - dy * 0.25);
-  const e = transform(ex, ey);
-  backend.beginPath();
-  backend.moveTo(s.x, s.y);
-  backend.bezierCurveTo(a1.x, a1.y, a2.x, a2.y, m.x, m.y);
-  backend.bezierCurveTo(b1.x, b1.y, b2.x, b2.y, e.x, e.y);
-  backend.stroke();
+/**
+ * Wall follows the centerline bow, shifted by the chord normal.
+ * A fresh cubic on the trimmed chord would reuse the full-edge crest and kink.
+ */
+function drawOffsetBow(backend, ax, ay, bx, by, halfW, ampScale, ox, oy, t0, t1, transform, bounds) {
+  const span = Math.max(0, t1 - t0);
+  const length = Math.hypot(bx - ax, by - ay) * span;
+  const steps = Math.max(2, Math.ceil(length / 2));
+  const pad = bounds.pad;
+  let open = false;
+  let drawn = 0;
+  const finish = () => {
+    if (open && drawn > 0) backend.stroke();
+    open = false;
+    drawn = 0;
+  };
+  for (let i = 0; i <= steps; i++) {
+    const t = t0 + span * (i / steps);
+    const p = curvyPoint(ax, ay, bx, by, halfW, t, ampScale);
+    const x = p.x + ox;
+    const y = p.y + oy;
+    // The border already strokes the page edge. A wall lying in that stroke
+    // is a second copy of the same line.
+    const onBorder = x <= pad || y <= pad || x >= bounds.width - pad || y >= bounds.height - pad;
+    if (onBorder) {
+      finish();
+      continue;
+    }
+    const q = transform(x, y);
+    if (!open) {
+      backend.beginPath();
+      backend.moveTo(q.x, q.y);
+      open = true;
+    } else {
+      backend.lineTo(q.x, q.y);
+      drawn += 1;
+    }
+  }
+  finish();
 }
 
 /**
  * Draw bowed corridor walls and circular junction arcs for a graph.
  */
 function drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, params) {
-  const { transform, wallThickness, halfW, scale } = params;
+  const { transform, wallThickness, halfW, scale, bowScales, bounds } = params;
   const drawnEdges = new Set();
 
   backend.setStroke('#000', wallThickness, 'round');
@@ -61,35 +84,39 @@ function drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, params) 
       const trimsB = allNodeTrims.get(nid);
       const aTrim = trimsA ? trimsA.get(nid) : null;
       const bTrim = trimsB ? trimsB.get(node.id) : null;
-      const cap = dist * 0.45;
-      const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
-      const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
-      const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
-      const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
-      const off = curvyBowOffset(node.x, node.y, other.x, other.y, halfW);
-      const crestX = off.x * 0.75;
-      const crestY = off.y * 0.75;
-
-      drawBow(
-        backend,
-        node.x + ux * ltA + px * halfW,
-        node.y + uy * ltA + py * halfW,
-        other.x - ux * rtB + px * halfW,
-        other.y - uy * rtB + py * halfW,
-        crestX,
-        crestY,
-        transform,
-      );
-      drawBow(
-        backend,
-        node.x + ux * rtA - px * halfW,
-        node.y + uy * rtA - py * halfW,
-        other.x - ux * ltB - px * halfW,
-        other.y - uy * ltB - py * halfW,
-        crestX,
-        crestY,
-        transform,
-      );
+      // Use the real miter distance. A shorter cap draws the walls through the
+      // intersection. Never start past the other end.
+      const limit = dist * 0.98;
+      const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, limit);
+      const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, limit);
+      const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, limit);
+      const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, limit);
+      const ampScale = bowScaleFor(bowScales, node.id, nid);
+      const ox = px * halfW;
+      const oy = py * halfW;
+      // Pull each end in by half a point so a round cap covers the joint
+      // without the stroke centerlines crossing just past the miter.
+      const inset = 0.5 / dist;
+      if (ltA + rtB < dist - 1.2) {
+        drawOffsetBow(
+          backend,
+          node.x, node.y, other.x, other.y,
+          halfW, ampScale, ox, oy,
+          ltA / dist + inset, 1 - rtB / dist - inset,
+          transform,
+          bounds,
+        );
+      }
+      if (rtA + ltB < dist - 1.2) {
+        drawOffsetBow(
+          backend,
+          node.x, node.y, other.x, other.y,
+          halfW, ampScale, -ox, -oy,
+          rtA / dist + inset, 1 - ltB / dist - inset,
+          transform,
+          bounds,
+        );
+      }
     }
   }
 
@@ -136,6 +163,7 @@ export function drawWalls(backend, maze, layoutResult) {
   const wallThickness = lineThickness * scale;
 
   const { corridorWidth, halfW, avgDist } = computeCorridorWidth(graph, lineThickness);
+  const bowScales = ensureBowScales(maze, halfW, lineThickness);
 
   const { nodePassages, allNodeTrims } = prepareGraphData(graph, halfW);
   const startPassages = nodePassages.get(maze.startId);
@@ -155,7 +183,18 @@ export function drawWalls(backend, maze, layoutResult) {
     allNodeTrims.set(maze.finishId, computeNodeTrims(finishPassages, halfW));
   }
 
-  const drawParams = { transform, wallThickness, halfW, scale };
+  const drawParams = {
+    transform,
+    wallThickness,
+    halfW,
+    scale,
+    bowScales,
+    bounds: {
+      width: maze.boundsWidth,
+      height: maze.boundsHeight,
+      pad: lineThickness,
+    },
+  };
   drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, drawParams);
 
   if (maze.fillerGraph) {
@@ -181,10 +220,10 @@ export function drawWalls(backend, maze, layoutResult) {
   const startVT = startTrims ? startTrims.get(-1) : { leftTrim: 0, rightTrim: 0 };
   const finishTrims = allNodeTrims.get(maze.finishId);
   const finishVT = finishTrims ? finishTrims.get(-2) : { leftTrim: 0, rightTrim: 0 };
-  line(startPos.x - halfW, bh + halfThick, startPos.x - halfW, startPos.y + startVT.leftTrim - halfThick);
-  line(startPos.x + halfW, bh + halfThick, startPos.x + halfW, startPos.y + startVT.rightTrim - halfThick);
-  line(finishPos.x - halfW, 0 - halfThick, finishPos.x - halfW, finishPos.y - finishVT.rightTrim + halfThick);
-  line(finishPos.x + halfW, 0 - halfThick, finishPos.x + halfW, finishPos.y - finishVT.leftTrim + halfThick);
+  line(startPos.x - halfW, bh + halfThick, startPos.x - halfW, startPos.y + startVT.leftTrim);
+  line(startPos.x + halfW, bh + halfThick, startPos.x + halfW, startPos.y + startVT.rightTrim);
+  line(finishPos.x - halfW, 0 - halfThick, finishPos.x - halfW, finishPos.y - finishVT.rightTrim);
+  line(finishPos.x + halfW, 0 - halfThick, finishPos.x + halfW, finishPos.y - finishVT.leftTrim);
   const gapHalf = halfW;
   line(0, bh, startPos.x - gapHalf, bh);
   line(startPos.x + gapHalf, bh, bw, bh);
@@ -215,6 +254,7 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   if (positions.length < 2) return;
 
   const { halfW } = computeCorridorWidth(maze.graph, lineThickness ?? 1.5);
+  const bowScales = maze.bowScales ?? ensureBowScales(maze, halfW, lineThickness ?? 1.5);
 
   backend.save();
   backend.setStroke('#666', 1.5, 'butt');
@@ -226,7 +266,14 @@ export function drawSolutionOverlay(backend, maze, path, layoutResult) {
   for (let i = 0; i < positions.length - 1; i++) {
     const a = positions[i];
     const b = positions[i + 1];
-    const cubics = curvySegmentCubics(a.x, a.y, b.x, b.y, halfW);
+    const cubics = curvySegmentCubics(
+      a.x,
+      a.y,
+      b.x,
+      b.y,
+      halfW,
+      bowScaleFor(bowScales, path[i], path[i + 1]),
+    );
     for (let c = 0; c < cubics.length; c++) {
       const seg = cubics[c];
       const c1 = transform(seg.cp1x, seg.cp1y);

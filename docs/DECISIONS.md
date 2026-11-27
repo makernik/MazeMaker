@@ -4,6 +4,18 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-026 — Organic walls keep a stroke of clearance (2026-11-27)
+
+**Context:** Jagged filler corridors and the Curvy bow (D-023) draw wall strokes through each other. A filler edge can cross a carved corridor even when its endpoints sit outside the corridor mask. A full bow can swing a corridor into its neighbor. The main spanning tree is already clear when drawn straight.
+
+**Decision:**
+
+- Filler edges whose wall strokes would come closer than one stroke width plus 2 points are closed again. Filler is decorative, so dropping those edges does not change the solution.
+- Curvy still uses the D-023 bow. On a segment where that bow would break the same clearance, even if the neighbor also took its full bow, the amplitude is scaled down. The crest stays at `0.75` times the (scaled) offset, and the curve still leaves each junction along the passage. Open segments keep the full bow.
+- The same scale is used for the wall pair, the solution line, and play.
+
+---
+
 ## D-025 — One page frame for Print and Play (2026-11-27)
 
 **Context:** Print and Play did not share a phone layout. Play stacked a tall maze over a scrolling sheet, so changing level and reaching Hint or Start over meant leaving the drawing. A style chip could sit clipped under that maze. Print stacked the whole form first, so the sample preview rendered below the footer.

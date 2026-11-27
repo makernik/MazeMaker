@@ -122,37 +122,13 @@ describe('wall overlap detector', () => {
 });
 
 /**
- * Seeds that overlap today.
+ * Seeds that still overlap.
  * - number[]: only these seeds overlap
  * - { except }: every swept seed overlaps except these
  * - 'all': every swept seed overlaps
- * PDF and preview fail the same seeds. Site counts can differ by a few
- * because the preview page is scaled.
+ * Empty means every swept seed must be clean.
  */
-const KNOWN_OVERLAPS = {
-  'curvy|Intro|pdf': [5262, 5524, 6703, 6834],
-  'curvy|Intro|preview': [5262, 5524, 6703, 6834],
-  'curvy|Easy|pdf': { except: [6703] },
-  'curvy|Easy|preview': { except: [6703] },
-  'curvy|Medium|pdf': 'all',
-  'curvy|Medium|preview': 'all',
-  'jagged|Hard|pdf': { except: [5262, 6179, 6572, 6703, 6834, 7489] },
-  'jagged|Hard|preview': { except: [5262, 6179, 6572, 6703, 6834, 7489] },
-  'curvy|Hard|pdf': 'all',
-  'curvy|Hard|preview': 'all',
-  'jagged|Challenging|pdf': 'all',
-  'jagged|Challenging|preview': 'all',
-  'curvy|Challenging|pdf': 'all',
-  'curvy|Challenging|preview': 'all',
-  'jagged|Difficult|pdf': 'all',
-  'jagged|Difficult|preview': 'all',
-  'curvy|Difficult|pdf': 'all',
-  'curvy|Difficult|preview': 'all',
-  'jagged|Epic Adventure|pdf': 'all',
-  'jagged|Epic Adventure|preview': 'all',
-  'curvy|Epic Adventure|pdf': 'all',
-  'curvy|Epic Adventure|preview': 'all',
-};
+const KNOWN_OVERLAPS = {};
 
 function isKnownFailure(key, seed) {
   const spec = KNOWN_OVERLAPS[key];

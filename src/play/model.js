@@ -7,6 +7,7 @@ import { DIRECTIONS, DIRECTION_OFFSETS } from '../maze/grid.js';
 import { polarBoundaryFractions } from '../maze/polarRadii.js';
 import { solveMaze } from '../maze/solver.js';
 import { computeCorridorWidth, curvyPoint } from '../pdf/drawers/organic-geometry.js';
+import { bowScaleFor, ensureBowScales } from '../maze/corridor-clearance.js';
 import { locateGrid, locateOrganic, locatePolar, gridKey, parseGridKey } from './locate.js';
 
 /**
@@ -136,7 +137,9 @@ function gridTopology(maze, path) {
 function organicTopology(maze, path) {
   const graph = maze.graph;
   const curved = maze.organicCurve === 'curvy';
-  const { halfW } = computeCorridorWidth(graph, curved ? maze.preset?.lineThickness : undefined);
+  const lineThickness = maze.preset?.lineThickness;
+  const { halfW } = computeCorridorWidth(graph, curved ? lineThickness : undefined);
+  const bowScales = curved ? ensureBowScales(maze, halfW, lineThickness ?? 1.5) : null;
   const neighbors = new Map();
   for (const node of graph.nodes) {
     const list = [];
@@ -160,11 +163,12 @@ function organicTopology(maze, path) {
       const b = graph.getNode(Number(toKey));
       if (!a || !b) return null;
       const pts = [];
-      for (let i = 1; i <= 8; i++) pts.push(curvyPoint(a.x, a.y, b.x, b.y, halfW, i / 8));
+      const amp = bowScaleFor(bowScales, a.id, b.id);
+      for (let i = 1; i <= 8; i++) pts.push(curvyPoint(a.x, a.y, b.x, b.y, halfW, i / 8, amp));
       return pts;
     },
     locate(point, currentKey, tolerance) {
-      return locateOrganic(graph, halfW, maze.startId, tolerance, point, currentKey, curved);
+      return locateOrganic(graph, halfW, maze.startId, tolerance, point, currentKey, curved, bowScales);
     },
   };
 }

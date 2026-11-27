@@ -122,9 +122,10 @@ function bowSign(x0, y0, x1, y1) {
  * Amplitude is 20% of the segment, capped at 2.4 × half the corridor.
  * The crest (t = 0.5) sits at 0.75 × this offset from the straight chord.
  *
+ * @param {number} [ampScale=1] - 1 keeps the full bow. Lower values shorten it.
  * @returns {{ x: number, y: number }}
  */
-export function curvyBowOffset(ax, ay, bx, by, halfW) {
+export function curvyBowOffset(ax, ay, bx, by, halfW, ampScale = 1) {
   let x0 = ax;
   let y0 = ay;
   let x1 = bx;
@@ -142,7 +143,8 @@ export function curvyBowOffset(ax, ay, bx, by, halfW) {
   const px = -dy / dist;
   const py = dx / dist;
   const sign = bowSign(x0, y0, x1, y1);
-  return { x: px * amp * sign, y: py * amp * sign };
+  const scale = ampScale == null ? 1 : ampScale;
+  return { x: px * amp * sign * scale, y: py * amp * sign * scale };
 }
 
 function cubicAt(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, t) {
@@ -160,10 +162,11 @@ function cubicAt(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, t) {
  * Each cubic leaves its junction along the chord and they meet at the crest.
  * The crest sits 0.75 × `curvyBowOffset` off the straight chord.
  *
+ * @param {number} [ampScale=1]
  * @returns {Array<{ cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number }>}
  */
-export function curvySegmentCubics(ax, ay, bx, by, halfW) {
-  const off = curvyBowOffset(ax, ay, bx, by, halfW);
+export function curvySegmentCubics(ax, ay, bx, by, halfW, ampScale = 1) {
+  const off = curvyBowOffset(ax, ay, bx, by, halfW, ampScale);
   const dx = bx - ax;
   const dy = by - ay;
   const mx = (ax + bx) / 2 + off.x * 0.75;
@@ -191,10 +194,11 @@ export function curvySegmentCubics(ax, ay, bx, by, halfW) {
 /**
  * Point at parameter t on the bowed centerline.
  * @param {number} t in [0, 1]
+ * @param {number} [ampScale=1]
  * @returns {{ x: number, y: number }}
  */
-export function curvyPoint(ax, ay, bx, by, halfW, t) {
-  const cubics = curvySegmentCubics(ax, ay, bx, by, halfW);
+export function curvyPoint(ax, ay, bx, by, halfW, t, ampScale = 1) {
+  const cubics = curvySegmentCubics(ax, ay, bx, by, halfW, ampScale);
   const clamped = Math.max(0, Math.min(1, t));
   if (clamped <= 0.5) {
     return cubicAt(ax, ay, cubics[0].cp1x, cubics[0].cp1y, cubics[0].cp2x, cubics[0].cp2y, cubics[0].x, cubics[0].y, clamped * 2);
