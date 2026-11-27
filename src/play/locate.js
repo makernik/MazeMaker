@@ -116,13 +116,13 @@ function projectSegment(point, a, b) {
 }
 
 /** Distance from a point to the bowed centerline, plus progress along it. */
-function bowProximity(point, a, b, halfW) {
+function bowProximity(point, a, b, halfW, ampScale = 1) {
   const steps = 8;
   let best = Infinity;
   let bestT = 0;
   let prev = { x: a.x, y: a.y };
   for (let i = 1; i <= steps; i++) {
-    const next = curvyPoint(a.x, a.y, b.x, b.y, halfW, i / steps);
+    const next = curvyPoint(a.x, a.y, b.x, b.y, halfW, i / steps, ampScale);
     const hit = projectSegment(point, prev, next);
     if (hit.dist < best) {
       best = hit.dist;
@@ -146,9 +146,17 @@ function bowProximity(point, a, b, halfW) {
  * @param {boolean} [curved] - measure the bowed centerline when Curvy
  * @returns {string|null}
  */
-export function locateOrganic(graph, halfW, startId, tolerance, point, currentKey, curved = false) {
+export function locateOrganic(graph, halfW, startId, tolerance, point, currentKey, curved = false, bowScales = null) {
   const radius = halfW + tolerance * (halfW * 2);
-  const near = (a, b) => (curved ? bowProximity(point, a, b, halfW) : projectSegment(point, a, b));
+  const amp = (id, nid) => {
+    if (!bowScales) return 1;
+    const key = id < nid ? `${id},${nid}` : `${nid},${id}`;
+    const value = bowScales.get(key);
+    return value == null ? 1 : value;
+  };
+  const near = (a, b, id, nid) => (
+    curved ? bowProximity(point, a, b, halfW, amp(id, nid)) : projectSegment(point, a, b)
+  );
 
   if (!currentKey) {
     const start = graph.getNode(startId);
@@ -168,7 +176,9 @@ export function locateOrganic(graph, halfW, startId, tolerance, point, currentKe
     if (graph.hasWall(id, nid)) continue;
     const other = graph.getNode(nid);
     if (!other) continue;
-    const hit = curved ? bowProximity(point, node, other, halfW) : projectSegment(point, node, other);
+    const hit = curved
+      ? bowProximity(point, node, other, halfW, amp(id, nid))
+      : projectSegment(point, node, other);
     if (hit.dist > radius) continue;
     if (hit.t > bestAlong) {
       bestAlong = hit.t;
@@ -182,7 +192,7 @@ export function locateOrganic(graph, halfW, startId, tolerance, point, currentKe
     const nid = nids[i];
     if (graph.hasWall(id, nid)) continue;
     const other = graph.getNode(nid);
-    if (other && near(node, other).dist <= radius) return currentKey;
+    if (other && near(node, other, id, nid).dist <= radius) return currentKey;
   }
   return null;
 }

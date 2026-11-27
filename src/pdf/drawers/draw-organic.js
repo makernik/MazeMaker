@@ -46,19 +46,26 @@ function drawGraphCorridors(backend, graph, nodePassages, allNodeTrims, params) 
       const trimsB = allNodeTrims.get(nid);
       const aTrim = trimsA ? trimsA.get(nid) : null;
       const bTrim = trimsB ? trimsB.get(node.id) : null;
-      const cap = dist * 0.45;
-      const ltA = Math.min(aTrim ? aTrim.leftTrim : 0, cap);
-      const rtA = Math.min(aTrim ? aTrim.rightTrim : 0, cap);
-      const ltB = Math.min(bTrim ? bTrim.leftTrim : 0, cap);
-      const rtB = Math.min(bTrim ? bTrim.rightTrim : 0, cap);
+      // Use the real miter distance. A shorter cap draws the walls through the
+      // intersection. Never start past the other end.
+      const limit = dist * 0.98;
+      const inset = 0.5;
+      const ltA = Math.min((aTrim ? aTrim.leftTrim : 0) + inset, limit);
+      const rtA = Math.min((aTrim ? aTrim.rightTrim : 0) + inset, limit);
+      const ltB = Math.min((bTrim ? bTrim.leftTrim : 0) + inset, limit);
+      const rtB = Math.min((bTrim ? bTrim.rightTrim : 0) + inset, limit);
 
-      const s1 = transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW);
-      const e1 = transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW);
-      backend.line(s1.x, s1.y, e1.x, e1.y);
+      if (ltA + rtB < dist - 0.2) {
+        const s1 = transform(node.x + ux * ltA + px * halfW, node.y + uy * ltA + py * halfW);
+        const e1 = transform(other.x - ux * rtB + px * halfW, other.y - uy * rtB + py * halfW);
+        backend.line(s1.x, s1.y, e1.x, e1.y);
+      }
 
-      const s2 = transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW);
-      const e2 = transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW);
-      backend.line(s2.x, s2.y, e2.x, e2.y);
+      if (rtA + ltB < dist - 0.2) {
+        const s2 = transform(node.x + ux * rtA - px * halfW, node.y + uy * rtA - py * halfW);
+        const e2 = transform(other.x - ux * ltB - px * halfW, other.y - uy * ltB - py * halfW);
+        backend.line(s2.x, s2.y, e2.x, e2.y);
+      }
     }
   }
 
@@ -150,10 +157,10 @@ export function drawWalls(backend, maze, layoutResult) {
   const startVT = startTrims ? startTrims.get(-1) : { leftTrim: 0, rightTrim: 0 };
   const finishTrims = allNodeTrims.get(maze.finishId);
   const finishVT = finishTrims ? finishTrims.get(-2) : { leftTrim: 0, rightTrim: 0 };
-  line(startPos.x - halfW, bh + halfThick, startPos.x - halfW, startPos.y + startVT.leftTrim - halfThick);
-  line(startPos.x + halfW, bh + halfThick, startPos.x + halfW, startPos.y + startVT.rightTrim - halfThick);
-  line(finishPos.x - halfW, 0 - halfThick, finishPos.x - halfW, finishPos.y - finishVT.rightTrim + halfThick);
-  line(finishPos.x + halfW, 0 - halfThick, finishPos.x + halfW, finishPos.y - finishVT.leftTrim + halfThick);
+  line(startPos.x - halfW, bh + halfThick, startPos.x - halfW, startPos.y + startVT.leftTrim);
+  line(startPos.x + halfW, bh + halfThick, startPos.x + halfW, startPos.y + startVT.rightTrim);
+  line(finishPos.x - halfW, 0 - halfThick, finishPos.x - halfW, finishPos.y - finishVT.rightTrim);
+  line(finishPos.x + halfW, 0 - halfThick, finishPos.x + halfW, finishPos.y - finishVT.leftTrim);
   const gapHalf = halfW;
   line(0, bh, startPos.x - gapHalf, bh);
   line(startPos.x + gapHalf, bh, bw, bh);

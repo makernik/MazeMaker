@@ -13,6 +13,7 @@ import { solveMaze } from '../src/maze/solver.js';
 import { getLayoutForMaze, PAGE_WIDTH, PAGE_HEIGHT } from '../src/pdf/layout.js';
 import { getDrawer } from '../src/pdf/drawers/index.js';
 import { computeCorridorWidth, curvyPoint } from '../src/pdf/drawers/organic-geometry.js';
+import { bowScaleFor } from '../src/maze/corridor-clearance.js';
 import {
   TOLERANCES,
   createRecordingBackend,
@@ -133,10 +134,11 @@ function passageSegments(maze, layout, style, solutionEdges) {
       const n = Math.max(1, Math.ceil(dist / step));
       let prev = null;
       const onSolution = solutionEdges.has(key);
+      const ampScale = style === 'curvy' ? bowScaleFor(maze.bowScales, node.id, nid) : 1;
       for (let i = 0; i <= n; i++) {
         const t = i / n;
         const local = style === 'curvy'
-          ? curvyPoint(node.x, node.y, other.x, other.y, halfW, t)
+          ? curvyPoint(node.x, node.y, other.x, other.y, halfW, t, ampScale)
           : {
             x: node.x + (other.x - node.x) * t,
             y: node.y + (other.y - node.y) * t,
