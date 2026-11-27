@@ -300,6 +300,7 @@ function generateSquaresMazeRoomsFirst(opts) {
       algorithm: 'recursive-backtracker',
       gridWidth: roomSubSize,
       gridHeight: roomSubSize,
+      openBorder: false,
     });
     const subGrid = subMaze.grid;
     subGrid.getCell(subStart.row, subStart.col).removeWall(openings[0] ?? DIRECTIONS.TOP);
@@ -425,6 +426,7 @@ export function generateSquaresMaze(config) {
       algorithm: 'recursive-backtracker',
       gridWidth: roomSubSize,
       gridHeight: roomSubSize,
+      openBorder: false,
     });
     const subGrid = subMaze.grid;
 

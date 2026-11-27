@@ -8,7 +8,7 @@
  * - algorithm: which maze generator to use ('prim' | 'recursive-backtracker' | 'kruskal'; more can be added in generator.js)
  * - roomCount, roomSubSize, roomOuterSize: for Squares style (embedded rooms); see rooms-generator.js.
  * - playTolerance: fraction of a corridor width that a drawn path may pass beyond a wall and still count (play mode).
- * - polarRingRatio / polarRoomScale: circular radial taper (D-021). Omit them for even rings.
+ * - polarRingRatio / polarRoomScale: circular radial taper (D-022). Omit them for even rings.
  *   Each maze ring outward is polarRingRatio times the previous ring. The center room is
  *   polarRoomScale times the innermost maze ring.
  *

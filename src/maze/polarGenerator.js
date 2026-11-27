@@ -92,15 +92,19 @@ function makePolarWilsonAdapter(grid) {
     removeWallBetween(k1, k2) {
       const [r1, w1] = k1.split(',').map(Number);
       const [r2, w2] = k2.split(',').map(Number);
-      grid.removeWallBetween(grid.getCell(r1, w1), grid.getCell(r2, w2));
+      const cell1 = grid.getCell(r1, w1);
+      const cell2 = grid.getCell(r2, w2);
+      if (cell1 && cell2) grid.removeWallBetween(cell1, cell2);
     },
     markVisited(key) {
       const [r, w] = key.split(',').map(Number);
-      grid.getCell(r, w).markVisited();
+      const cell = grid.getCell(r, w);
+      if (cell) cell.markVisited();
     },
     isVisited(key) {
       const [r, w] = key.split(',').map(Number);
-      return grid.getCell(r, w).isVisited();
+      const cell = grid.getCell(r, w);
+      return cell ? cell.isVisited() : false;
     },
   };
 }
@@ -207,6 +211,7 @@ function kruskalGeneratePolar(grid, rng) {
     if (uf.find(id1) !== uf.find(id2)) {
       const cell = grid.getCell(ring, wedge);
       const neighbor = grid.getCell(nRing, nWedge);
+      if (!cell || !neighbor) continue;
       grid.removeWallBetween(cell, neighbor);
       uf.union(id1, id2);
     }

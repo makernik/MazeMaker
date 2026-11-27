@@ -4,7 +4,7 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
-## D-022 — Difficulty steps and bowed Curvy corridors (2026-10-20)
+## D-023 — Difficulty steps and bowed Curvy corridors (2026-10-20)
 
 **Context:** After the circular taper, the other styles had flat or backwards steps. Classic Hard and Challenging were nearly the same size. Squares Difficult and Epic kept the same outer grid as Hard, and their room interiors were coarser than Challenging. Jagged and Curvy jumped from 120 nodes at Medium to 400 at Hard, then packed Epic finer than the circular rim. Curvy and Jagged also shared the same straight corridors; Curvy only splined through the nodes, so a straight run looked like Jagged.
 
@@ -17,7 +17,7 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
-## D-021 — Circular rings taper on the higher levels (2026-10-19)
+## D-022 — Circular rings taper on the higher levels (2026-10-19)
 
 **Context:** Circular mazes used equal radial steps. On the higher levels that leaves the finish as fine as the rim, while the outer rings stay too coarse for the difficulty of the rectangular mazes at the same level. Epic shows this most.
 
@@ -31,6 +31,19 @@ Architectural and design decisions for the Printable Maze Generator.
 | Epic Adventure (18+) | 0.94 | 1.8 |
 
 Ratio `1` (the default) keeps the previous even spacing. A lower ratio packs more rings into the outer edge. Epic uses the same ratio as Difficult; the extra rings carry that ratio further, so the rim is the finest there.
+
+---
+
+## D-021 — Squares sub-maze borders and polar wedge cap (2026-10-11)
+
+**Context:** Squares rooms were generated with `generateMaze()`, which opens the printable entrance and exit. Those two border holes were drawn in addition to the room’s two doors, so a passage could enter the room through a corner. Separately, polar wedge counts are capped at 64. Medium and Hard presets grow 6 × 2^(r−1), so a 48-wedge ring was followed by 64. 64 is not a multiple of 48. Outward neighbors then used fractional wedge indexes, the solver treated a missing outward slot as an open passage, and Kruskal and Wilson’s threw when the neighbor cell was missing.
+
+**Decision:**
+
+- **Squares sub-mazes:** `generateMaze` takes `openBorder` (default `true`). Room sub-mazes pass `false`. The only border walls removed afterward are the two intended doors. Printable mazes are unchanged.
+- **Polar formula counts:** After the 64 cap, each ring’s wedge count is reduced to the greatest multiple of the previous ring that is still ≤ 64 (and at least the previous count). Medium and Hard therefore stay at 48 once they reach it, instead of jumping to 64. Explicit `wedgeCounts` arrays are still rejected when a ratio is not an integer.
+- **Lookup safety:** `getOutwardNeighbors` returns one integer wedge per outward wall slot. `hasWall` / `removeWall` treat an out-of-range outward index as a wall that cannot be removed. `getCell` returns null for a non-integer index. `removeWallBetween` does nothing if either cell is missing.
+- **Multiplier clamp unchanged:** `wedgeMultiplier` stays clamped to 1–4. Epic’s preset value of 5 therefore still runs as 4, which already hits 64 on an exact multiple (8 → 32 → 64).
 
 ---
 

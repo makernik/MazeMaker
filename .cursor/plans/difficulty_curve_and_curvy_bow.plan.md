@@ -10,7 +10,7 @@ isProject: false
 **Status:** done
 **Last updated:** 2026-10-20
 **Owner:** agent
-**Related:** `docs/DECISIONS.md#D-022`
+**Related:** `docs/DECISIONS.md#D-023`
 
 ---
 
