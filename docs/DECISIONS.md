@@ -4,6 +4,19 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-027 — Phone Play fills the canvas width (2026-11-27)
+
+**Context:** D-025 locks the phone page to the viewport. Play then draws into that leftover height. `getLayoutForMaze` letterboxes a portrait maze inside it, so Hard classic (12×18) becomes a strip about a quarter of the canvas wide. Start sits on the top edge of that canvas. A finger that begins just above it, on the padding outside the canvas, is a pull-to-refresh and the page reloads.
+
+**Decision:**
+
+- Below the D-025 breakpoint (768px), Play sets the canvas height from the maze aspect so the drawing is limited by the stage width. The canvas may be taller than the leftover viewport. The grid is still title, maze, controls, footer. The level menu, Hint, and Start over stay directly under the maze. The page scrolls only if that stack is taller than the screen. Print, and Play on a wide screen, still fit inside the existing frame and do not grow the page.
+- The same layout feeds hit testing. A point just outside the bitmap maps through `fromLayout`. A stroke may begin within 48px above the canvas (the label and the padding over Start) or in the play surface’s own padding. It does not begin on the controls below the maze.
+- While Play is active, `html` and `body` use `overscroll-behavior-y: contain`. The play surface uses `touch-action: none`. A touch that begins on or just above the canvas calls `preventDefault`. Print mode and drags that start on the controls scroll as they do now.
+- Play still generates the printable grid. On a ~412px phone, Epic classic is 36 columns, so a width-fit cell is about 10px. A play-only grid with fewer columns would make those cells finger-sized and would make Play a different maze from Print. This change does not add that grid.
+
+---
+
 ## D-026 — Organic walls keep a stroke of clearance (2026-11-27)
 
 **Context:** Jagged filler corridors and the Curvy bow (D-023) draw wall strokes through each other. A filler edge can cross a carved corridor even when its endpoints sit outside the corridor mask. A full bow can swing a corridor into its neighbor. The main spanning tree is already clear when drawn straight.

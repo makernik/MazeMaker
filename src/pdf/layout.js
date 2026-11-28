@@ -23,7 +23,10 @@ export const FOOTER_TEXT = 'Generated with MakerNik Maze Tool';
 export const FOOTER_URL = 'makernik.com';
 export const FOOTER_HEIGHT = 24;  // points
 
-const MAZE_TOP_MARGIN = 20;
+export const MAZE_TOP_MARGIN = 20;
+
+/** Inset so polar Start/Finish labels sit outside the outer ring. */
+export const POLAR_LABEL_CLEARANCE = 24;
 
 /**
  * Compute layout result for a maze (grid or organic). Used by renderer and preview canvas.
@@ -49,8 +52,7 @@ export function getLayoutForMaze(maze, pageOptions = {}) {
     if (!grid || typeof grid.maxRing !== 'number') {
       throw new Error('Polar maze layout: polarGrid is missing or invalid.');
     }
-    const labelClearance = 24;
-    const maxRadius = Math.min(mazeWidth, mazeHeight) / 2 - labelClearance;
+    const maxRadius = Math.min(mazeWidth, mazeHeight) / 2 - POLAR_LABEL_CLEARANCE;
     const offsetX = margin + (printableW - mazeWidth) / 2;
     const offsetY = pageH - margin - mazeHeight;
     const centerX = offsetX + mazeWidth / 2;
