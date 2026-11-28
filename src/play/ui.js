@@ -12,6 +12,7 @@ import { getDrawer, getDrawerKey } from '../pdf/drawers/index.js';
 import { createCanvasBackend } from '../pdf/drawers/draw-backend.js';
 import { getDifficultyPreset } from '../utils/constants.js';
 import { generateSeed } from '../utils/rng.js';
+import { playConfigKey, playSessionPlan } from './config.js';
 import { SOLVE_PAUSE_MS, clampPlayTolerance } from './tolerance.js';
 import {
   addPointer,
@@ -40,6 +41,8 @@ export function initPlay(options) {
   const toleranceOutput = document.getElementById('play-tolerance-display');
   const hintBtn = document.getElementById('play-hint');
   const clearBtn = document.getElementById('play-clear');
+  const newBtn = document.getElementById('play-new');
+  const printSheet = document.getElementById('print-sheet');
   const playStatus = document.getElementById('play-status');
   const celebrate = document.getElementById('play-celebrate');
 
@@ -72,7 +75,11 @@ export function initPlay(options) {
 
   function currentConfigKey() {
     const values = getFormValues();
-    return `${values.ageRange}|${values.mazeStyle}`;
+    return playConfigKey(values.ageRange, values.mazeStyle);
+  }
+
+  function sheetOpen() {
+    return Boolean(printSheet?.open);
   }
 
   function layoutFor(maze, fit) {
@@ -146,6 +153,7 @@ export function initPlay(options) {
     if (celebrate) celebrate.hidden = true;
     hintBtn.disabled = false;
     clearBtn.disabled = false;
+    if (newBtn) newBtn.disabled = false;
     toleranceInput.disabled = false;
   }
 
@@ -172,17 +180,30 @@ export function initPlay(options) {
     return generateMaze({ ageRange: values.ageRange, seed, algorithm: preset.algorithm });
   }
 
-  function reseed() {
+  function reseed(reason) {
     endCelebration();
     const values = getFormValues();
     syncToleranceControl();
-    const seed = generateSeed();
+    const plan = playSessionPlan({
+      previousKey: configKey,
+      ageRange: values.ageRange,
+      mazeStyle: values.mazeStyle,
+      reason,
+      currentSeed: state?.maze?.seed ?? 0,
+      rollSeed: generateSeed,
+    });
+    if (!plan.regenerate && state) {
+      configKey = plan.key;
+      render();
+      return;
+    }
+    const seed = plan.seed;
     try {
       const maze = generatePlayMaze(values, seed);
       const fit = applyFit(maze);
       const layout = layoutFor(maze, fit);
       state = createPlayState(maze, layout, toleranceFor(values.ageRange));
-      configKey = currentConfigKey();
+      configKey = plan.key;
       failures = 0;
       if (noteSeed) noteSeed(seed);
       setPlayStatus('Draw from Start to Finish.');
@@ -198,6 +219,7 @@ export function initPlay(options) {
     drawing = false;
     hintBtn.disabled = true;
     clearBtn.disabled = true;
+    if (newBtn) newBtn.disabled = true;
     toleranceInput.disabled = true;
     state = setHintVisible(state, false);
     if (celebrate) celebrate.hidden = false;
@@ -206,7 +228,7 @@ export function initPlay(options) {
     pauseTimer = window.setTimeout(() => {
       pauseTimer = 0;
       celebrating = false;
-      reseed();
+      reseed('solved');
     }, SOLVE_PAUSE_MS);
   }
 
@@ -220,7 +242,7 @@ export function initPlay(options) {
   }
 
   function onPointerDown(event) {
-    if (!active || celebrating || !state) return;
+    if (!active || celebrating || !state || sheetOpen()) return;
     if (isControlTarget(event.target)) return;
     if (!touchBeginsPlay(event.clientX, event.clientY)) return;
     if (event.cancelable) event.preventDefault();
@@ -256,7 +278,7 @@ export function initPlay(options) {
   let blockingTouch = false;
 
   function onTouchStart(event) {
-    if (!active) return;
+    if (!active || sheetOpen()) return;
     const t = event.touches[0];
     if (!t || isControlTarget(event.target)) {
       blockingTouch = false;
@@ -300,6 +322,13 @@ export function initPlay(options) {
     setPlayStatus('Draw from Start to Finish.');
     render();
   });
+
+  if (newBtn) {
+    newBtn.addEventListener('click', () => {
+      if (!active || celebrating) return;
+      reseed('new');
+    });
+  }
 
   surface.addEventListener('pointerdown', onPointerDown);
   surface.addEventListener('pointermove', onPointerMove);
@@ -346,7 +375,7 @@ export function initPlay(options) {
       return;
     }
     syncToleranceControl();
-    if (!state || configKey !== currentConfigKey()) reseed();
+    if (!state || configKey !== currentConfigKey()) reseed('open');
     else render();
   }
 
@@ -357,9 +386,16 @@ export function initPlay(options) {
       return active;
     },
     setMode,
-    onConfigChange() {
+    onConfigChange(reason = 'level') {
       if (!active) return;
-      reseed();
+      reseed(reason);
+    },
+    newMaze() {
+      if (!active || celebrating) return;
+      reseed('new');
+    },
+    getMaze() {
+      return state?.maze ?? null;
     },
   };
 }

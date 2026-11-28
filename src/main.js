@@ -4,18 +4,20 @@
  * Wires up UI controls and orchestrates maze generation + PDF export.
  */
 
-import { generateMaze, generateMazes } from './maze/generator.js';
+import { generateMaze } from './maze/generator.js';
 import { generateOrganicMaze } from './maze/organic-generator.js';
-import { generatePolarMaze, generatePolarMazes } from './maze/polarGenerator.js';
+import { generatePolarMaze } from './maze/polarGenerator.js';
 import { generateSquaresMaze } from './maze/rooms-generator.js';
 import { validateMaze, solveMaze } from './maze/solver.js';
 import { renderMazesToPdf, downloadPdf } from './pdf/renderer.js';
 import { getLayoutForMaze } from './pdf/layout.js';
 import { getDrawer, getDrawerKey } from './pdf/drawers/index.js';
 import { createCanvasBackend } from './pdf/drawers/draw-backend.js';
-import { getDifficultyPreset, DIFFICULTY_PRESETS, GRID_ALGORITHM_IDS, POLAR_ALGORITHM_IDS, ORGANIC_ALGORITHM_IDS, OLDER_AGE_RANGES_FOR_RANDOMIZER } from './utils/constants.js';
+import { getDifficultyPreset, DIFFICULTY_PRESETS, GRID_ALGORITHM_IDS, POLAR_ALGORITHM_IDS } from './utils/constants.js';
 import { generateSeed } from './utils/rng.js';
 import { initPlay } from './play/ui.js';
+import { loadPlayPreferences, savePlayPreferences } from './settings/preferences.js';
+import { assemblePrintPack, isOrganicStyle } from './print/pack.js';
 
 let playApi = {
   isActive() {
@@ -23,6 +25,10 @@ let playApi = {
   },
   onConfigChange() {},
   setMode() {},
+  newMaze() {},
+  getMaze() {
+    return null;
+  },
 };
 
 // DOM elements
@@ -43,11 +49,6 @@ const debugShowNodeLabelsCheckbox = document.getElementById('debug-show-node-lab
 const debugPreviewSeedInput = document.getElementById('debug-preview-seed');
 const samplePreviewCanvas = document.getElementById('sample-preview-canvas');
 const mazeStyleFieldset = document.getElementById('maze-style-fieldset');
-
-/** Styles that use organic (circle-packing) topology. */
-function isOrganicStyle(style) {
-  return style === 'jagged' || style === 'curvy';
-}
 
 // Debug mode state (hidden toggle: Ctrl+Shift+D or ?debug=1)
 let debugMode = false;
@@ -106,12 +107,11 @@ function getFormValues() {
   const ageRangeEl = form && form.querySelector('input[name="age-range"]:checked');
   const mazeStyleEl = form && form.querySelector('input[name="maze-style"]:checked');
   const themeEl = form && form.querySelector('input[name="theme"]:checked');
-  const quantityEl = form && form.querySelector('#quantity');
   return {
     ageRange: ageRangeEl ? ageRangeEl.value : null,
     mazeStyle: mazeStyleEl ? mazeStyleEl.value : null,
     theme: themeEl ? themeEl.value : null,
-    quantity: quantityEl ? parseInt(quantityEl.value, 10) : 1,
+    quantity: quantitySlider ? parseInt(quantitySlider.value, 10) : 1,
   };
 }
 
@@ -183,7 +183,7 @@ function getPreviewSeed(values) {
  * Uses same layout transform as PDF (getLayoutForMaze with preview viewport size).
  */
 function updatePreviewCanvas() {
-  if (!samplePreviewCanvas) return;
+  if (!samplePreviewCanvas || playApi.isActive()) return;
   const values = getFormValues();
   const seed = getPreviewSeed(values);
   if (debugMode && debugPreviewSeedInput) {
@@ -239,11 +239,6 @@ function updatePreviewCanvas() {
 
   if (debugMode && debugShowSolutionCheckbox && debugShowSolutionCheckbox.checked) {
     const solution = solveMaze(maze);
-    // #region agent log
-    if (maze.layout === 'polar') {
-      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:preview solveMaze', message: 'Polar solution (preview) (H1,H2,H4)', data: { solved: solution?.solved ?? false, pathLength: solution?.path?.length ?? 0, pathStart: solution?.path?.[0], pathEnd: solution?.path?.[solution?.path?.length - 1] }, timestamp: Date.now(), hypothesisId: 'H1,H2,H4' }) }).catch(() => {});
-    }
-    // #endregion
     if (solution && solution.path.length > 1) {
       drawer.drawSolutionOverlay(backend, maze, solution.path, layoutResult);
     }
@@ -340,15 +335,33 @@ if (levelCompact) {
 
 syncLevelCompact();
 
-form.addEventListener('change', (e) => {
-  if (e.target.name === 'app-mode') {
-    playApi.setMode(e.target.value);
-    return;
+function rememberLevelAndStyle(values) {
+  try {
+    savePlayPreferences(window.localStorage, {
+      ageRange: values.ageRange,
+      mazeStyle: values.mazeStyle,
+    });
+  } catch (error) {
+    console.error('Could not store level and style:', error);
   }
+}
+
+function applyLevelAndStyle(prefs) {
+  if (!form || !prefs) return;
+  const age = form.querySelector(`input[name="age-range"][value="${CSS.escape(prefs.ageRange)}"]`);
+  const style = form.querySelector(`input[name="maze-style"][value="${CSS.escape(prefs.mazeStyle)}"]`);
+  if (age) age.checked = true;
+  if (style) style.checked = true;
+  syncLevelCompact();
+}
+
+form.addEventListener('change', (e) => {
   if (e.target.name === 'age-range') syncLevelCompact();
   if (e.target.name === 'age-range' || e.target.name === 'maze-style') {
-    if (playApi.isActive()) playApi.onConfigChange();
-    else updatePreviewCanvas();
+    const values = getFormValues();
+    rememberLevelAndStyle(values);
+    playApi.onConfigChange(e.target.name === 'age-range' ? 'level' : 'style');
+    if (!playApi.isActive()) updatePreviewCanvas();
   }
 });
 
@@ -364,7 +377,6 @@ if (debugShowNodeLabelsCheckbox) {
  */
 async function generateAndDownload(event) {
   event.preventDefault();
-  if (playApi.isActive()) return;
 
   const values = getFormValues();
   console.log('Generate clicked with values:', values);
@@ -376,9 +388,6 @@ async function generateAndDownload(event) {
   try {
     const baseSeed = generateSeed();
     console.log('Base seed:', baseSeed);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:generateAndDownload',message:'form values',data:{mazeStyle:values.mazeStyle,ageRange:values.ageRange,quantity:values.quantity},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
 
     let result;
     let styleForPdf = values.mazeStyle;
@@ -467,54 +476,22 @@ async function generateAndDownload(event) {
       }
       result = { mazes, baseSeed, ageRange: null, quantity: mazes.length };
       filename = isCircular ? 'mazes-each-level-polar.pdf' : `mazes-each-level-${values.mazeStyle}.pdf`;
-    } else if (isCircular) {
-      const preset = getDifficultyPreset(values.ageRange);
-      const mazes = generatePolarMazes({
-        ageRange: values.ageRange,
-        quantity: values.quantity,
-        baseSeed,
-        algorithm: preset.algorithm,
-        useAlgorithmRandomizerForOlderAges: OLDER_AGE_RANGES_FOR_RANDOMIZER.includes(values.ageRange),
-      });
-      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
-      styleForPdf = 'classic';
-      filename = `mazes-circular-${values.ageRange}-${mazes.length}pk.pdf`;
-    } else if (values.mazeStyle === 'squares') {
-      const mazes = [];
-      for (let i = 0; i < values.quantity; i++) {
-        mazes.push(generateSquaresMaze({
-          ageRange: values.ageRange,
-          seed: baseSeed + i,
-        }));
-      }
-      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
-      styleForPdf = values.mazeStyle;
-      filename = `mazes-squares-${values.ageRange}-${mazes.length}pk.pdf`;
-    } else if (isOrganicStyle(values.mazeStyle)) {
-      const mazes = [];
-      for (let i = 0; i < values.quantity; i++) {
-        mazes.push(generateOrganicMaze({
-          ageRange: values.ageRange,
-          seed: baseSeed + i,
-        }));
-      }
-      result = { mazes, baseSeed, ageRange: values.ageRange, quantity: mazes.length };
-      styleForPdf = values.mazeStyle;
-      filename = `mazes-${values.mazeStyle}-${values.ageRange}-${mazes.length}pk.pdf`;
     } else {
-      const preset = getDifficultyPreset(values.ageRange);
-      result = generateMazes({
+      const includeCurrent = document.getElementById('include-current');
+      const currentMaze = includeCurrent?.checked ? playApi.getMaze() : null;
+      const packed = assemblePrintPack({
         ageRange: values.ageRange,
+        mazeStyle: values.mazeStyle,
         quantity: values.quantity,
         baseSeed,
-        algorithm: preset.algorithm,
-        useAlgorithmRandomizerForOlderAges: OLDER_AGE_RANGES_FOR_RANDOMIZER.includes(values.ageRange),
+        includeCurrent: Boolean(currentMaze),
+        currentMaze,
       });
-      filename = `mazes-${values.ageRange}-${result.mazes.length}pk.pdf`;
-      fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:branch',message:'branch taken',data:{branch:'grid',mazeStyle:values.mazeStyle},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      result = packed;
+      styleForPdf = packed.styleForPdf;
+      filename = packed.filename;
     }
 
-    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:afterGen',message:'first maze layout',data:{layout:result.mazes[0].layout,styleForPdf},timestamp:Date.now(),hypothesisId:'C,E'})}).catch(()=>{});
     console.log(`Generated ${result.mazes.length} mazes`);
 
     setStatus('Validating mazes...');
@@ -530,14 +507,8 @@ async function generateAndDownload(event) {
     if (validCount !== result.mazes.length) {
       throw new Error(`Only ${validCount}/${result.mazes.length} mazes are valid`);
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:phase',message:'validation complete',data:{phase:'validationComplete'},timestamp:Date.now(),hypothesisId:'err1'})}).catch(()=>{});
-    // #endregion
 
     setStatus('Rendering PDF...');
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:phase',message:'render start',data:{phase:'renderStart'},timestamp:Date.now(),hypothesisId:'err2'})}).catch(()=>{});
-    // #endregion
     const pdfBytes = await renderMazesToPdf({
       mazes: result.mazes,
       style: styleForPdf,
@@ -556,9 +527,6 @@ async function generateAndDownload(event) {
   } catch (error) {
     consecutiveFailures += 1;
     console.error('Generation failed:', error);
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/0cdec83e-66f5-42f4-a73d-7ae225be8ab2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:catch',message:'generation failed',data:{errorMessage:String(error&&error.message),errorName:error&&error.name,stack:(error&&error.stack||'').slice(0,600)},timestamp:Date.now(),hypothesisId:'err0'})}).catch(()=>{});
-    // #endregion
     if (consecutiveFailures >= 2) {
       setStatus('Generation failed again. Check the console for details.', 'error');
     } else {
@@ -570,12 +538,30 @@ async function generateAndDownload(event) {
   }
 }
 
-form.addEventListener('submit', generateAndDownload);
+const printForm = document.getElementById('print-form');
+const printSheet = document.getElementById('print-sheet');
+const printOpen = document.getElementById('print-open');
+const printClose = document.getElementById('print-close');
 
-// Initialize: restore debug from URL, ensure style fieldset visible, then live preview
+if (printForm) printForm.addEventListener('submit', generateAndDownload);
+if (printOpen && printSheet) {
+  printOpen.addEventListener('click', () => {
+    printSheet.showModal();
+  });
+}
+if (printClose && printSheet) {
+  printClose.addEventListener('click', () => printSheet.close());
+}
+if (printSheet) {
+  printSheet.addEventListener('click', (event) => {
+    if (event.target === printSheet) printSheet.close();
+  });
+}
+
+// Initialize: remembered level and style, then the playable maze.
+applyLevelAndStyle(loadPlayPreferences(window.localStorage));
 initDebugFromUrl();
 syncMazeStyleVisibility();
-updatePreviewCanvas();
 playApi = initPlay({
   getFormValues,
   redrawPreview: updatePreviewCanvas,
@@ -583,4 +569,5 @@ playApi = initPlay({
     if (isDebugMode() && debugSeedEl) debugSeedEl.textContent = String(seed);
   },
 });
+playApi.setMode('play');
 console.log('MakerNik Maze Generator loaded');
