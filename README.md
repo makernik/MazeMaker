@@ -6,7 +6,7 @@ Local, offline, print-first maze packs for kids.
 
 ## What This Is
 
-A small web app that generates printable PDF maze packs. Choose age range, style, and quantity—then download a single PDF. Built for parents; structured to be inspectable and testable.
+A small web app that opens on a maze you can play. Choose a level and style, then open Print for a PDF pack. Built for parents; structured to be inspectable and testable.
 
 ## Quick Start
 
@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 in your browser. Use the controls, click **Generate Printable PDF**, and your mazes download.
+Open http://localhost:5173 in your browser. A maze is ready to trace. Open **Print**, then click **Generate Printable PDF**, and the pack downloads.
 
 ## Commands
 
@@ -30,9 +30,9 @@ Open http://localhost:5173 in your browser. Use the controls, click **Generate P
 
 ## How It Works
 
-1. You set age range, maze style (Classic / Jagged / Curvy / Square Corners), and quantity (1–10). (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
-2. The right panel shows a **live preview**: one maze is generated from the current level and style and drawn on a canvas (same layout as the PDF). Same controls always show the same preview maze (deterministic seed per level+style).
-3. Click **Generate Printable PDF**. The app generates that many perfect mazes (Prim's for grid, DFS/Prim's/Kruskal's for organic; seeded for determinism).
+1. The page opens on a playable maze. The first visit is Easy and Classic. The last chosen level and style are remembered on this device. (Theme selector is hidden this iteration; corner decorations are implemented but paused.)
+2. Changing the level or style rolls a new maze. **New maze** rolls again with the same settings. Hint, Start over, and line forgiveness work on that maze. The drawing uses the same layout math as the PDF.
+3. **Print** opens the pack options: quantity (1–10) and whether page 1 is the maze on screen. **Generate Printable PDF** builds that many perfect mazes (Prim's for grid, DFS/Prim's/Kruskal's for organic; seeded for determinism).
 4. Each maze is validated with a BFS solver. A single PDF is built (one maze per page, US Letter) and downloaded.
 
 ## Debug Mode
@@ -40,8 +40,8 @@ Open http://localhost:5173 in your browser. Use the controls, click **Generate P
 Hidden mode for tuning and technical review. **Not** for end users.
 
 - **Toggle:** `Ctrl+Shift+D` or open the app with `?debug=1` in the URL.
-- **Shows:** Seed (read-only), grid dimensions, cell size, line thickness. **Preview seed** — editable; change it to see a different maze in the preview (e.g. paste a seed from a PDF footer). Debug overlay on the preview canvas (node IDs, neighbor counts, start/finish markers for organic). Solver path is drawn on the PDF when debug is on. **"1 of each level"** generates one maze per difficulty level with the selected style. **"1 of each algorithm"** generates one maze per algorithm (DFS, Prim's, Kruskal's) at the selected level.
-- Quantity defaults to 1 when you enable debug but you can change it with the slider.
+- **Shows:** Seed (read-only), grid dimensions, cell size, line thickness. The canvas is the playable maze, so the preview-seed field does not redraw it. Solver path is drawn on the PDF when debug is on and “Show solution” is checked. **"1 of each level"** generates one maze per difficulty level with the selected style. **"1 of each algorithm"** generates one maze per algorithm (DFS, Prim's, Kruskal's) at the selected level. Those debug packs do not replace page 1 with the on-screen maze.
+- Quantity defaults to 1 when you enable debug. Change it with the slider in the print sheet.
 
 **Version:** Release version is in `package.json` (`version`). v0 scope is complete; see `docs/V0_REVIEW.md` for release readiness.
 
@@ -49,7 +49,7 @@ Hidden mode for tuning and technical review. **Not** for end users.
 
 - **Print-first:** PDF output, safe margins, black & white.
 - **Perfect mazes only:** Single solution, no loops.
-- **No persistence:** Stateless between runs.
+- **Level and style only:** Those two choices are stored in `localStorage`. Seeds, strokes, and mazes are not.
 - **Local-only:** No cloud, no accounts, works offline after first load.
 - **Deterministic:** Same parameters + seed → same maze and PDF.
 

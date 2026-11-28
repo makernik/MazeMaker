@@ -4,6 +4,22 @@ Architectural and design decisions for the Printable Maze Generator.
 
 ---
 
+## D-028 — Play is the page; Print is a sheet (2026-11-28)
+
+**Context:** Print and Play were a mode toggle (D-020, D-025). The page opened on Print, and quantity lived only in that mode. The owner wants one play-first screen: a maze is ready immediately, and printing is a follow-up. v0 said the app was stateless. Remembering the last level and style is an explicit exception.
+
+**Decision:**
+
+- The page opens on a playable maze. There is no Print/Play toggle. The first visit uses Easy (`4-5`) and Classic. After that, the last chosen level and style are read from `localStorage` under `mazemaker.play`, as JSON `{ ageRange, mazeStyle }` only. A missing or invalid value uses that default for the bad field. Seeds, strokes, forgiveness, quantity, and generated mazes are not stored. Line forgiveness stays in memory for the visit (D-020). Clearing site data for this origin forgets the level and style.
+- Changing the level or the style rolls a new maze for those settings. New maze rolls again and keeps the settings. Hint, Start over, and line forgiveness stay as they are. Start over clears the stroke and keeps the seed.
+- Print opens a panel. On a narrow screen it sits along the bottom. On a wide screen it is a centered panel. It holds quantity (1–10, default 5) and Generate Printable PDF. There is no answer-key control on the page today. Solution drawings stay in debug mode, off the sheet.
+- The panel includes “Include the maze on screen”, on by default, and that choice is not stored. When it is on, page 1 is the maze object being played, so the seed and the geometry match the screen. Pages 2 onward are the mazes a pack of that quantity would have placed in those same slots for the same base seed. When it is off, the pack is that full generation. Debug “1 of each” packs are unchanged and do not swap in the on-screen maze.
+- The phone frame (D-025) and the phone width-fit (D-027) now apply to this only screen. While the sheet is open, a touch on it is not a stroke and does not call `preventDefault`.
+
+**Supersedes** the mode split in D-020 and the separate Print step order in D-025.
+
+---
+
 ## D-027 — Phone Play fills the canvas width (2026-11-27)
 
 **Context:** D-025 locks the phone page to the viewport. Play then draws into that leftover height. `getLayoutForMaze` letterboxes a portrait maze inside it, so Hard classic (12×18) becomes a strip about a quarter of the canvas wide. Start sits on the top edge of that canvas. A finger that begins just above it, on the padding outside the canvas, is a pull-to-refresh and the page reloads.

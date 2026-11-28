@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="play-mode">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,8 +7,8 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles/main.css" />
   </head>
-  <body>
-    <div class="app-layout">
+  <body class="play-mode">
+    <div class="app-layout mode-play">
       <!-- Control Panel (Left) -->
       <aside class="control-panel">
         <header class="panel-header">
@@ -17,31 +17,17 @@
         </header>
 
         <form class="controls" id="maze-form">
-          <fieldset class="control-group">
-            <legend>Mode</legend>
-            <div class="toggle-group" role="radiogroup" aria-label="Mode">
-              <label class="toggle">
-                <input type="radio" name="app-mode" value="print" checked />
-                <span>Print</span>
-              </label>
-              <label class="toggle">
-                <input type="radio" name="app-mode" value="play" />
-                <span>Play</span>
-              </label>
-            </div>
-          </fieldset>
-
           <!-- Select level: list on a wide screen, one menu on a phone -->
           <fieldset class="control-group control-level">
             <legend id="level-legend">Select level</legend>
             <div class="level-select" role="radiogroup" aria-labelledby="level-legend">
               <label class="level-option">
-                <input type="radio" name="age-range" value="3" checked />
+                <input type="radio" name="age-range" value="3" />
                 <span class="level-option__label">Intro</span>
                 <span class="level-option__age">(3)</span>
               </label>
               <label class="level-option">
-                <input type="radio" name="age-range" value="4-5" />
+                <input type="radio" name="age-range" value="4-5" checked />
                 <span class="level-option__label">Easy</span>
                 <span class="level-option__age">(4–5)</span>
               </label>
@@ -73,7 +59,7 @@
             </div>
             <select id="level-compact" class="level-compact" aria-labelledby="level-legend">
               <option value="3">Intro (3)</option>
-              <option value="4-5">Easy (4–5)</option>
+              <option value="4-5" selected>Easy (4–5)</option>
               <option value="6-8">Medium (6–8)</option>
               <option value="9-11">Hard (9–11)</option>
               <option value="12-14">Challenging (12–14)</option>
@@ -82,8 +68,9 @@
             </select>
           </fieldset>
 
-          <div id="play-controls" class="play-controls" hidden>
+          <div id="play-controls" class="play-controls">
             <div class="play-actions">
+              <button type="button" id="play-new" class="play-action">New maze</button>
               <button type="button" id="play-hint" class="play-action">Hint</button>
               <button type="button" id="play-clear" class="play-action">Start over</button>
             </div>
@@ -157,33 +144,9 @@
             </div>
           </fieldset>
 
-          <!-- Quantity: Slider with Numeric Display -->
-          <div class="control-group quantity-group">
-            <label for="quantity" class="quantity-label">
-              Quantity: <output id="quantity-display" for="quantity">5</output>
-            </label>
-            <div class="slider-container">
-              <span class="slider-bound">1</span>
-              <input 
-                type="range" 
-                id="quantity" 
-                name="quantity"
-                min="1" 
-                max="10" 
-                value="5"
-                aria-describedby="quantity-display"
-              />
-              <span class="slider-bound">10</span>
-            </div>
-          </div>
-
-          <!-- Primary Action -->
-          <button id="generate-btn" type="submit" class="primary-action">
-            Generate Printable PDF
+          <button type="button" id="print-open" class="print-open" aria-haspopup="dialog" aria-controls="print-sheet">
+            Print
           </button>
-
-          <!-- Status -->
-          <p id="status" class="status" aria-live="polite"></p>
         </form>
 
         <footer class="panel-footer">
@@ -244,14 +207,59 @@
       <main class="preview-area">
         <div class="maze-background" aria-hidden="true"></div>
         <div class="sample-preview">
-          <p class="sample-preview__label" id="preview-label">Sample output</p>
+          <p class="sample-preview__label" id="preview-label">Draw the path</p>
           <div class="play-stage" id="play-stage">
-            <canvas id="sample-preview-canvas" class="sample-preview__canvas" width="560" height="720" aria-label="Sample maze preview"></canvas>
+            <canvas id="sample-preview-canvas" class="sample-preview__canvas" width="560" height="720" aria-label="Maze. Draw a path from Start to Finish."></canvas>
             <p id="play-celebrate" class="play-celebrate" hidden aria-hidden="true">Solved</p>
           </div>
         </div>
       </main>
     </div>
+
+    <dialog id="print-sheet" class="print-sheet" aria-labelledby="print-sheet-title">
+      <form id="print-form" class="print-sheet__form">
+        <div class="print-sheet__header">
+          <h2 id="print-sheet-title">Print</h2>
+          <button type="button" id="print-close" class="print-close">Close</button>
+        </div>
+        <p class="print-sheet__note">A pack of this level and style. One maze per page.</p>
+        <div class="control-group quantity-group">
+          <label for="quantity" class="quantity-label">
+            Quantity: <output id="quantity-display" for="quantity">5</output>
+          </label>
+          <div class="slider-container">
+            <span class="slider-bound">1</span>
+            <input
+              type="range"
+              id="quantity"
+              name="quantity"
+              min="1"
+              max="10"
+              value="5"
+              aria-describedby="quantity-display"
+            />
+            <span class="slider-bound">10</span>
+          </div>
+        </div>
+        <label class="print-include">
+          <input
+            type="checkbox"
+            id="include-current"
+            name="include-current"
+            checked
+            aria-describedby="include-current-note"
+          />
+          <span class="print-include__text">
+            Include the maze on screen
+            <span class="print-include__note" id="include-current-note">The first page matches the maze you are playing.</span>
+          </span>
+        </label>
+        <button id="generate-btn" type="submit" class="primary-action">
+          Generate Printable PDF
+        </button>
+        <p id="status" class="status" aria-live="polite"></p>
+      </form>
+    </dialog>
 
     <script type="module" src="./main.js"></script>
   </body>

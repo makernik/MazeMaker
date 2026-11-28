@@ -1,32 +1,35 @@
 /**
- * E2E smoke test: generate PDF flow
+ * E2E smoke test: playable maze and print sheet.
  *
- * Verifies the app loads, the generate button works, and a PDF download is triggered.
+ * Verifies the app loads on a maze, Print opens the pack sheet, and Generate downloads a PDF.
  */
 
 import { test, expect } from '@playwright/test';
 
 test.describe('Generate PDF flow', () => {
-  test('app loads and shows controls', async ({ page }) => {
+  test('app loads on a playable maze', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Maze Generator' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Generate Printable PDF' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Print' })).toBeVisible();
+    await expect(page.getByText('Draw the path')).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Print' })).toHaveCount(0);
+    await expect(page.getByRole('radio', { name: /Easy/ })).toBeChecked();
   });
 
-  test('clicking Generate triggers PDF download', async ({ page }) => {
+  test('print sheet generates a PDF', async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Print', exact: true }).click();
 
     const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-
     await page.getByRole('button', { name: 'Generate Printable PDF' }).click();
 
     const download = await downloadPromise;
-    // Filename: mazes-{ageRange}-{quantity}pk.pdf (e.g. mazes-3-5pk.pdf, mazes-4-5-5pk.pdf, mazes-18+-1pk.pdf)
     expect(download.suggestedFilename()).toMatch(/^mazes-.+-\d+pk\.pdf$/);
   });
 
   test('status shows success after generation', async ({ page }) => {
     await page.goto('/');
+    await page.getByRole('button', { name: 'Print', exact: true }).click();
 
     page.waitForEvent('download', { timeout: 30000 }).catch(() => {});
 
@@ -35,19 +38,16 @@ test.describe('Generate PDF flow', () => {
     await expect(page.getByText(/Downloaded \d+ maze/)).toBeVisible({ timeout: 15000 });
   });
 
-  test('preview area shows sample output on canvas and updates when level changes', async ({ page }) => {
+  test('changing level keeps a playable maze', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByText('Sample output')).toBeVisible();
     const canvas = page.locator('#sample-preview-canvas');
-    await expect(canvas).toBeAttached();
     await expect(canvas).toBeVisible();
 
-    // Select level Easy (4-5); preview redraws with live-generated maze
-    await page.getByRole('radio', { name: /Easy/ }).click();
+    await page.getByRole('radio', { name: /Hard/ }).click();
 
-    // Canvas dimensions are set (live preview draws on load and on change)
-    await expect(canvas).toHaveAttribute('width', '560');
-    await expect(canvas).toHaveAttribute('height', '720');
+    await expect(page.getByRole('radio', { name: /Hard/ })).toBeChecked();
+    await expect(canvas).toBeVisible();
+    await expect(page.getByText('Draw the path')).toBeVisible();
   });
 });
